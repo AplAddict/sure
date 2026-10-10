@@ -218,6 +218,14 @@
       <%= render "holdings/stock_data", security: @holding.security %>
     <% end %>
 
+    <% dialog.with_section(title: t(".finviz_reference"), open: false) do %>
+      <%= render "holdings/finviz_reference", security: @holding.security %>
+    <% end %>
+
+    <% dialog.with_section(title: t(".news"), open: false) do %>
+      <%= render "holdings/ticker_news", security: @holding.security %>
+    <% end %>
+
     <% dialog.with_section(title: t(".ticker_research"), open: false) do %>
       <%= render "holdings/ticker_research", security: @holding.security %>
     <% end %>

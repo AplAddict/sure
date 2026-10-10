@@ -86,7 +86,9 @@ en:
       unavailable: Unavailable
       valuation: Valuation
     show:
-      stock_data: Stock data
+      stock_data: Fundamentals & stock data
+      finviz_reference: Finviz reference
+      news: News
       ticker_research: Ticker research
       research_notes: Research notes
       avg_cost_label: Average Cost
