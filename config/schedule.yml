@@ -31,6 +31,12 @@ refresh_security_research:
   queue: "scheduled"
   description: "Imports read-only ticker research (Quiver, Finviz, news, notes and reports)"
 
+refresh_security_headline_analysis:
+  cron: "10 23 * * 1-5"
+  class: "SecurityHeadlineAnalysesRefreshJob"
+  queue: "scheduled"
+  description: "Runs bounded Jev headline-tone analysis over changed imported research snapshots"
+
 run_security_health_checks:
   cron: "0 2 * * 1-5" # 2:00 AM EST / 3:00 AM EDT (NY time) Monday through Friday
   class: "SecurityHealthCheckJob"

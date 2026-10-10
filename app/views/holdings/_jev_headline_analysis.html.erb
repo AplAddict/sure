@@ -1,0 +1,15 @@
+<%# locals: (security:) %>
+<% record = security.headline_analysis %>
+<% analysis = record&.payload&.fetch("analysis", {}) || {} %>
+<% tone = analysis["tone"].to_s %>
+<% coverage = analysis["coverage"].to_s %>
+<% label = tone.present? ? tone.tr("_", " ").titleize : "Unavailable" %>
+<% tone_class = { "bullish" => "text-success", "bearish" => "text-destructive", "mixed" => "text-warning" }.fetch(tone, "text-primary") %>
+<div class="px-3 py-3" data-testid="jev-headline-analysis">
+  <% if record&.available? %>
+    <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-xs font-medium uppercase tracking-wide text-secondary">Jev headline analysis</p><p class="mt-1 text-lg font-medium <%= tone_class %>"><%= label %></p><p class="mt-1 text-xs text-secondary"><%= analysis["headlineCount"] %> imported headlines · <%= coverage.titleize %> coverage · confidence <%= number_to_percentage(analysis["toneConfidence"].to_d * 100, precision: 0) %></p></div><p class="text-xs text-secondary">Analyzed <%= l(record.analyzed_at, format: :long) %></p></div>
+    <p class="mt-3 text-xs text-subdued">Typed headline classification only. It is cached research context—not a price forecast, trade signal, ranking input, or authority over Sure broker data.</p>
+  <% else %>
+    <p class="text-sm text-secondary">Headline analysis unavailable<%= ": #{record.last_error}" if record&.last_error.present? %>.</p>
+  <% end %>
+</div>

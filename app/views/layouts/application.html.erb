@@ -23,7 +23,8 @@ end %>
 <%= render "layouts/shared/htmldoc", sidebar_aware: true do %>
   <div
     class="flex flex-col lg:flex-row h-full bg-surface"
-    data-controller="app-layout privacy-mode sidebar-resize"
+    data-controller="app-layout privacy-mode sidebar-resize search-toggle"
+    data-action="keydown@window->search-toggle#keydown"
     data-app-layout-expanded-sidebar-class="<%= expanded_sidebar_class %>"
     data-app-layout-collapsed-sidebar-class="<%= collapsed_sidebar_class %>"
     data-app-layout-user-id-value="<%= Current.user.id %>">
@@ -62,6 +63,7 @@ end %>
       <% end %>
 
       <div class="flex items-center gap-1">
+        <button type="button" class="inline-flex items-center justify-center w-9 h-9 pointer-coarse:w-11 pointer-coarse:h-11 rounded-lg text-secondary hover:text-primary hover:bg-container-inset-hover transition-colors focus-ring" data-action="search-toggle#toggle" data-search-toggle-target="trigger" aria-label="Search Sure research" aria-expanded="false"><%= icon("search", size: "sm") %></button>
         <button type="button"
                 class="inline-flex items-center justify-center w-9 h-9 pointer-coarse:w-11 pointer-coarse:h-11 rounded-lg text-secondary hover:text-primary hover:bg-container-inset-hover transition-colors focus-ring"
                 data-action="click->privacy-mode#toggle"
@@ -77,7 +79,7 @@ end %>
     </nav>
 
     <% unless intro_mode %>
-      <div class="lg:hidden px-3 pb-3">
+      <div class="hidden lg:hidden px-3 pb-3" data-search-toggle-target="panel">
         <%= form_with url: research_search_path, method: :get, class: "flex items-center gap-2" do |f| %>
           <%= f.search_field :q, placeholder: "Search holdings & news", class: "w-full rounded-lg border border-tertiary bg-container px-3 py-2 text-sm text-primary", aria: { label: "Search Sure research" } %>
           <%= f.submit "Search", class: "shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-link hover:bg-container-inset-hover" %>
@@ -171,10 +173,10 @@ end %>
           </div>
 
           <div class="flex items-center gap-2">
-            <%= form_with url: research_search_path, method: :get, class: "hidden lg:flex items-center" do |f| %>
+            <%= form_with url: research_search_path, method: :get, class: "hidden items-center", data: { search_toggle_target: "panel" } do |f| %>
               <%= f.search_field :q, placeholder: "Search holdings & news", class: "w-48 xl:w-56 rounded-lg border border-tertiary bg-container px-3 py-2 text-sm text-primary", aria: { label: "Search Sure research" } %>
             <% end %>
-            <%= link_to research_search_path, class: "inline-flex items-center justify-center w-9 h-9 rounded-lg text-secondary hover:text-primary hover:bg-container-inset-hover", aria: { label: "Search Sure research" } do %><%= icon("search", size: "sm") %><% end %>
+            <button type="button" class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-secondary hover:text-primary hover:bg-container-inset-hover" data-action="search-toggle#toggle" data-search-toggle-target="trigger" aria-label="Search Sure research" aria-expanded="false"><%= icon("search", size: "sm") %></button>
             <%= render "layouts/shared/insights_button" %>
 
             <button type="button"
