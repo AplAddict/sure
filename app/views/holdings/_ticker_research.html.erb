@@ -1,0 +1,53 @@
+<%# locals: (security:) %>
+<% snapshot = security.research_snapshot %>
+<% if snapshot&.available? %>
+  <% quiver = snapshot.section("quiver") %>
+  <% finviz = snapshot.section("finviz") %>
+  <% metrics = finviz["metrics"] || {} %>
+  <% q = quiver["metrics"] || {} %>
+  <div class="px-3 py-2 space-y-4" data-testid="ticker-research">
+    <p class="text-xs <%= snapshot.stale? ? "text-warning" : "text-secondary" %>">
+      Invest research cache · <%= snapshot.stale? ? "stale" : "current" %> · imported <%= l(snapshot.imported_at, format: :long) %>
+    </p>
+
+    <% if quiver.present? %>
+      <div>
+        <p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Quiver alternative data</p>
+        <dl class="space-y-2 text-sm">
+          <% [
+            ["Dark-pool DPI", q.dig("darkPool", "latestDpi") && number_to_percentage(q.dig("darkPool", "latestDpi") * 100, precision: 1)],
+            ["Insider purchases / sales · 180d", q.dig("insider", "openMarketPurchaseCount") && "#{q.dig("insider", "openMarketPurchaseCount")} / #{q.dig("insider", "openMarketSaleCount")}"],
+            ["Congress purchases / sales · 180d", q.dig("congress", "filedPurchaseCount") && "#{q.dig("congress", "filedPurchaseCount")} / #{q.dig("congress", "filedSaleCount")}"],
+            ["13F top holder", q.dig("ownership", "topOwner", "name")]
+          ].each do |label, value| %>
+            <div class="flex justify-between gap-3"><dt class="text-secondary"><%= label %></dt><dd class="text-primary text-right"><%= value.presence || "Unavailable" %></dd></div>
+          <% end %>
+        </dl>
+      </div>
+    <% end %>
+
+    <% if finviz.present? %>
+      <div>
+        <p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Finviz reference</p>
+        <dl class="space-y-2 text-sm">
+          <% [["RSI (14)", metrics["rsi14"]], ["Relative volume", metrics["relativeVolume"]], ["Short float", metrics["shortFloatPct"] && number_to_percentage(metrics["shortFloatPct"], precision: 2)], ["Target price", metrics["targetPrice"] && format_money(Money.new(metrics["targetPrice"], "USD"))]].each do |label, value| %>
+            <div class="flex justify-between gap-3"><dt class="text-secondary"><%= label %></dt><dd class="text-primary text-right"><%= value.presence || "Unavailable" %></dd></div>
+          <% end %>
+        </dl>
+      </div>
+    <% end %>
+
+    <% if (analysis = snapshot.section("analysis")).present? %>
+      <details><summary class="text-sm font-medium text-primary cursor-pointer">Research notes</summary><p class="pt-2 text-sm text-secondary whitespace-pre-line"><%= analysis %></p></details>
+    <% end %>
+    <% if (reports = snapshot.section("reports")).present? %>
+      <div><p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Reports</p><% reports.each do |report| %><%= link_to report["title"], report["url"], target: "_blank", rel: "noopener", class: "block text-sm text-link py-1" %><% end %></div>
+    <% end %>
+    <% if (news = snapshot.section("news")).present? %>
+      <div><p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Recent news</p><% news.first(5).each do |article| %><%= link_to article["title"], article["link"], target: "_blank", rel: "noopener", class: "block text-sm text-link py-1" if article["title"].present? && article["link"].present? %><% end %></div>
+    <% end %>
+    <p class="text-xs text-subdued">Reference context only. It never changes account balances, valuations, orders, or position sizing.</p>
+  </div>
+<% else %>
+  <p class="px-3 py-3 text-sm text-secondary" data-testid="ticker-research-unavailable">Ticker research is unavailable for this security.</p>
+<% end %>

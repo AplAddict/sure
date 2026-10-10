@@ -217,6 +217,10 @@
     <% dialog.with_section(title: t(".stock_data"), open: false) do %>
       <%= render "holdings/stock_data", security: @holding.security %>
     <% end %>
+
+    <% dialog.with_section(title: t(".ticker_research"), open: false) do %>
+      <%= render "holdings/ticker_research", security: @holding.security %>
+    <% end %>
     <% dialog.with_section(title: t(".history"), open: true) do %>
       <div class="space-y-2">
         <div class="px-3 py-4">

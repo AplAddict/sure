@@ -87,6 +87,7 @@ en:
       valuation: Valuation
     show:
       stock_data: Stock data
+      ticker_research: Ticker research
       avg_cost_label: Average Cost
       current_market_price_label: Current Market Price
       delete: Delete
