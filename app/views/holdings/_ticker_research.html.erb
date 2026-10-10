@@ -1,53 +1,33 @@
 <%# locals: (security:) %>
 <% snapshot = security.research_snapshot %>
 <% if snapshot&.available? %>
-  <% quiver = snapshot.section("quiver") %>
-  <% finviz = snapshot.section("finviz") %>
-  <% metrics = finviz["metrics"] || {} %>
-  <% q = quiver["metrics"] || {} %>
+  <% quiver = snapshot.section("quiver") %><% finviz = snapshot.section("finviz") %>
+  <% metrics = finviz["metrics"] || {} %><% q = quiver["metrics"] || {} %>
+  <% quiver_rows = [
+    ["Dark-pool DPI", q.dig("darkPool", "latestDpi") && number_to_percentage(q.dig("darkPool", "latestDpi") * 100, precision: 1), "The share of reported off-exchange volume sold short on the observed day. It is short volume, not short interest, net positioning, or a directional prediction."],
+    ["Insider purchases / sales · 180d", q.dig("insider", "openMarketPurchaseCount") && "#{q.dig("insider", "openMarketPurchaseCount")} / #{q.dig("insider", "openMarketSaleCount")}", "Open-market SEC Form 4 purchases and sales over 180 days. Awards, exercises, and tax-withholding are excluded; filings are delayed and are not a trade trigger."],
+    ["Congress purchases / sales · 180d", q.dig("congress", "filedPurchaseCount") && "#{q.dig("congress", "filedPurchaseCount")} / #{q.dig("congress", "filedSaleCount")}", "STOCK Act disclosures filed in the last 180 days. Disclosure dates can lag trades, and reported dollar ranges are not exact conviction or real-time flow."],
+    ["13F top holder", q.dig("ownership", "topOwner", "name"), "Largest holder in Quiver’s latest available 13F data. 13F holdings are delayed snapshots, not current ownership or a recommendation."]
+  ] %>
+  <% finviz_rows = [
+    ["RSI (14)", metrics["rsi14"], "A 14-period momentum oscillator. Around 50 is neutral; above 70 can be stretched and below 30 washed out. It is best used with trend and price structure, not alone."],
+    ["Relative volume", metrics["relativeVolume"], "Current volume relative to a normal baseline. Around 1.0 is normal; a higher reading suggests more participation or attention, not automatic direction."],
+    ["Short float", metrics["shortFloatPct"] && number_to_percentage(metrics["shortFloatPct"], precision: 2), "Percentage of tradable shares sold short. It can indicate bearish positioning and squeeze sensitivity, but does not predict a squeeze or price move."],
+    ["Target price", metrics["targetPrice"] && format_money(Money.new(metrics["targetPrice"], "USD")), "Cached analyst average price target. It reflects analyst estimates at the snapshot time, not a promise, timing signal, or Sure valuation."]
+  ] %>
   <div class="px-3 py-2 space-y-4" data-testid="ticker-research">
-    <p class="text-xs <%= snapshot.stale? ? "text-warning" : "text-secondary" %>">
-      Invest research cache · <%= snapshot.stale? ? "stale" : "current" %> · imported <%= l(snapshot.imported_at, format: :long) %>
-    </p>
-
-    <% if quiver.present? %>
-      <div>
-        <p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Quiver alternative data</p>
-        <dl class="space-y-2 text-sm">
-          <% [
-            ["Dark-pool DPI", q.dig("darkPool", "latestDpi") && number_to_percentage(q.dig("darkPool", "latestDpi") * 100, precision: 1)],
-            ["Insider purchases / sales · 180d", q.dig("insider", "openMarketPurchaseCount") && "#{q.dig("insider", "openMarketPurchaseCount")} / #{q.dig("insider", "openMarketSaleCount")}"],
-            ["Congress purchases / sales · 180d", q.dig("congress", "filedPurchaseCount") && "#{q.dig("congress", "filedPurchaseCount")} / #{q.dig("congress", "filedSaleCount")}"],
-            ["13F top holder", q.dig("ownership", "topOwner", "name")]
-          ].each do |label, value| %>
-            <div class="flex justify-between gap-3"><dt class="text-secondary"><%= label %></dt><dd class="text-primary text-right"><%= value.presence || "Unavailable" %></dd></div>
-          <% end %>
-        </dl>
-      </div>
+    <p class="text-xs <%= snapshot.stale? ? "text-warning" : "text-secondary" %>">Invest research cache · <%= snapshot.stale? ? "stale" : "current" %> · imported <%= l(snapshot.imported_at, format: :long) %></p>
+    <% [["Quiver alternative data", quiver_rows], ["Finviz reference", finviz_rows]].each do |title, rows| %>
+      <% next if title.start_with?("Quiver") && quiver.blank? || title.start_with?("Finviz") && finviz.blank? %>
+      <div><p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2"><%= title %></p><dl class="space-y-2 text-sm">
+        <% rows.each do |label, value, explainer| %>
+          <details class="border-b border-tertiary pb-2"><summary class="flex justify-between gap-3 cursor-pointer"><span class="text-secondary"><%= label %> <span aria-label="Explain metric">ⓘ</span></span><span class="text-primary text-right"><%= value.presence || "Unavailable" %></span></summary><p class="pt-2 text-xs text-secondary leading-relaxed"><%= explainer %></p></details>
+        <% end %>
+      </dl></div>
     <% end %>
-
-    <% if finviz.present? %>
-      <div>
-        <p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Finviz reference</p>
-        <dl class="space-y-2 text-sm">
-          <% [["RSI (14)", metrics["rsi14"]], ["Relative volume", metrics["relativeVolume"]], ["Short float", metrics["shortFloatPct"] && number_to_percentage(metrics["shortFloatPct"], precision: 2)], ["Target price", metrics["targetPrice"] && format_money(Money.new(metrics["targetPrice"], "USD"))]].each do |label, value| %>
-            <div class="flex justify-between gap-3"><dt class="text-secondary"><%= label %></dt><dd class="text-primary text-right"><%= value.presence || "Unavailable" %></dd></div>
-          <% end %>
-        </dl>
-      </div>
-    <% end %>
-
-    <% if (analysis = snapshot.section("analysis")).present? %>
-      <details><summary class="text-sm font-medium text-primary cursor-pointer">Research notes</summary><p class="pt-2 text-sm text-secondary whitespace-pre-line"><%= analysis %></p></details>
-    <% end %>
-    <% if (reports = snapshot.section("reports")).present? %>
-      <div><p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Reports</p><% reports.each do |report| %><%= link_to report["title"], report["url"], target: "_blank", rel: "noopener", class: "block text-sm text-link py-1" %><% end %></div>
-    <% end %>
-    <% if (news = snapshot.section("news")).present? %>
-      <div><p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Recent news</p><% news.first(5).each do |article| %><%= link_to article["title"], article["link"], target: "_blank", rel: "noopener", class: "block text-sm text-link py-1" if article["title"].present? && article["link"].present? %><% end %></div>
-    <% end %>
+    <% if (analysis = snapshot.section("analysis")).present? %><details><summary class="text-sm font-medium text-primary cursor-pointer">Research notes</summary><p class="pt-2 text-sm text-secondary whitespace-pre-line"><%= analysis %></p></details><% end %>
+    <% if (reports = snapshot.section("reports")).present? %><div><p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Reports</p><% reports.each do |report| %><%= link_to report["title"], report["url"], target: "_blank", rel: "noopener", class: "block text-sm text-link py-1" %><% end %></div><% end %>
+    <% if (news = snapshot.section("news")).present? %><div><p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Recent news</p><div class="space-y-2"><% news.first(5).each do |article| %><% if article["title"].present? && article["link"].present? %><%= link_to article["link"], target: "_blank", rel: "noopener", class: "block rounded-lg border border-tertiary p-3 hover:button-bg-secondary" do %><p class="text-sm font-medium text-primary leading-snug"><%= article["title"] %></p><p class="pt-1 text-xs text-secondary"><%= [article["source"], article["published_at"] || article["publishedAt"] || article["time"]].compact.join(" · ").presence || "Source time unavailable" %></p><% end %><% end %><% end %></div></div><% end %>
     <p class="text-xs text-subdued">Reference context only. It never changes account balances, valuations, orders, or position sizing.</p>
   </div>
-<% else %>
-  <p class="px-3 py-3 text-sm text-secondary" data-testid="ticker-research-unavailable">Ticker research is unavailable for this security.</p>
-<% end %>
+<% else %><p class="px-3 py-3 text-sm text-secondary" data-testid="ticker-research-unavailable">Ticker research is unavailable for this security.</p><% end %>
