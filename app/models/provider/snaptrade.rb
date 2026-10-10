@@ -371,7 +371,7 @@ class Provider::Snaptrade
   end
 
   # Returns Array<Hash> of positions
-  def get_positions(account_id:)
+  def get_positions(account_id:, include_unsupported: false)
     response = get_json("/api/v1/accounts/#{account_id}/positions/all")
     results = response["results"] if response.is_a?(Hash)
 
@@ -385,7 +385,7 @@ class Provider::Snaptrade
       )
     end
 
-    results.reject { |position| unsupported_instrument?(position) }
+    include_unsupported ? results : results.reject { |position| unsupported_instrument?(position) }
   end
 
   # Returns raw JSON: paginated form is {"data" => [...]}, may also be a plain Array

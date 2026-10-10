@@ -7,6 +7,7 @@ class SnaptradeAccount < ApplicationRecord
     encrypts :raw_payload
     encrypts :raw_transactions_payload
     encrypts :raw_holdings_payload
+    encrypts :raw_options_payload
     encrypts :raw_activities_payload
     encrypts :raw_balances_payload
   end
@@ -132,6 +133,12 @@ class SnaptradeAccount < ApplicationRecord
       raw_holdings_payload: holdings_data,
       last_holdings_sync: Time.current
     )
+  end
+
+  # Options are a separate, read-only provider snapshot. Contract units and
+  # prices must never flow through the equity-share holdings processor.
+  def upsert_options_snapshot!(options_data)
+    update!(raw_options_payload: options_data, last_holdings_sync: Time.current)
   end
 
   # Store activities data from SnapTrade API

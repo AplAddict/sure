@@ -41,6 +41,7 @@ class ResearchController < ApplicationController
                                 .select { |entry| entry.trade&.buy? }
                                 .sort_by { |entry| [ entry.date || Date.new(1900, 1, 1), entry.id ] }
                                 .reverse
+    @option_positions = option_positions_for_ticker
   end
 
   private
@@ -64,6 +65,46 @@ class ResearchController < ApplicationController
         covered_accounts: known_cost_holdings.size,
         account_count: @holdings.size
       }
+    end
+
+    # Contract positions are rendered from a read-only provider snapshot and
+    # deliberately excluded from the equity positions, totals, and net-worth
+    # calculations above. SnapTrade gives us an OCC-style contract symbol, so
+    # match only contracts beginning with this exact ticker and a space.
+    def option_positions_for_ticker
+      account_ids = accessible_accounts.pluck(:id).to_set
+
+      SnaptradeAccount.includes(:account_provider).filter_map do |provider_account|
+        account = provider_account.current_account
+        next unless account && account_ids.include?(account.id)
+
+        Array(provider_account.raw_options_payload).filter_map do |raw_position|
+          position = raw_position.to_h.with_indifferent_access
+          instrument = position[:instrument].to_h.with_indifferent_access
+          contract = instrument[:symbol].to_s
+          next unless contract.match?(/\A#{Regexp.escape(@ticker)}\s/)
+
+          expiration = Date.iso8601(instrument[:expiration_date].to_s) rescue nil
+          currency = position[:currency].is_a?(Hash) ? position[:currency].with_indifferent_access[:code] : position[:currency]
+
+          {
+            account: account,
+            contract: contract,
+            type: instrument[:option_type].presence || "Unavailable",
+            expiration: expiration,
+            strike: decimal_or_nil(instrument[:strike_price]),
+            quantity: decimal_or_nil(position[:units]),
+            mark: decimal_or_nil(position[:price]),
+            currency: currency.presence || account.currency
+          }
+        end
+      end.flatten
+    end
+
+    def decimal_or_nil(value)
+      value.present? ? BigDecimal(value.to_s) : nil
+    rescue ArgumentError
+      nil
     end
 
     def scoped_securities

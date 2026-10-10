@@ -76,12 +76,12 @@ class Provider::SnaptradePersonal
     get_json("/api/v1/accounts/#{account_id}/balances")
   end
 
-  def get_positions(account_id:)
+  def get_positions(account_id:, include_unsupported: false)
     response = get_json("/api/v1/accounts/#{account_id}/positions/all")
     results = response["results"] if response.is_a?(Hash)
     raise ApiError, "SnapTrade Personal positions response has no results array" unless results.is_a?(Array)
 
-    results.reject { |position| unsupported_instrument?(position) }
+    include_unsupported ? results : results.reject { |position| unsupported_instrument?(position) }
   end
 
   def get_account_activities(account_id:, start_date: nil, end_date: nil)

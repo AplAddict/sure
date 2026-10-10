@@ -136,8 +136,17 @@ class SnaptradeItem::Importer
       Rails.logger.info "SnaptradeItem::Importer - Fetching holdings for account #{snaptrade_account.id} (#{snaptrade_account.snaptrade_account_id})"
 
       begin
-        holdings = snaptrade_provider.get_positions(account_id: snaptrade_account.snaptrade_account_id)
+        positions = snaptrade_provider.get_positions(
+          account_id: snaptrade_account.snaptrade_account_id,
+          include_unsupported: true
+        )
         stats["api_requests"] = stats.fetch("api_requests", 0) + 1
+
+        # Contract positions are display-only and cannot enter the share-based
+        # holdings processor or any existing balance calculation.
+        holdings, options = positions.partition do |position|
+          position.dig("instrument", "kind").to_s.downcase != "option"
+        end
 
         Rails.logger.info "SnaptradeItem::Importer - Got #{holdings.size} holdings from API"
 
@@ -155,6 +164,7 @@ class SnaptradeItem::Importer
         end
 
         snaptrade_account.upsert_holdings_snapshot!(holdings_data)
+        snaptrade_account.upsert_options_snapshot!(options.map { |position| sdk_object_to_hash(position) })
 
         stats["holdings_found"] = stats.fetch("holdings_found", 0) + holdings_data.size
       rescue => e
