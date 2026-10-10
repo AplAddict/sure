@@ -4,7 +4,7 @@
 <% pct = ->(v, digits = 1) { v.nil? ? unavailable : number_to_percentage(v * 100, precision: digits) } %>
 <% num = ->(v, digits = 2) { v.nil? ? unavailable : number_with_precision(v, precision: digits) } %>
 <% big = ->(v) { v.nil? ? unavailable : number_to_human(v, precision: 3, units: { thousand: "K", million: "M", billion: "B", trillion: "T" }, format: "%n%u") } %>
-<% day = ->(v) { v.blank? ? unavailable : l(Date.iso8601(v), format: :long) } %>
+<% day = ->(v) { v.blank? ? unavailable : (l(Date.iso8601(v), format: :long) rescue unavailable) } %>
 
 <% if data&.available? %>
   <% ccy = data.currency.presence || security.try(:currency) || "USD" %>
