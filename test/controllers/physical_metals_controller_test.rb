@@ -45,6 +45,28 @@ class PhysicalMetalsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @user.family.currency, account.currency
   end
 
+  test "creates an auto-priced metal when the form submits blank manual valuation fields" do
+    assert_difference [ "Account.count", "PhysicalMetal.count" ], 1 do
+      post physical_metals_path, params: {
+        account: {
+          accountable_type: "PhysicalMetal", currency: "USD", name: "Silver", return_to: "", notes: "", exclude_from_reports: "0",
+          accountable_attributes: {
+            metal_type: "silver", troy_ounces: "179.1507", storage_label: "-", cost_basis: "42.31",
+            currency: "USD", auto_price_enabled: "1",
+            manual_price_per_troy_ounce: "", valuation_source: "", valuation_date: ""
+          }
+        }
+      }
+    end
+
+    metal = Account.order(:created_at).last.physical_metal
+    assert metal.unpriced?
+    assert_nil metal.valuation_source
+    assert_nil metal.manual_price_per_troy_ounce
+    assert_nil metal.valuation_date
+    assert metal.auto_price_enabled
+  end
+
   test "form submits the family currency" do
     get new_physical_metal_path
     assert_response :success

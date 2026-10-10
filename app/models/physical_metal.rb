@@ -14,6 +14,7 @@ class PhysicalMetal < ApplicationRecord
   validate :storage_label_is_not_address
   validate :manual_valuation_is_complete
 
+  before_validation :normalize_blank_valuation_details
   before_validation :derive_valuation_state
 
   class << self
@@ -71,6 +72,13 @@ class PhysicalMetal < ApplicationRecord
       return if manual_valuation_complete?
 
       errors.add(:base, "manual valuation requires a positive price, source, and as-of date")
+    end
+
+    # HTML forms submit untouched optional fields as "". The database check
+    # constraint only accepts NULL for an unpriced metal, so blanks must be nil.
+    def normalize_blank_valuation_details
+      self.valuation_source = valuation_source.to_s.strip.presence
+      self.storage_label = storage_label.to_s.strip.presence if storage_label_changed?
     end
 
     def derive_valuation_state
