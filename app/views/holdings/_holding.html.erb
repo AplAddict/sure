@@ -9,7 +9,7 @@
         <%= render DS::FilledIcon.new(variant: :text, text: holding.name, size: "md", rounded: true) %>
       <% end %>
       <div class="space-y-0.5">
-        <%= link_to holding.name, holding_path(holding), data: { turbo_frame: :drawer }, class: "hover:underline" %>
+        <%= link_to holding.name, research_ticker_path(holding.ticker), class: "hover:underline" %>
 
         <% if holding.amount %>
           <%= link_to holding.ticker, research_ticker_path(holding.ticker), class: "text-secondary text-xs uppercase hover:underline" %>

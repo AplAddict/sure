@@ -36,7 +36,7 @@
         <% position_gain = basis_total ? holding.amount - basis_total : nil %>
         <div class="p-4">
           <div class="flex flex-wrap items-start justify-between gap-3"><div><%= link_to holding.account.name, account_path(holding.account, tab: "holdings"), class: "font-medium text-link hover:underline" %><p class="mt-1 text-xs text-secondary"><%= format_quantity(holding.qty, exact: true) %> shares · <%= holding.cost_basis ? "#{format_money(Money.new(holding.cost_basis, holding.currency))}/share" : "cost unavailable" %></p></div><div class="text-right"><p class="privacy-sensitive text-sm font-medium text-primary"><%= format_money(holding.amount_money) %></p><p class="mt-1 text-xs privacy-sensitive <%= position_gain&.positive? ? "text-success" : position_gain&.negative? ? "text-destructive" : "text-secondary" %>"><%= position_gain ? "#{format_money(Money.new(position_gain, holding.currency))} unrealized" : "gain unavailable" %></p></div></div>
-          <div class="mt-3 flex items-center justify-between text-xs"><span class="text-secondary">Cost-basis source: <%= holding.cost_basis_source_label || "Unavailable" %></span><%= link_to "Open account holding", holding_path(holding), data: { turbo_frame: :drawer }, class: "font-medium text-link hover:underline" %></div>
+          <div class="mt-3 text-xs text-secondary">Cost-basis source: <%= holding.cost_basis_source_label || "Unavailable" %></div>
         </div>
       <% end %>
     </div>
