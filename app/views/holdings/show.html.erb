@@ -16,6 +16,10 @@
     </div>
   <% end %>
   <% dialog.with_body do %>
+    <div class="-mx-4">
+      <%= render "holdings/tradingview_chart", security: @holding.security %>
+    </div>
+
     <% dialog.with_section(title: t(".overview"), open: true) do %>
       <div class="pb-4">
         <% if @holding.security.provider_status == :provider_unavailable %>
@@ -214,16 +218,9 @@
         </dl>
       </div>
     <% end %>
-    <% dialog.with_section(title: t(".tradingview_chart"), open: true) do %>
-      <%= render "holdings/tradingview_chart", security: @holding.security %>
-    <% end %>
 
     <% dialog.with_section(title: t(".stock_data"), open: false) do %>
       <%= render "holdings/stock_data", security: @holding.security %>
-    <% end %>
-
-    <% dialog.with_section(title: t(".finviz_reference"), open: false) do %>
-      <%= render "holdings/finviz_reference", security: @holding.security %>
     <% end %>
 
     <% dialog.with_section(title: t(".news"), open: false) do %>
