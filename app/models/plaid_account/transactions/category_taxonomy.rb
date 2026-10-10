@@ -313,7 +313,7 @@ module PlaidAccount::Transactions::CategoryTaxonomy
         },
         general_services_automotive: {
           classification: :expense,
-          aliases: [ "auto repair", "mechanic", "vehicle", "car", "car care", "car maintenance", "vehicle maintenance" ]
+          aliases: [ "automotive", "auto repair", "mechanic", "vehicle", "car", "car care", "car maintenance", "vehicle maintenance" ]
         },
         general_services_childcare: {
           classification: :expense,
@@ -377,7 +377,7 @@ module PlaidAccount::Transactions::CategoryTaxonomy
         },
         transportation_gas: {
           classification: :expense,
-          aliases: [ "gas", "fuel" ]
+          aliases: [ "gas", "fuel", "gas & fuel", "gas and fuel", "gasoline" ]
         },
         transportation_parking: {
           classification: :expense,
@@ -433,7 +433,7 @@ module PlaidAccount::Transactions::CategoryTaxonomy
         },
         rent_and_utilities_internet_and_cable: {
           classification: :expense,
-          aliases: [ "internet", "cable" ]
+          aliases: [ "internet", "cable", "internet & cable", "internet and cable" ]
         },
         rent_and_utilities_rent: {
           classification: :expense,

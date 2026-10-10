@@ -54,6 +54,11 @@
             placeholder: t(".notes_placeholder"),
             rows: 4 %>
 
+        <%= form.number_field :ownership_percentage,
+            label: "Ownership share (%)",
+            placeholder: "100",
+            min: 0.0001, max: 100, step: "any" %>
+
         <div class="flex items-center justify-between gap-2">
           <span class="text-sm"><%= t(".exclude_from_reports") %></span>
           <%= form.toggle :exclude_from_reports %>

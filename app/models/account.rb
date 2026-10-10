@@ -9,6 +9,7 @@ class Account < ApplicationRecord
   after_destroy_commit :move_account_statements_to_inbox
 
   validates :name, :balance, :currency, presence: true
+  validates :ownership_share, numericality: { greater_than: 0, less_than_or_equal_to: 1 }
   validate :owner_belongs_to_family, if: -> { owner_id.present? && family_id.present? }
 
   belongs_to :family
@@ -726,6 +727,16 @@ class Account < ApplicationRecord
     end
 
     AccountShare.insert_all(records, unique_by: %i[account_id user_id]) if records.any?
+  end
+
+  # Percentage (0-100) of this account that counts toward the user's net worth.
+  def ownership_percentage
+    percentage = (ownership_share * 100).round(4)
+    percentage.frac.zero? ? percentage.to_i.to_s : percentage.to_s("F")
+  end
+
+  def ownership_percentage=(value)
+    self.ownership_share = value.to_d / 100 if value.present?
   end
 
   private

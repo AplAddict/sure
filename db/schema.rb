@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_10_143000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_10_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -116,6 +116,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_143000) do
     t.string "name"
     t.text "notes"
     t.uuid "owner_id"
+    t.decimal "ownership_share", precision: 7, scale: 6, default: "1.0", null: false
     t.uuid "plaid_account_id"
     t.uuid "simplefin_account_id"
     t.string "status", default: "active"

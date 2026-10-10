@@ -2,7 +2,7 @@ class BalanceSheet::NetWorthBreakdownSeriesBuilder
   # Monthly interval regardless of period length so the reports chart always
   # shows one point per month in the selected range.
   INTERVAL = "1 month"
-  CACHE_VERSION = "v2"
+  CACHE_VERSION = "v3"
 
   def initialize(family, user: nil)
     @family = family
@@ -113,7 +113,8 @@ class BalanceSheet::NetWorthBreakdownSeriesBuilder
         currency: family.currency,
         period: period,
         interval: INTERVAL,
-        favorable_direction: favorable_direction
+        favorable_direction: favorable_direction,
+        apply_ownership_share: true
       ).balance_series
     end
 
