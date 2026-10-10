@@ -234,6 +234,26 @@
     <% dialog.with_section(title: t(".research_notes"), open: false) do %>
       <%= render "holdings/ticker_research_notes", security: @holding.security %>
     <% end %>
+    <% dialog.with_section(title: t(".purchase_history"), open: false) do %>
+      <% purchases = @holding.trades.includes(:entryable, :account).select { |entry| entry.trade&.buy? } %>
+      <div class="px-3 py-3">
+        <p class="mb-3 text-xs text-secondary">Verified acquisition entries retained by Sure. Provider tax-lot IDs are shown only when the provider preserves them; this list is not reconstructed from average cost.</p>
+        <% if purchases.any? %>
+          <div class="space-y-3">
+            <% purchases.each do |entry| %>
+              <% trade = entry.trade %>
+              <div class="border-b border-tertiary pb-3 text-sm last:border-0">
+                <div class="flex justify-between gap-3"><span class="text-primary"><%= l(entry.date, format: :long) %></span><span class="text-primary"><%= format_quantity(trade.qty, exact: true) %> shares</span></div>
+                <p class="mt-1 text-secondary"><%= trade.price_money.format %> per share<%= " · fee #{trade.fee_money.format}" if trade.fee.present? && trade.fee.positive? %><%= " · #{entry.account.name}" if entry.account&.name.present? %></p>
+              </div>
+            <% end %>
+          </div>
+        <% else %>
+          <p class="text-sm text-secondary">No preserved purchase entries are available for this holding.</p>
+        <% end %>
+      </div>
+    <% end %>
+
     <% dialog.with_section(title: t(".history"), open: true) do %>
       <div class="space-y-2">
         <div class="px-3 py-4">

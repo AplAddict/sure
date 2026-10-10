@@ -524,6 +524,10 @@ Rails.application.routes.draw do
     resources :mappings, only: :update, module: :import
   end
 
+  get "research/search", to: "research#search", as: :research_search
+  get "research/news", to: "research#news", as: :research_news
+  get "research/heatmap", to: "research#heatmap", as: :research_heatmap
+
   resources :holdings, only: %i[index new show update destroy] do
     member do
       post :unlock_cost_basis

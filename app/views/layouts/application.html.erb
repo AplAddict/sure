@@ -11,6 +11,8 @@ else
     { name: t(".nav.transactions"), path: transactions_path, icon: "credit-card", icon_custom: false, active: page_active?(transactions_path) },
     bills_nav_item,
     { name: t(".nav.reports"), path: reports_path, icon: "chart-bar", icon_custom: false, active: page_active?(reports_path) },
+    { name: "News", path: research_news_path, icon: "newspaper", icon_custom: false, active: page_active?(research_news_path) },
+    { name: "Heatmap", path: research_heatmap_path, icon: "grid-2x2", icon_custom: false, active: page_active?(research_heatmap_path) },
     plan_nav_item,
     { name: t(".nav.assistant"), path: chats_path, icon: "icon-assistant", icon_custom: true, active: page_active?(chats_path), mobile_only: true }
   ].compact
@@ -162,6 +164,10 @@ end %>
           </div>
 
           <div class="flex items-center gap-2">
+            <%= form_with url: research_search_path, method: :get, class: "hidden xl:flex items-center" do |f| %>
+              <%= f.search_field :q, placeholder: "Search holdings & news", class: "w-56 rounded-lg border border-tertiary bg-container px-3 py-2 text-sm text-primary", aria: { label: "Search Sure research" } %>
+            <% end %>
+            <%= link_to research_search_path, class: "inline-flex items-center justify-center w-9 h-9 rounded-lg text-secondary hover:text-primary hover:bg-container-inset-hover", aria: { label: "Search Sure research" } do %><%= icon("search", size: "sm") %><% end %>
             <%= render "layouts/shared/insights_button" %>
 
             <button type="button"

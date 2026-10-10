@@ -100,6 +100,7 @@ en:
       delete_title: Delete holding
       edit_security: Edit security
       history: History
+      purchase_history: Purchase history
       no_trade_history: No trade history available for this holding.
       overview: Overview
       portfolio_weight_label: Portfolio Weight

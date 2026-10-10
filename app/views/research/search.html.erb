@@ -1,0 +1,13 @@
+<% content_for :page_header do %>
+  <div class="space-y-3 mb-6">
+    <h1 class="text-xl lg:text-3xl font-medium text-primary">Research search</h1>
+    <%= form_with url: research_search_path, method: :get, class: "flex gap-2 max-w-2xl" do |f| %>
+      <%= f.search_field :q, value: @query, placeholder: "Search held tickers, names, and cached news", class: "form-field__input grow", aria: { label: "Search research" } %>
+      <%= f.submit "Search", class: "px-4 py-2 rounded-lg text-sm font-medium button-bg-primary text-inverse" %>
+    <% end %>
+  </div>
+<% end %>
+<div class="grid gap-6 lg:grid-cols-2">
+  <section class="rounded-xl border border-tertiary p-4"><h2 class="text-base font-medium text-primary mb-3">Held securities</h2><div class="space-y-2"><% @securities.each do |security| %><div class="flex justify-between text-sm"><span class="text-primary"><%= security.ticker %></span><span class="text-secondary"><%= security.name.presence || "Name unavailable" %></span></div><% end %><% if @securities.empty? %><p class="text-sm text-secondary">No held securities match.</p><% end %></div></section>
+  <section class="rounded-xl border border-tertiary p-4"><h2 class="text-base font-medium text-primary mb-3">Cached news</h2><div class="space-y-3"><% @articles.each do |article| %><%= link_to article[:url], target: "_blank", rel: "noopener", class: "block" do %><p class="text-sm font-medium text-link"><%= article[:title] %></p><p class="text-xs text-secondary"><%= [article[:source], article[:published_at], article[:tickers].join(", ")].compact_blank.join(" · ") %></p><% end %><% end %><% if @articles.empty? %><p class="text-sm text-secondary">No cached articles match.</p><% end %></div></section>
+</div>
