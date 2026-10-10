@@ -1,0 +1,56 @@
+<%# locals: (account:) %>
+<% metal = account.physical_metal %>
+<% unavailable = t("physical_metals.tabs.overview.unavailable") %>
+<% gain = metal.gain_loss_trend %>
+
+<div class="grid grid-cols-3 gap-2" data-testid="physical-metal-overview">
+  <%= summary_card title: t("physical_metals.tabs.overview.value") do %>
+    <%= metal.manually_valued? ? format_money(account.balance_money) : unavailable %>
+  <% end %>
+
+  <%= summary_card title: t("physical_metals.tabs.overview.total_cost") do %>
+    <%= metal.total_cost ? format_money(Money.new(metal.total_cost, account.currency)) : unavailable %>
+  <% end %>
+
+  <%= summary_card title: t("physical_metals.tabs.overview.gain_loss") do %>
+    <% if gain %>
+      <div class="flex items-center gap-1" style="color: <%= gain.color %>">
+        <p class="text-xl font-medium"><%= format_money(gain.value) %></p>
+        <% unless gain.percent.infinite? %>
+          <p data-testid="gain-percent">(<%= gain.percent_formatted %>)</p>
+        <% end %>
+      </div>
+    <% else %>
+      <%= unavailable %>
+    <% end %>
+  <% end %>
+
+  <%= summary_card title: t("physical_metals.tabs.overview.troy_ounces") do %>
+    <%= number_with_precision(metal.troy_ounces, precision: 4, strip_insignificant_zeros: true) %> oz
+  <% end %>
+
+  <%= summary_card title: t("physical_metals.tabs.overview.cost_per_ounce") do %>
+    <%= metal.cost_per_troy_ounce ? format_money(Money.new(metal.cost_per_troy_ounce, account.currency)) : unavailable %>
+  <% end %>
+
+  <%= summary_card title: t("physical_metals.tabs.overview.price_per_ounce") do %>
+    <% if metal.manual_price_per_troy_ounce %>
+      <%= format_money(Money.new(metal.manual_price_per_troy_ounce, account.currency)) %>
+    <% else %>
+      <%= unavailable %>
+    <% end %>
+  <% end %>
+</div>
+
+<p class="text-xs text-secondary px-1 pt-3">
+  <% if metal.manually_valued? %>
+    <%= t("physical_metals.tabs.overview.priced_note", source: metal.valuation_source, date: l(metal.valuation_date, format: :long)) %>
+  <% else %>
+    <%= t("physical_metals.tabs.overview.unpriced_note") %>
+  <% end %>
+  <%= t("physical_metals.tabs.overview.futures_note") %>
+</p>
+
+<div class="flex justify-center py-8">
+  <%= render DS::Link.new(text: t("physical_metals.tabs.overview.edit"), variant: "ghost", href: edit_physical_metal_path(account), frame: :modal) %>
+</div>

@@ -24,10 +24,10 @@
   <%= summary_card title: t(".trend") do %>
     <div class="flex items-center gap-1" style="color: <%= account.vehicle.trend.color %>">
       <p class="text-xl font-medium">
-        <%= account.vehicle.trend.value %>
+        <%= format_money(account.vehicle.trend.value) %>
       </p>
 
-      <p>(<%= account.vehicle.trend.percent %>%)</p>
+      <p>(<%= account.vehicle.trend.percent_formatted %>)</p>
     </div>
   <% end %>
 </div>

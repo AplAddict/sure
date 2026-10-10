@@ -123,4 +123,30 @@ class PhysicalMetalsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to account_path(account)
     assert_equal "Gold rounds", account.reload.name
   end
+
+  test "overview tab shows gain against total cost and never an infinite percent" do
+    post physical_metals_path, params: { account: { name: "Silver", currency: "USD", accountable_type: "PhysicalMetal",
+      accountable_attributes: { metal_type: "silver", troy_ounces: "100", storage_label: "Safe", cost_basis: "4000",
+                                manual_price_per_troy_ounce: "60", valuation_source: "Test", valuation_date: Date.current.to_s } } }
+    account = Account.order(:created_at).last
+
+    get account_path(account, tab: "overview")
+
+    assert_response :success
+    assert_select "[data-testid=physical-metal-overview]" do
+      assert_select "[data-testid=gain-percent]", text: "(50.0%)"
+    end
+  end
+
+  test "overview tab for an unpriced metal says unavailable, not a loss" do
+    post physical_metals_path, params: { account: { name: "Silver", currency: "USD", accountable_type: "PhysicalMetal",
+      accountable_attributes: { metal_type: "silver", troy_ounces: "100", storage_label: "Safe", cost_basis: "4000" } } }
+    account = Account.order(:created_at).last
+
+    get account_path(account, tab: "overview")
+
+    assert_response :success
+    assert_select "[data-testid=gain-percent]", count: 0
+    assert_select "[data-testid=physical-metal-overview]", text: /Unavailable/
+  end
 end

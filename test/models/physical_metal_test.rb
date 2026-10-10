@@ -82,4 +82,37 @@ class PhysicalMetalTest < ActiveSupport::TestCase
     end
     assert_equal 500, BalanceSheet.new(@family).assets.total
   end
+
+  test "cost basis is a total and per-ounce cost is derived from it" do
+    metal = PhysicalMetal.new(metal_type: "silver", troy_ounces: 100, storage_label: "Safe", cost_basis: 4000)
+
+    assert_equal 4000, metal.total_cost
+    assert_equal 40, metal.cost_per_troy_ounce
+  end
+
+  test "no cost means no total, per-ounce cost or gain" do
+    metal = PhysicalMetal.new(metal_type: "silver", troy_ounces: 100, storage_label: "Safe")
+
+    assert_nil metal.total_cost
+    assert_nil metal.cost_per_troy_ounce
+    assert_nil metal.gain_loss_trend
+  end
+
+  test "an unpriced metal has no gain or loss instead of a false total loss" do
+    account = @family.accounts.create!(name: "Silver", balance: 0, cash_balance: 0, currency: "USD",
+                                       accountable: PhysicalMetal.new(metal_type: "silver", troy_ounces: 100, storage_label: "Safe", cost_basis: 4000))
+
+    assert account.physical_metal.unpriced?
+    assert_nil account.physical_metal.gain_loss_trend
+  end
+
+  test "a priced metal reports gain against what was paid" do
+    account = @family.accounts.create!(name: "Silver", balance: 6000, cash_balance: 0, currency: "USD",
+                                       accountable: PhysicalMetal.new(metal_type: "silver", troy_ounces: 100, storage_label: "Safe", cost_basis: 4000,
+                                                                      manual_price_per_troy_ounce: 60, valuation_source: "Test", valuation_date: Date.current))
+
+    trend = account.physical_metal.gain_loss_trend
+    assert_equal 2000, trend.value.amount
+    assert_in_delta 50.0, trend.percent, 0.001
+  end
 end

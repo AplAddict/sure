@@ -47,6 +47,24 @@ class PhysicalMetal < ApplicationRecord
     troy_ounces * manual_price_per_troy_ounce
   end
 
+  # Total paid. cost_basis is stored as a total, not per ounce.
+  def total_cost
+    cost_basis if cost_basis&.positive?
+  end
+
+  def cost_per_troy_ounce
+    total_cost && (total_cost / troy_ounces)
+  end
+
+  # Gain or loss against what was paid. Nil unless both a cost and a real
+  # valuation exist: an unpriced metal holds a placeholder zero balance, and
+  # comparing that to its cost would report a bogus -100%.
+  def gain_loss_trend
+    return nil unless total_cost && manually_valued?
+
+    Trend.new(current: account.balance_money, previous: Money.new(total_cost, account.currency))
+  end
+
   def yahoo_price_symbol
     PRICE_SYMBOLS.fetch(metal_type)
   end

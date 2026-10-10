@@ -1,0 +1,16 @@
+---
+en:
+  physical_metals:
+    tabs:
+      overview:
+        cost_per_ounce: Cost per oz
+        edit: Edit account details
+        futures_note: Priced from futures (COMEX), which sits close to spot. A dealer would buy or sell at a different price.
+        gain_loss: Gain / loss vs. cost
+        price_per_ounce: Price per oz
+        priced_note: "Priced from %{source} as of %{date}."
+        total_cost: Total cost
+        troy_ounces: Held
+        unavailable: Unavailable
+        unpriced_note: Not priced yet. The value and gain or loss appear after the first successful price refresh.
+        value: Current value
