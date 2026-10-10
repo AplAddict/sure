@@ -1,0 +1,10 @@
+<%# locals: (security:) %>
+<% analysis = security.research_snapshot&.section("analysis") %>
+<% if analysis.present? %>
+  <div class="px-3 py-2 prose prose--ai-chat text-sm" data-testid="ticker-research-notes">
+    <%= markdown(analysis) %>
+  </div>
+  <p class="px-3 pb-3 text-xs text-subdued">Imported research context only; it is not broker truth, a valuation, or an instruction to trade.</p>
+<% else %>
+  <p class="px-3 py-3 text-sm text-secondary" data-testid="ticker-research-notes-unavailable">No research notes are available for this security.</p>
+<% end %>

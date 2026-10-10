@@ -25,7 +25,6 @@
         <% end %>
       </dl></div>
     <% end %>
-    <% if (analysis = snapshot.section("analysis")).present? %><details><summary class="text-sm font-medium text-primary cursor-pointer">Research notes</summary><p class="pt-2 text-sm text-secondary whitespace-pre-line"><%= analysis %></p></details><% end %>
     <% if (reports = snapshot.section("reports")).present? %><div><p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Reports</p><% reports.each do |report| %><%= link_to report["title"], report["url"], target: "_blank", rel: "noopener", class: "block text-sm text-link py-1" %><% end %></div><% end %>
     <% if (news = snapshot.section("news")).present? %><div><p class="text-xs font-medium uppercase tracking-wide text-secondary pb-2">Recent news</p><div class="space-y-2"><% news.first(5).each do |article| %><% if article["title"].present? && article["link"].present? %><%= link_to article["link"], target: "_blank", rel: "noopener", class: "block rounded-lg border border-tertiary p-3 hover:button-bg-secondary" do %><p class="text-sm font-medium text-primary leading-snug"><%= article["title"] %></p><p class="pt-1 text-xs text-secondary"><%= [article["source"], article["published_at"] || article["publishedAt"] || article["time"]].compact.join(" · ").presence || "Source time unavailable" %></p><% end %><% end %><% end %></div></div><% end %>
     <p class="text-xs text-subdued">Reference context only. It never changes account balances, valuations, orders, or position sizing.</p>
