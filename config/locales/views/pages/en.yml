@@ -78,6 +78,8 @@ en:
           liability: "Liabilities"
       insights_feed:
         title: "Insights"
+      ticker_news:
+        title: "News"
       cashflow_preview:
         node_labels:
           cash_flow: "Cash Flow"
