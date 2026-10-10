@@ -5,7 +5,9 @@ class PhysicalMetalsController < ApplicationController
                                  :manual_price_per_troy_ounce, :valuation_source, :valuation_date, :auto_price_enabled
 
   def create
-    @account = Current.family.accounts.build(account_params.except(:return_to, :opening_balance_date).merge(owner: Current.user))
+    create_params = account_params.except(:return_to, :opening_balance_date)
+    create_params[:currency] = Current.family.currency if create_params[:currency].blank?
+    @account = Current.family.accounts.build(create_params.merge(owner: Current.user))
     @account.assign_attributes(balance: valuation_total_or_zero, cash_balance: 0)
 
     Account.transaction do

@@ -27,6 +27,30 @@ class PhysicalMetalsControllerTest < ActionDispatch::IntegrationTest
     assert account.physical_metal.unpriced?
   end
 
+  test "defaults to the family currency when the form submits no currency" do
+    assert_difference [ "Account.count", "PhysicalMetal.count" ], 1 do
+      post physical_metals_path, params: {
+        account: {
+          name: "Silver stack",
+          accountable_type: "PhysicalMetal",
+          accountable_attributes: {
+            metal_type: "silver", troy_ounces: "100", storage_label: "Home safe", auto_price_enabled: "1"
+          }
+        }
+      }
+    end
+
+    account = Account.order(:created_at).last
+    assert_redirected_to account_path(account)
+    assert_equal @user.family.currency, account.currency
+  end
+
+  test "form submits the family currency" do
+    get new_physical_metal_path
+    assert_response :success
+    assert_select "input[type=hidden][name='account[currency]'][value='#{@user.family.currency}']"
+  end
+
   test "creates a dated reconciliation for a manual valuation" do
     post physical_metals_path, params: {
       account: {
