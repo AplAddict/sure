@@ -10,6 +10,7 @@
   <%= f.select :scope, [["Held securities", "portfolio"], ["All cached news", "all"]], { selected: @scope }, class: "form-field__input", aria: { label: "News scope" } %>
   <%= f.select :source, [["All sources", ""]] + @sources.map { |source| [source, source] }, { selected: @source }, class: "form-field__input", aria: { label: "Source" } %>
   <%= f.select :category, [["All topics", ""]] + @categories.map { |category| [category.to_s.humanize, category] }, { selected: @category }, class: "form-field__input", aria: { label: "Topic" } %>
+  <%= f.select :sentiment, [["All sentiments", ""]] + Security::HeadlineToneAnalyzer::TONES.map { |tone| [tone.humanize, tone] }, { selected: @sentiment }, class: "form-field__input", aria: { label: "Jev headline sentiment" } %>
   <%= f.text_field :ticker, value: @ticker, placeholder: "Ticker", class: "form-field__input", aria: { label: "Ticker" } %>
   <%= f.select :sort, [["Newest first", "latest"], ["Headline A–Z", "title"]], { selected: @sort }, class: "form-field__input", aria: { label: "Sort articles" } %>
   <%= f.submit "Apply filters", class: "px-4 py-2 rounded-lg text-sm font-medium button-bg-primary text-inverse" %>
@@ -23,6 +24,7 @@
         <span class="rounded-full bg-surface-inset px-2 py-1 text-secondary"><%= article[:source] %></span>
         <% if article[:category].present? %><span class="rounded-full bg-surface-inset px-2 py-1 text-secondary"><%= article[:category].humanize %></span><% end %>
         <% article[:tickers].each do |ticker| %><%= link_to ticker, research_ticker_path(ticker), class: "rounded-full bg-info-surface px-2 py-1 text-info hover:underline" %><% end %>
+        <%= render "holdings/headline_sentiments", sentiments: article[:headline_sentiments] %>
         <span class="text-secondary"><%= article[:published_at].presence || "Publication time unavailable" %></span>
       </div>
       <%= link_to article[:url], target: "_blank", rel: "noopener", class: "block mt-3 text-base font-medium text-link leading-snug" do %><%= article[:title] %><% end %>

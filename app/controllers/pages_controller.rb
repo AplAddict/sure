@@ -125,12 +125,24 @@ class PagesController < ApplicationController
   private
     def cached_ticker_news
       security_ids = Holding.where(account_id: accessible_accounts.select(:id)).select(:security_id).distinct
-      SecurityResearchSnapshot.where(security_id: security_ids).filter_map do |snapshot|
+      SecurityResearchSnapshot.includes(security: :headline_analysis).where(security_id: security_ids).filter_map do |snapshot|
         Array(snapshot.section("news")).filter_map do |article|
-          next unless article["title"].present? && article["link"].to_s.start_with?("https://")
-          { title: article["title"], url: article["link"], source: article["source"].presence || "Source unavailable", published_at: article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase) }
+          title = article["title"].to_s.squish
+          next unless title.present? && article["link"].to_s.start_with?("https://")
+
+          raw_source = article["source"].to_s.squish
+          { title: title, url: article["link"], source: raw_source.presence || "Source unavailable", published_at: article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase), headline_sentiments: dashboard_headline_sentiments(snapshot.security, raw_source, title) }
         end
       end.flatten.uniq { |article| article[:url] }.sort_by { |article| article[:published_at].to_s }.reverse.first(8)
+    end
+
+    def dashboard_headline_sentiments(security, source, title)
+      analysis = security.headline_analysis
+      return [] unless analysis&.available?
+
+      key = Digest::SHA256.hexdigest([source.to_s.squish, title.to_s.squish.truncate(Security::HeadlineToneAnalyzer::TITLE_LIMIT)].join("\u0000"))
+      tone = analysis.payload.dig("articleTones", key, "tone").to_s
+      Security::HeadlineToneAnalyzer::TONES.include?(tone) ? [{ ticker: security.ticker, tone: tone }] : []
     end
 
     def preferences_params

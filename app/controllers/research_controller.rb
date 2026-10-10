@@ -15,10 +15,11 @@ class ResearchController < ApplicationController
     @query = params[:q].to_s.strip
     @source = params[:source].to_s.strip
     @category = params[:category].to_s.strip
+    @sentiment = Security::HeadlineToneAnalyzer::TONES.include?(params[:sentiment].to_s) ? params[:sentiment].to_s : ""
     @ticker = params[:ticker].to_s.upcase.strip
     @sort = %w[latest title].include?(params[:sort]) ? params[:sort] : "latest"
     @page = [params[:page].to_i, 1].max
-    @all_articles = news_rows
+    @all_articles = @scope == "portfolio" ? article_rows : news_rows
     @sources = @all_articles.map { |article| article[:source] }.uniq.sort
     @categories = @all_articles.map { |article| article[:category] }.compact.uniq.sort
     @articles = filter_news(@all_articles)
@@ -114,8 +115,11 @@ class ResearchController < ApplicationController
     def news_rows
       artifact = Pathname.new(ENV.fetch("INVEST_RESEARCH_PATH", "/run/invest-research")).join(NEWS_FILE)
       Array(JSON.parse(artifact.read)).filter_map do |article|
-        next unless article["title"].present? && article["link"].to_s.start_with?("https://")
-        { title: article["title"], url: article["link"], description: article["description"].to_s.gsub(/<[^>]*>/, " ").squish, source: article["source"].presence || "Source unavailable", category: article["category"].presence, published_at: article["published"] || article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase) }
+        title = article["title"].to_s.squish
+        next unless title.present? && article["link"].to_s.start_with?("https://")
+
+        raw_source = article["source"].to_s.squish
+        { title: title, url: article["link"], description: article["description"].to_s.gsub(/<[^>]*>/, " ").squish, source: raw_source.presence || "Source unavailable", category: article["category"].presence, published_at: article["published"] || article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase), headline_sentiments: headline_sentiments_for(raw_source, title) }
       end.uniq { |article| article[:url] }
     rescue Errno::ENOENT, JSON::ParserError
       []
@@ -129,6 +133,7 @@ class ResearchController < ApplicationController
           (@query.blank? || text.include?(@query.downcase)) &&
           (@source.blank? || article[:source] == @source) &&
           (@category.blank? || article[:category] == @category) &&
+          (@sentiment.blank? || article[:headline_sentiments].any? { |sentiment| sentiment[:tone] == @sentiment }) &&
           (@ticker.blank? || article[:tickers].include?(@ticker))
       end
     end
@@ -137,9 +142,34 @@ class ResearchController < ApplicationController
       security_ids = scoped_securities.select(:id)
       SecurityResearchSnapshot.where(security_id: security_ids).filter_map do |snapshot|
         Array(snapshot.section("news")).filter_map do |article|
-          next unless article["title"].present? && article["link"].to_s.start_with?("https://")
-          { title: article["title"], url: article["link"], source: article["source"].presence || "Source unavailable", published_at: article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase) }
+          title = article["title"].to_s.squish
+          next unless title.present? && article["link"].to_s.start_with?("https://")
+
+          raw_source = article["source"].to_s.squish
+          { title: title, url: article["link"], source: raw_source.presence || "Source unavailable", published_at: article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase), headline_sentiments: headline_sentiments_for(raw_source, title) }
         end
       end.flatten.uniq { |article| article[:url] }.sort_by { |article| article[:published_at].to_s }.reverse
+    end
+
+    # Jev sentiment remains research-only and is scoped to securities the
+    # signed-in user can access. The persisted cache stores article digests,
+    # not raw headlines, so UI rows recompute the same digest for lookup.
+    def headline_sentiments_for(source, title)
+      key = Digest::SHA256.hexdigest([source.to_s.squish, title.to_s.squish.truncate(Security::HeadlineToneAnalyzer::TITLE_LIMIT)].join("\u0000"))
+      headline_sentiment_index.fetch(key, [])
+    end
+
+    def headline_sentiment_index
+      @headline_sentiment_index ||= SecurityHeadlineAnalysis.includes(:security)
+        .where(security_id: scoped_securities.select(:id), status: "current")
+        .each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |analysis, index|
+          analysis.payload.fetch("articleTones", {}).each do |article_key, result|
+            tone = result["tone"].to_s
+            next unless Security::HeadlineToneAnalyzer::TONES.include?(tone)
+
+            label = { ticker: analysis.security.ticker, tone: tone }
+            index[article_key] << label unless index[article_key].include?(label)
+          end
+        end
     end
 end

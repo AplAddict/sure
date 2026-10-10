@@ -1,7 +1,7 @@
 <div class="px-4 space-y-3">
   <% articles.first(3).each do |article| %>
     <article class="border-b border-tertiary pb-3 last:border-0">
-      <div class="flex gap-2 text-xs text-secondary"><span><%= article[:source] %></span><span><%= article[:published_at] || "Time unavailable" %></span><span><%= article[:tickers].join(", ") %></span></div>
+      <div class="flex flex-wrap gap-2 text-xs text-secondary"><span><%= article[:source] %></span><span><%= article[:published_at] || "Time unavailable" %></span><span><%= article[:tickers].join(", ") %></span><%= render "holdings/headline_sentiments", sentiments: article[:headline_sentiments] %></div>
       <%= link_to article[:url], target: "_blank", rel: "noopener", class: "block mt-1 text-sm font-medium text-link" do %><%= article[:title] %><% end %>
     </article>
   <% end %>

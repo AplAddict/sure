@@ -1,0 +1,12 @@
+<%# locals: (sentiments:) %>
+<% Array(sentiments).each do |sentiment| %>
+  <% tone = sentiment[:tone].to_s %>
+  <% tone_class = case tone
+    when "bullish" then "bg-green-500/15 text-green-700 dark:text-green-300"
+    when "bearish" then "bg-red-500/15 text-red-700 dark:text-red-300"
+    when "mixed" then "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+    when "neutral" then "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+    else "bg-secondary/15 text-secondary"
+  end %>
+  <span class="rounded-full px-2 py-1 font-semibold <%= tone_class %>" data-testid="headline-sentiment"><%= sentiment[:ticker] %> sentiment: <%= tone.humanize %></span>
+<% end %>
