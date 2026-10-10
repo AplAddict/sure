@@ -214,6 +214,10 @@
         </dl>
       </div>
     <% end %>
+    <% dialog.with_section(title: t(".tradingview_chart"), open: true) do %>
+      <%= render "holdings/tradingview_chart", security: @holding.security %>
+    <% end %>
+
     <% dialog.with_section(title: t(".stock_data"), open: false) do %>
       <%= render "holdings/stock_data", security: @holding.security %>
     <% end %>
