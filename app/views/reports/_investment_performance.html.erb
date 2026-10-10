@@ -99,7 +99,7 @@
                         </div>
                       <% end %>
                       <div>
-                        <p class="font-medium text-primary"><%= holding.ticker %></p>
+                        <p class="font-medium text-primary"><%= link_to holding.ticker, research_ticker_path(holding.ticker), class: "hover:underline" %></p>
                         <p class="text-xs text-secondary"><%= truncate(holding.name, length: 25) %></p>
                       </div>
                     </div>
@@ -179,7 +179,7 @@
                       <p class="text-secondary font-medium"><%= t("reports.investment_performance.holdings") %></p>
                       <% data[:holdings].first(5).each do |holding| %>
                         <div class="flex justify-between pl-2">
-                          <span class="text-primary"><%= holding.ticker %></span>
+                          <span class="text-primary"><%= link_to holding.ticker, research_ticker_path(holding.ticker), class: "hover:underline" %></span>
                           <span class="<%= holding.trend ? "" : "text-secondary" %>" style="<%= holding.trend ? "color: #{holding.trend.color}" : "" %>">
                             <%= holding.trend ? format_money(Money.new(holding.trend.value, Current.family.currency)) : t("reports.investment_performance.no_data") %>
                           </span>

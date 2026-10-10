@@ -272,9 +272,9 @@
                     <p class="text-primary"><%= t(
                       ".trade_history_entry",
                       qty: trade_entry.trade.qty,
-                      security: trade_entry.trade.security.ticker,
+                      security: link_to(trade_entry.trade.security.ticker, research_ticker_path(trade_entry.trade.security.ticker), class: "hover:underline"),
                       price: trade_entry.trade.price_money.format
-                    ) %></p>
+                    ).html_safe %></p>
                   </div>
                 </li>
               <% end %>
