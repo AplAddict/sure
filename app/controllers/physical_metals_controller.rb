@@ -2,7 +2,7 @@ class PhysicalMetalsController < ApplicationController
   include AccountableResource
 
   permitted_accountable_attributes :id, :metal_type, :troy_ounces, :storage_label, :cost_basis,
-                                 :manual_price_per_troy_ounce, :valuation_source, :valuation_date
+                                 :manual_price_per_troy_ounce, :valuation_source, :valuation_date, :auto_price_enabled
 
   def create
     @account = Current.family.accounts.build(account_params.except(:return_to, :opening_balance_date).merge(owner: Current.user))

@@ -38,10 +38,16 @@ class PhysicalMetal < ApplicationRecord
     end
   end
 
+  PRICE_SYMBOLS = { "gold" => "GC=F", "silver" => "SI=F" }.freeze
+
   def manual_valuation_total
     return nil unless manual_valuation_complete?
 
     troy_ounces * manual_price_per_troy_ounce
+  end
+
+  def yahoo_price_symbol
+    PRICE_SYMBOLS.fetch(metal_type)
   end
 
   private

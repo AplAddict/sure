@@ -10,6 +10,7 @@ class SyncAllJob < ApplicationJob
     rescue => e
       Rails.logger.error("Failed to sync family #{family.id}: #{e.message}")
     end
+    PhysicalMetalYahooPriceRefreshJob.perform_later
     Rails.logger.info("Completed sync for all families")
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_10_135547) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_10_143000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -1945,11 +1945,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_135547) do
   end
 
   create_table "physical_metals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "auto_price_enabled", default: false, null: false
     t.decimal "cost_basis", precision: 19, scale: 4
     t.datetime "created_at", null: false
     t.decimal "manual_price_per_troy_ounce", precision: 19, scale: 4
     t.string "metal_type", null: false
     t.jsonb "locked_attributes", default: {}, null: false
+    t.string "price_symbol"
     t.string "storage_label", null: false
     t.decimal "troy_ounces", precision: 18, scale: 6, null: false
     t.datetime "updated_at", null: false
@@ -1959,6 +1961,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_135547) do
     t.check_constraint "cost_basis IS NULL OR cost_basis >= 0", name: "physical_metals_nonnegative_cost_basis"
     t.check_constraint "((valuation_state::text = 'unpriced'::text) AND (manual_price_per_troy_ounce IS NULL) AND (valuation_source IS NULL) AND (valuation_date IS NULL)) OR ((valuation_state::text = 'manually_valued'::text) AND (manual_price_per_troy_ounce > (0)::numeric) AND (valuation_source IS NOT NULL) AND (valuation_date IS NOT NULL))", name: "physical_metals_complete_manual_valuation"
     t.check_constraint "metal_type::text = ANY (ARRAY['gold'::character varying, 'silver'::character varying]::text[])", name: "physical_metals_metal_type"
+    t.check_constraint "price_symbol IS NULL OR price_symbol::text = ANY (ARRAY['GC=F'::character varying, 'SI=F'::character varying]::text[])", name: "physical_metals_price_symbol"
     t.check_constraint "troy_ounces > (0)::numeric", name: "physical_metals_positive_troy_ounces"
     t.check_constraint "valuation_state::text = ANY (ARRAY['unpriced'::character varying, 'manually_valued'::character varying]::text[])", name: "physical_metals_valuation_state"
   end

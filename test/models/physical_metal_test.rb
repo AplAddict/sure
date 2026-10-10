@@ -52,6 +52,11 @@ class PhysicalMetalTest < ActiveSupport::TestCase
     assert_includes metal.errors[:valuation_date], "can't be blank"
   end
 
+  test "uses Yahoo futures symbols for auto-pricing" do
+    assert_equal "SI=F", PhysicalMetal.new(metal_type: "silver").yahoo_price_symbol
+    assert_equal "GC=F", PhysicalMetal.new(metal_type: "gold").yahoo_price_symbol
+  end
+
   test "unpriced holdings are excluded from balance sheet and history" do
     unpriced = @family.accounts.create!(
       name: "Gold rounds",
