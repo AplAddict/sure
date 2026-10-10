@@ -51,20 +51,25 @@ class Provider::SnaptradePersonalTest < ActiveSupport::TestCase
     refute_includes error.message, "test-personal-consumer-key"
   end
 
-  test "signs GET account reads without OAuth or commercial identity headers" do
+  test "signs GET account reads with the Personal partner request contract" do
     provider = Provider::SnaptradePersonal.new
     request = OpenStruct.new(headers: {}, params: {})
     connection = mock("faraday")
-    connection.expects(:get).with("#{Provider::Snaptrade::API_BASE_URL}/api/v1/accounts").yields(request)
+    query = "clientId=test-personal-client&timestamp=1700000000"
+    connection.expects(:get).with("#{Provider::Snaptrade::API_BASE_URL}/api/v1/accounts?#{query}").yields(request)
       .returns(faraday_response(status: 200, body: [ { id: "account-1" } ].to_json))
     provider.stubs(:api_connection).returns(connection)
-    provider.stubs(:timestamp).returns("1700000000000")
 
-    assert_equal [ { "id" => "account-1" } ], provider.list_accounts
-    assert_equal "test-personal-client", request.headers["Client-ID"]
-    assert_equal "1700000000000", request.headers["Timestamp"]
-    assert_equal OpenSSL::HMAC.hexdigest("SHA256", "test-personal-consumer-key", "test-personal-client1700000000000"), request.headers["Signature"]
+    Time.stub(:now, Time.at(1_700_000_000)) do
+      assert_equal [ { "id" => "account-1" } ], provider.list_accounts
+    end
+
+    payload = JSON.generate(content: nil, path: "/api/v1/accounts", query:)
+    expected_signature = Base64.strict_encode64(OpenSSL::HMAC.digest("SHA256", "test-personal-consumer-key", payload))
+    assert_equal expected_signature, request.headers["Signature"]
+    assert_equal "application/json", request.headers["Accept"]
     assert_nil request.headers["Authorization"]
+    assert_nil request.headers["Client-ID"]
     assert_nil request.headers["User-ID"]
     assert_nil request.headers["User-Secret"]
   end

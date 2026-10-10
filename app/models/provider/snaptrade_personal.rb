@@ -131,25 +131,33 @@ class Provider::SnaptradePersonal
     end
 
     def request_json(path, params:)
-      request_timestamp = timestamp
-      response = api_connection.get("#{API_BASE_URL}#{path}") do |request|
-        request.headers["Client-ID"] = profile.client_id
-        request.headers["Timestamp"] = request_timestamp
-        request.headers["Signature"] = signature(request_timestamp)
+      # Personal API keys use SnapTrade's partner-request signing contract,
+      # not OAuth-style timestamp headers.  The SDK signs the fully serialized
+      # query string (including clientId and timestamp) and sends a base64
+      # HMAC in the Signature header.
+      query = encoded_query(params)
+      response = api_connection.get("#{API_BASE_URL}#{path}?#{query}") do |request|
+        request.headers["Signature"] = signature(path, query)
         request.headers["Accept"] = "application/json"
-        request.params.update(params) if params.present?
       end
       handle_response(response, "GET #{path}")
     rescue Faraday::Error
       raise ApiError, "SnapTrade Personal request failed"
     end
 
-    def timestamp
-      (Time.now.to_f * 1_000).to_i.to_s
+    def encoded_query(params)
+      query = { clientId: profile.client_id }
+      query.merge!(params.compact)
+      query[:timestamp] = Time.now.to_i.to_s
+      # Faraday re-serializes URL query strings. Sign with the same encoder it
+      # will put on the wire; URI.encode_www_form differs for some client IDs
+      # and makes otherwise-valid requests fail signature verification.
+      Faraday::Utils.default_params_encoder.encode(query)
     end
 
-    def signature(request_timestamp)
-      OpenSSL::HMAC.hexdigest("SHA256", profile.consumer_key, "#{profile.client_id}#{request_timestamp}")
+    def signature(path, query)
+      payload = JSON.generate(content: nil, path:, query:)
+      Base64.strict_encode64(OpenSSL::HMAC.digest("SHA256", profile.consumer_key, payload))
     end
 
     def handle_response(response, operation)
