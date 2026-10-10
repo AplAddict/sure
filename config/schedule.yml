@@ -19,6 +19,12 @@ process_financekit_inbox:
   queue: "high_priority"
   description: "Applies durable FinanceKit publisher batches and retries downstream work"
 
+refresh_security_fundamentals:
+  cron: "30 22 * * 1-5" # 30 minutes after the market-data import, Monday through Friday
+  class: "SecurityFundamentalsRefreshJob"
+  queue: "scheduled"
+  description: "Caches stock data (valuation, analyst view, earnings date) for held securities"
+
 run_security_health_checks:
   cron: "0 2 * * 1-5" # 2:00 AM EST / 3:00 AM EDT (NY time) Monday through Friday
   class: "SecurityHealthCheckJob"

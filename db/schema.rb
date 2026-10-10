@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_10_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_10_190000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -2343,6 +2343,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_170000) do
     t.check_constraint "kind::text = ANY (ARRAY['standard'::character varying::text, 'cash'::character varying::text])", name: "chk_securities_kind"
   end
 
+  create_table "security_fundamentals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "fetched_at"
+    t.datetime "last_attempt_at"
+    t.string "last_error"
+    t.jsonb "payload", default: {}, null: false
+    t.uuid "security_id", null: false
+    t.string "source", default: "yahoo_finance", null: false
+    t.datetime "updated_at", null: false
+    t.index ["security_id"], name: "index_security_fundamentals_on_security_id", unique: true
+  end
+
   create_table "security_prices", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "currency", default: "USD", null: false
@@ -3099,6 +3111,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_170000) do
   add_foreign_key "rule_conditions", "rules"
   add_foreign_key "rule_runs", "rules"
   add_foreign_key "rules", "families"
+  add_foreign_key "security_fundamentals", "securities"
   add_foreign_key "security_prices", "securities"
   add_foreign_key "sessions", "impersonation_sessions", column: "active_impersonator_session_id", on_delete: :nullify
   add_foreign_key "sessions", "users"

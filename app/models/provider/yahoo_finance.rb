@@ -290,6 +290,34 @@ class Provider::YahooFinance < Provider
     end
   end
 
+  FUNDAMENTAL_MODULES = "price,summaryDetail,defaultKeyStatistics,financialData,recommendationTrend,calendarEvents".freeze
+
+  # Valuation, margins, analyst view and next earnings date for display. Every
+  # figure is the source's own number or nil — a missing figure is never
+  # replaced by zero. Ratios come back as fractions (0.05 = 5%).
+  def fetch_security_fundamentals(symbol:, exchange_operating_mic: nil)
+    with_provider_response do
+      symbol = normalize_symbol(symbol, exchange_operating_mic)
+
+      throttle_request
+      cookie, crumb = fetch_cookie_and_crumb
+      result = request_fundamentals(symbol, cookie, crumb)
+
+      if result == :unauthorized
+        clear_crumb_cache
+        cookie, crumb = fetch_cookie_and_crumb
+        result = request_fundamentals(symbol, cookie, crumb)
+        raise AuthenticationError, "Yahoo Finance authentication failed after crumb refresh" if result == :unauthorized
+      end
+
+      raise Error, "No stock data found for #{symbol}" unless result
+
+      parse_fundamentals(result)
+    rescue Faraday::TooManyRequestsError
+      raise RateLimitError, "Yahoo Finance rate limit (429) while fetching stock data"
+    end
+  end
+
   def fetch_security_price(symbol:, exchange_operating_mic: nil, date:)
     with_provider_response do
       symbol = normalize_symbol(symbol, exchange_operating_mic)
@@ -955,6 +983,62 @@ class Provider::YahooFinance < Provider
 
     def min_request_interval
       ENV.fetch("YAHOO_FINANCE_MIN_REQUEST_INTERVAL", MIN_REQUEST_INTERVAL).to_f
+    end
+
+    def request_fundamentals(symbol, cookie, crumb)
+      response = authenticated_client(cookie).get("#{base_url}/v10/finance/quoteSummary/#{symbol}") do |req|
+        req.params["modules"] = FUNDAMENTAL_MODULES
+        req.params["crumb"] = crumb
+      end
+      data = JSON.parse(response.body)
+      return :unauthorized if data.dig("quoteSummary", "error", "code") == "Unauthorized"
+
+      data.dig("quoteSummary", "result", 0)
+    rescue JSON::ParserError => e
+      raise Error, "Invalid response format: #{e.message}"
+    end
+
+    def parse_fundamentals(result)
+      raw = ->(*path) do
+        value = result.dig(*path)
+        value = value["raw"] if value.is_a?(Hash)
+        value.is_a?(Numeric) ? value : nil
+      end
+      date_from = ->(*path) do
+        ts = raw.call(*path)
+        ts && Time.at(ts).utc.to_date.iso8601
+      end
+      trend = result.dig("recommendationTrend", "trend", 0) || {}
+      earnings = Array(result.dig("calendarEvents", "earnings", "earningsDate")).filter_map { |d| d.is_a?(Hash) ? d["raw"] : nil }
+      next_earnings = earnings.map { |ts| Time.at(ts).utc.to_date }.select { |d| d >= Date.current }.min
+
+      {
+        "currency" => result.dig("price", "currency"),
+        "market_cap" => raw.call("price", "marketCap") || raw.call("summaryDetail", "marketCap"),
+        "trailing_pe" => raw.call("summaryDetail", "trailingPE"),
+        "forward_pe" => raw.call("summaryDetail", "forwardPE"),
+        "beta" => raw.call("summaryDetail", "beta"),
+        "dividend_yield" => raw.call("summaryDetail", "dividendYield"),
+        "dividend_rate" => raw.call("summaryDetail", "dividendRate"),
+        "payout_ratio" => raw.call("summaryDetail", "payoutRatio"),
+        "ex_dividend_date" => date_from.call("summaryDetail", "exDividendDate"),
+        "fifty_two_week_high" => raw.call("summaryDetail", "fiftyTwoWeekHigh"),
+        "fifty_two_week_low" => raw.call("summaryDetail", "fiftyTwoWeekLow"),
+        "profit_margin" => raw.call("financialData", "profitMargins"),
+        "operating_margin" => raw.call("financialData", "operatingMargins"),
+        "revenue_growth" => raw.call("financialData", "revenueGrowth"),
+        "earnings_growth" => raw.call("financialData", "earningsGrowth"),
+        "return_on_equity" => raw.call("financialData", "returnOnEquity"),
+        "recommendation" => result.dig("financialData", "recommendationKey").presence,
+        "target_mean_price" => raw.call("financialData", "targetMeanPrice"),
+        "analyst_count" => raw.call("financialData", "numberOfAnalystOpinions"),
+        "strong_buy" => trend["strongBuy"],
+        "buy" => trend["buy"],
+        "hold" => trend["hold"],
+        "sell" => trend["sell"],
+        "strong_sell" => trend["strongSell"],
+        "next_earnings_date" => next_earnings&.iso8601
+      }
     end
 
     def throttle_request
