@@ -359,9 +359,25 @@ class SnaptradeAccount::ActivitiesProcessor
         date: activity_date,
         name: description,
         source: "snaptrade",
+        kind: ledger_kind_for(activity_type, description),
         investment_activity_label: label_from_type(activity_type)
       )
       @transactions_count += 1 if result
+    end
+
+    # Brokerage ledger movements are not household income or spending. Journals
+    # (cash/margin/vs. journals, tender journals) are internal movements, and a
+    # withdrawal is cash leaving the investment account. Fees, taxes, interest and
+    # margin interest remain ordinary expenses; dividends remain income.
+    LEDGER_JOURNAL_PATTERN = /\AJOURNAL/i
+    LEDGER_REAL_EXPENSE_PATTERN = /fee|interest|tax|debit/i
+
+    def ledger_kind_for(activity_type, description)
+      text = description.to_s
+      return "funds_movement" if activity_type == "JOURNAL" || text.match?(LEDGER_JOURNAL_PATTERN)
+      return "investment_contribution" if activity_type == "WITHDRAWAL" && !text.match?(LEDGER_REAL_EXPENSE_PATTERN)
+
+      nil
     end
 
     def reclassify_entry_if_needed(external_id, expected_type)

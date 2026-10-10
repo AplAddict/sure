@@ -43,11 +43,11 @@ class IncomeStatement::DailyExpenseTotalsTest < ActiveSupport::TestCase
     assert_equal 10, daily_series.first.total
   end
 
-  test "counts loan payments and investment contributions as expenses" do
+  test "counts loan payments as expenses but not investment contributions" do
     create_transaction(account: @checking, amount: -200, date: Date.current, kind: "loan_payment")
     create_transaction(account: @checking, amount: -300, date: Date.current, kind: "investment_contribution")
 
-    assert_equal 500, daily_series.first.total
+    assert_equal 200, daily_series.first.total
   end
 
   test "converts foreign currency amounts at the day's exchange rate" do
