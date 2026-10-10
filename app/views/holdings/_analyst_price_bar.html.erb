@@ -1,0 +1,33 @@
+<%# locals: (security:, current_price:) %>
+<% data = security.fundamental %>
+<% ccy = data&.currency.presence || security.try(:currency) || "USD" %>
+<% low = data&.target_low_price&.to_d %>
+<% mean = data&.target_mean_price&.to_d %>
+<% high = data&.target_high_price&.to_d %>
+<% current = current_price&.to_d %>
+<% range_available = low&.positive? && high&.positive? && high > low %>
+
+<section class="mt-6 rounded-xl border border-tertiary bg-container overflow-hidden" data-testid="analyst-price-bar">
+  <div class="flex flex-wrap items-start justify-between gap-3 border-b border-tertiary px-4 py-3">
+    <div><h2 class="font-medium text-primary">Analyst price range</h2><p class="mt-1 text-xs text-secondary">Cached analyst consensus — reference context only, not a trade signal.</p></div>
+    <% if data&.available? %><p class="text-xs <%= data.stale? ? "text-warning" : "text-secondary" %>"><%= data.stale? ? "Stale" : "Cached" %> <%= l(data.fetched_at, format: :long) %></p><% end %>
+  </div>
+
+  <% if range_available %>
+    <% span = high - low %>
+    <% marker = ->(price) { price ? [[((price - low) / span * 100).to_f, 0].max, 100].min : nil } %>
+    <div class="p-4">
+      <div class="mb-3 grid grid-cols-3 gap-3 text-xs"><div><p class="text-secondary">Low target</p><p class="mt-1 font-medium text-primary privacy-sensitive"><%= format_money(Money.new(low, ccy)) %></p></div><div class="text-center"><p class="text-secondary">Mean target</p><p class="mt-1 font-medium text-primary privacy-sensitive"><%= format_money(Money.new(mean, ccy)) %></p></div><div class="text-right"><p class="text-secondary">High target</p><p class="mt-1 font-medium text-primary privacy-sensitive"><%= format_money(Money.new(high, ccy)) %></p></div></div>
+      <div class="relative h-3 rounded-full bg-tertiary" aria-label="Analyst target range from <%= low %> to <%= high %>">
+        <div class="absolute inset-y-0 left-0 rounded-full bg-link/20" style="width: 100%"></div>
+        <% if (mean_marker = marker.call(mean)) %><span class="absolute top-1/2 h-5 w-0.5 -translate-x-1/2 -translate-y-1/2 bg-link" style="left: <%= mean_marker %>%" title="Mean target"></span><% end %>
+        <% if (current_marker = marker.call(current)) %><span class="absolute top-1/2 h-5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-container bg-primary" style="left: <%= current_marker %>%" title="Current mark"></span><% end %>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs"><span class="text-secondary">Current mark: <strong class="privacy-sensitive text-primary"><%= current ? format_money(Money.new(current, ccy)) : "Unavailable" %></strong></span><span class="text-secondary">Analyst opinions: <strong class="text-primary"><%= data.analyst_count || "Unavailable" %></strong></span></div>
+    </div>
+  <% elsif mean&.positive? %>
+    <div class="p-4 text-sm text-secondary">Analyst mean target: <span class="privacy-sensitive font-medium text-primary"><%= format_money(Money.new(mean, ccy)) %></span>. The source did not provide a valid low/high target range, so no range bar is shown.</div>
+  <% else %>
+    <p class="p-4 text-sm text-secondary">Analyst price targets are unavailable for this ticker.</p>
+  <% end %>
+</section>

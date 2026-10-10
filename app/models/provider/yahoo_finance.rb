@@ -1031,6 +1031,8 @@ class Provider::YahooFinance < Provider
         "return_on_equity" => raw.call("financialData", "returnOnEquity"),
         "recommendation" => result.dig("financialData", "recommendationKey").presence,
         "target_mean_price" => raw.call("financialData", "targetMeanPrice"),
+        "target_low_price" => raw.call("financialData", "targetLowPrice"),
+        "target_high_price" => raw.call("financialData", "targetHighPrice"),
         "analyst_count" => raw.call("financialData", "numberOfAnalystOpinions"),
         "strong_buy" => trend["strongBuy"],
         "buy" => trend["buy"],

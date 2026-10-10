@@ -34,7 +34,8 @@ class Security::FundamentalsArtifactImporter
         "profit_margin" => percent(source["profitMargins"]), "operating_margin" => percent(source["operatingMargins"]),
         "revenue_growth" => percent(source["revenueGrowth"]), "earnings_growth" => percent(source["earningsGrowth"]),
         "return_on_equity" => percent(source["returnOnEquity"]), "recommendation" => source["recommendationKey"],
-        "target_mean_price" => source["targetMeanPrice"], "analyst_count" => source["numberOfAnalystOpinions"],
+        "target_mean_price" => source["targetMeanPrice"], "target_low_price" => source["targetLowPrice"],
+        "target_high_price" => source["targetHighPrice"], "analyst_count" => source["numberOfAnalystOpinions"],
         "strong_buy" => source["strongBuy"], "buy" => source["buy"], "hold" => source["hold"], "sell" => source["sell"], "strong_sell" => source["strongSell"],
         "next_earnings_date" => Array(source["earningsDate"]).first
       }.compact

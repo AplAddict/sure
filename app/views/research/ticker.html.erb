@@ -25,6 +25,8 @@
   <p class="mb-6 text-xs text-secondary">This symbol is held in more than one currency, so aggregate money totals are intentionally unavailable. Account-level values remain below.</p>
 <% end %>
 
+<%= render "holdings/analyst_price_bar", security: @security, current_price: @holdings.first&.price %>
+
 <%= render "holdings/tradingview_chart", security: @security %>
 
 <section class="mt-6 rounded-xl border border-tertiary bg-container overflow-hidden">
