@@ -1,3 +1,35 @@
 <%# locals: (security:) %>
 <% news = security.research_snapshot&.section("news") %>
-<% if news.present? %><div class="px-3 py-2 space-y-2" data-testid="ticker-news"><p class="text-xs text-secondary">Ticker-tagged articles from the imported Invest news cache.</p><% news.first(12).each do |article| %><% next unless article["title"].present? && article["link"].present? %><%= link_to article["link"], target: "_blank", rel: "noopener", class: "block rounded-lg border border-tertiary p-3 hover:button-bg-secondary" do %><p class="text-sm font-medium text-primary leading-snug"><%= article["title"] %></p><p class="pt-1 text-xs text-secondary"><%= [article["source"], article["published_at"] || article["publishedAt"] || article["time"]].compact.join(" · ").presence || "Source time unavailable" %></p><% end %><% end %></div><% else %><p class="px-3 py-3 text-sm text-secondary">No current ticker-tagged news is available for this security.</p><% end %>
+<% analysis = security.headline_analysis %>
+<% article_tones = analysis&.available? ? analysis.payload.fetch("articleTones", {}) : {} %>
+<% if news.present? %>
+  <div class="px-3 py-2 space-y-2" data-testid="ticker-news">
+    <p class="text-xs text-secondary">Ticker-tagged articles from the imported Invest news cache. Tone badges are Jev’s research-only headline reading, not a trade signal.</p>
+    <% news.first(12).each do |article| %>
+      <% next unless article["title"].present? && article["link"].present? %>
+      <% title = article["title"].to_s.squish %>
+      <% tone_key = Digest::SHA256.hexdigest([article["source"].to_s.squish, title.truncate(Security::HeadlineToneAnalyzer::TITLE_LIMIT)].join("\u0000")) %>
+      <% tone = article_tones.dig(tone_key, "tone") %>
+      <% tone_class = case tone
+        when "bullish" then "bg-green-500/15 text-green-700 dark:text-green-300"
+        when "bearish" then "bg-red-500/15 text-red-700 dark:text-red-300"
+        when "mixed" then "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+        when "neutral" then "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+        when "insufficient_evidence" then "bg-secondary/15 text-secondary"
+      end %>
+      <%= link_to article["link"], target: "_blank", rel: "noopener", class: "block rounded-lg border border-tertiary p-3 hover:button-bg-secondary" do %>
+        <div class="flex items-start justify-between gap-2">
+          <p class="text-sm font-medium text-primary leading-snug"><%= title %></p>
+          <% if tone.present? %>
+            <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide <%= tone_class %>" data-testid="headline-tone"><%= tone.humanize %></span>
+          <% elsif analysis&.available? %>
+            <span class="shrink-0 rounded bg-secondary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary" data-testid="headline-tone">Not analyzed</span>
+          <% end %>
+        </div>
+        <p class="pt-1 text-xs text-secondary"><%= [article["source"], article["published_at"] || article["publishedAt"] || article["time"]].compact.join(" · ").presence || "Source time unavailable" %></p>
+      <% end %>
+    <% end %>
+  </div>
+<% else %>
+  <p class="px-3 py-3 text-sm text-secondary">No current ticker-tagged news is available for this security.</p>
+<% end %>
