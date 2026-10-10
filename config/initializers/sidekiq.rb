@@ -65,6 +65,8 @@ Sidekiq.configure_server do |config|
 
   # Initialize auto-sync scheduler when Sidekiq server starts
   config.on(:startup) do
+    schedule_file = Rails.root.join("config/schedule.yml")
+    Sidekiq::Cron::Job.load_from_hash(YAML.load_file(schedule_file)) if schedule_file.file?
     AutoSyncScheduler.sync!
     Rails.logger.info("[AutoSyncScheduler] Initialized sync_all_accounts cron job")
   rescue => e
