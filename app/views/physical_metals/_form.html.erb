@@ -1,0 +1,50 @@
+<%# locals: (account:, url:) %>
+<% metal = account.physical_metal || account.accountable %>
+
+<% if @error_message.present? %>
+  <%= render DS::Alert.new(message: @error_message, variant: :error) %>
+<% end %>
+
+<%= styled_form_with model: account, url: url, scope: :account, data: { turbo: false }, class: "flex flex-col gap-4 justify-between grow text-primary" do |form| %>
+  <div class="grow space-y-2">
+    <%= form.hidden_field :accountable_type %>
+    <%= form.hidden_field :return_to, value: params[:return_to] %>
+    <%= form.text_field :name, label: "Account name", required: "required" %>
+
+    <%= form.fields_for :accountable, metal do |metal_form| %>
+      <%= metal_form.select :metal_type, [["Gold", "gold"], ["Silver", "silver"]], { label: "Metal", include_blank: "Select metal" }, required: "required" %>
+      <%= metal_form.number_field :troy_ounces, label: "Troy oz", min: 0.000001, step: 0.000001, required: "required" %>
+      <%= metal_form.text_field :storage_label, label: "Storage label", placeholder: "e.g. home safe", required: "required" %>
+      <%= metal_form.money_field :cost_basis, label: "Cost basis (optional)", default_currency: Current.family.currency %>
+
+      <details class="group">
+        <summary class="cursor-pointer text-sm text-secondary hover:text-primary flex items-center gap-1 py-2">
+          <%= icon "chevron-right", size: "sm", class: "group-open:rotate-90 transition-transform" %>
+          Manual valuation
+        </summary>
+        <div class="space-y-2 mt-2 pl-4 border-l border-primary">
+          <p class="text-sm text-secondary">Unpriced—excluded from net worth. A manual valuation needs a positive per-troy-ounce price, source, and as-of date.</p>
+          <%= metal_form.money_field :manual_price_per_troy_ounce, label: "Manual price per troy oz", default_currency: Current.family.currency %>
+          <%= metal_form.text_field :valuation_source, label: "Valuation source", placeholder: "e.g. dealer quote" %>
+          <%= metal_form.date_field :valuation_date, label: "Valuation as-of date" %>
+        </div>
+      </details>
+    <% end %>
+
+    <details class="group">
+      <summary class="cursor-pointer text-sm text-secondary hover:text-primary flex items-center gap-1 py-2">
+        <%= icon "chevron-right", size: "sm", class: "group-open:rotate-90 transition-transform" %>
+        Additional details
+      </summary>
+      <div class="space-y-2 mt-2 pl-4 border-l border-primary">
+        <%= form.text_area :notes, label: "Notes", rows: 4 %>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-sm">Exclude from reports</span>
+          <%= form.toggle :exclude_from_reports %>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <%= form.submit %>
+<% end %>

@@ -1,0 +1,6 @@
+<%= render DS::Dialog.new do |dialog| %>
+  <% dialog.with_header(title: "Edit physical metals") %>
+  <% dialog.with_body do %>
+    <%= render "form", account: @account, url: physical_metal_path(@account) %>
+  <% end %>
+<% end %>

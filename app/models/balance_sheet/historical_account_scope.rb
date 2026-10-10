@@ -10,6 +10,8 @@ class BalanceSheet::HistoricalAccountScope
 
   def relation
     scope = family.accounts.historical.included_in_reports
+                  .joins("LEFT JOIN physical_metals ON physical_metals.id = accounts.accountable_id AND accounts.accountable_type = 'PhysicalMetal'")
+                  .where("accounts.accountable_type != ? OR physical_metals.valuation_state = ?", "PhysicalMetal", "manually_valued")
     user.present? ? scope.included_in_finances_for(user) : scope
   end
 

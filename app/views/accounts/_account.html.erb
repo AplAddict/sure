@@ -39,7 +39,9 @@
               <span class="hidden sm:inline text-secondary">• <%= account.institution_name %></span>
             <% end %>
           </div>
-          <% if account.long_subtype_label %>
+          <% if account.physical_metal? %>
+            <p class="text-sm text-secondary truncate"><%= account.physical_metal.troy_ounces %> troy oz · <%= account.physical_metal.manually_valued? ? "Manual valuation" : "Unpriced—excluded from net worth" %></p>
+          <% elsif account.long_subtype_label %>
             <p class="text-sm text-secondary truncate"><%= account.long_subtype_label %></p>
           <% end %>
           <% if account.supports_default? && is_default %>
@@ -54,6 +56,8 @@
     <div class="flex items-center gap-4">
       <% if account.draft? %>
         <!-- Balance hidden for draft accounts -->
+      <% elsif account.physical_metal? && account.physical_metal.unpriced? %>
+        <p class="text-sm font-medium text-secondary">Unpriced—excluded from net worth</p>
       <% elsif account.syncing? %>
         <div class="w-16 h-6 bg-loader rounded-full animate-pulse"></div>
       <% else %>

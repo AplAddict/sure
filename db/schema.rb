@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_10_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_10_135547) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -1942,6 +1942,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_120000) do
     t.index ["family_id"], name: "index_plaid_items_on_family_id"
     t.index ["owner_id"], name: "index_plaid_items_on_owner_id"
     t.index ["plaid_id"], name: "index_plaid_items_on_plaid_id", unique: true
+  end
+
+  create_table "physical_metals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "cost_basis", precision: 19, scale: 4
+    t.datetime "created_at", null: false
+    t.decimal "manual_price_per_troy_ounce", precision: 19, scale: 4
+    t.string "metal_type", null: false
+    t.jsonb "locked_attributes", default: {}, null: false
+    t.string "storage_label", null: false
+    t.decimal "troy_ounces", precision: 18, scale: 6, null: false
+    t.datetime "updated_at", null: false
+    t.date "valuation_date"
+    t.string "valuation_source"
+    t.string "valuation_state", default: "unpriced", null: false
+    t.check_constraint "cost_basis IS NULL OR cost_basis >= 0", name: "physical_metals_nonnegative_cost_basis"
+    t.check_constraint "((valuation_state::text = 'unpriced'::text) AND (manual_price_per_troy_ounce IS NULL) AND (valuation_source IS NULL) AND (valuation_date IS NULL)) OR ((valuation_state::text = 'manually_valued'::text) AND (manual_price_per_troy_ounce > (0)::numeric) AND (valuation_source IS NOT NULL) AND (valuation_date IS NOT NULL))", name: "physical_metals_complete_manual_valuation"
+    t.check_constraint "metal_type::text = ANY (ARRAY['gold'::character varying, 'silver'::character varying]::text[])", name: "physical_metals_metal_type"
+    t.check_constraint "troy_ounces > (0)::numeric", name: "physical_metals_positive_troy_ounces"
+    t.check_constraint "valuation_state::text = ANY (ARRAY['unpriced'::character varying, 'manually_valued'::character varying]::text[])", name: "physical_metals_valuation_state"
   end
 
   create_table "properties", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

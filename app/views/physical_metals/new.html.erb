@@ -1,0 +1,9 @@
+<%= render DS::Dialog.new do |dialog| %>
+  <% dialog.with_header(title: "Physical metals") %>
+  <% dialog.with_body do %>
+    <div class="space-y-2">
+      <%= render DS::Alert.new(message: "Offline manual asset. Enter troy oz; no live pricing is used.", variant: :info) %>
+      <%= render "form", account: @account, url: physical_metals_path %>
+    </div>
+  <% end %>
+<% end %>
