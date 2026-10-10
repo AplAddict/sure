@@ -18,7 +18,8 @@ class Onchain::AssetSymbol
     "WSOL"    => "SOL",
     "WPOL"    => "POL",
     "WMATIC"  => "POL",   # MATIC was renamed POL
-    "WXDAI"   => "XDAI"
+    "WXDAI"   => "XDAI",
+    "WBNB"    => "BNB"
   }.freeze
 
   # Bridge markers appended by Avalanche and Arbitrum: USDC.e, BTC.b

@@ -92,6 +92,10 @@ module Onchain
 
     SOLANA = "solana"
 
+    # Native BNB only: no free keyless indexer exists, so tokens and history
+    # are not read (see Onchain::BnbAdapter).
+    BNB = "bnb"
+
     BUILTIN = [
       Definition.new(
         key: BITCOIN,
@@ -118,6 +122,13 @@ module Onchain
         native: NativeAsset.new(symbol: "SOL", name: "Solana", decimals: 9),
         token_kind: "spl",
         adapter_class_name: "Onchain::SolanaAdapter",
+        adapter_options: {}
+      ),
+      Definition.new(
+        key: BNB,
+        native: NativeAsset.new(symbol: "BNB", name: "BNB", decimals: 18),
+        token_kind: nil,
+        adapter_class_name: "Onchain::BnbAdapter",
         adapter_options: {}
       )
     ].freeze
