@@ -131,7 +131,7 @@ class PagesController < ApplicationController
           next unless title.present? && article["link"].to_s.start_with?("https://")
 
           raw_source = article["source"].to_s.squish
-          { title: title, url: article["link"], source: raw_source.presence || "Source unavailable", published_at: article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase), headline_sentiments: dashboard_headline_sentiments(snapshot.security, raw_source, title) }
+          { title: title, url: article["link"], source: raw_source.presence || "Source unavailable", published_at: article["published"] || article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase), headline_sentiments: dashboard_headline_sentiments(snapshot.security, raw_source, title) }
         end
       end.flatten.uniq { |article| article[:url] }.sort_by { |article| article[:published_at].to_s }.reverse.first(8)
     end

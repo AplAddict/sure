@@ -19,7 +19,7 @@ class Security::HeadlineToneAnalyzer
     digest = Digest::SHA256.hexdigest(JSON.generate(articles))
 
     return persist_unavailable(record, digest, snapshot, "No current imported headlines") if articles.empty? || snapshot.nil? || snapshot.stale?
-    return record if record.available? && record.payload["schemaVersion"] == 2 && record.source_digest == digest && record.source_generated_at == snapshot.generated_at
+    return record if record.available? && record.payload["schemaVersion"] == 3 && record.source_digest == digest && record.source_generated_at == snapshot.generated_at
     return persist_unavailable(record, digest, snapshot, "Jev headline analysis is not configured") unless Provider::Jev.configured?
 
     questions = {
@@ -27,7 +27,7 @@ class Security::HeadlineToneAnalyzer
       coverage: { type: "choice", instructions: "Assess whether the supplied headline set has enough relevant, non-duplicated evidence for a cautious aggregate tone label. Choose insufficient when it does not.", criteria: COVERAGE.index_with { |choice| nil } }
     }
     articles.each_with_index do |_article, index|
-      questions["headline_#{index}"] = { type: "choice", instructions: "Classify only this individual dated headline's stated tone toward the named ticker. Do not infer a trade recommendation. Choose insufficient_evidence when the headline is ambiguous or lacks ticker-specific evidence.", criteria: TONES.index_with { |choice| nil } }
+      questions["headline_#{index}"] = { type: "choice", instructions: "Classify this individual dated article's stated tone toward the named ticker using only its title and description. Use bullish or bearish when it contains clear ticker-specific business, earnings, analyst, product, legal, regulatory, or market-impact direction; use neutral for factual/non-directional coverage and mixed for materially conflicting signals. Do not infer a trade recommendation. Reserve insufficient_evidence only for generic, ambiguous, unrelated, or missing ticker-specific evidence.", criteria: TONES.index_with { |choice| nil } }
     end
 
     response = provider.decide(
@@ -73,7 +73,7 @@ class Security::HeadlineToneAnalyzer
         title = article["title"].to_s.squish.truncate(TITLE_LIMIT)
         next if title.blank?
         key = Digest::SHA256.hexdigest([article["source"].to_s.squish, title].join("\u0000"))
-        { key: key, source: article["source"].to_s.squish.truncate(80), published_at: (article["published_at"] || article["publishedAt"] || article["time"]).to_s.truncate(40), title: title, description: article["description"].to_s.squish.truncate(DESCRIPTION_LIMIT) }
+        { key: key, source: article["source"].to_s.squish.truncate(80), published_at: (article["published"] || article["published_at"] || article["publishedAt"] || article["time"]).to_s.truncate(40), title: title, description: article["description"].to_s.squish.truncate(DESCRIPTION_LIMIT) }
       end.uniq { |article| article[:key] }.first(MAX_ARTICLES)
     end
 
@@ -84,7 +84,7 @@ class Security::HeadlineToneAnalyzer
 
     def policy_payload(articles, tone, coverage, tone_confidence, coverage_confidence, article_tones)
       {
-        "schemaVersion" => 2,
+        "schemaVersion" => 3,
         "policy" => { "researchOnly" => true, "brokerTruthOverride" => false, "executionWeight" => 0, "blockedUses" => %w[balances holdings valuations reports rankings orders position_sizing] },
         "analysis" => { "tone" => tone, "coverage" => coverage, "toneConfidence" => tone_confidence.to_f.clamp(0, 1), "coverageConfidence" => coverage_confidence.to_f.clamp(0, 1), "headlineCount" => articles.size },
         "articleTones" => article_tones
