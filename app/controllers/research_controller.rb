@@ -35,9 +35,37 @@ class ResearchController < ApplicationController
     raise ActiveRecord::RecordNotFound if @holdings.empty?
 
     @security = @holdings.first.security
+    @holding_currencies = @holdings.map(&:currency).uniq
+    @aggregate_position = aggregate_ticker_position
+    @purchase_entries = @holdings.flat_map(&:trades)
+                                .select { |entry| entry.trade&.buy? }
+                                .sort_by { |entry| [ entry.date || Date.new(1900, 1, 1), entry.id ] }
+                                .reverse
   end
 
   private
+    def aggregate_ticker_position
+      return { available: false } unless @holding_currencies.one?
+
+      currency = @holding_currencies.first
+      quantity = @holdings.sum { |holding| holding.qty.to_d }
+      market_value = @holdings.sum { |holding| holding.amount.to_d }
+      known_cost_holdings = @holdings.select { |holding| holding.cost_basis.present? && holding.qty.positive? }
+      complete_cost_basis = known_cost_holdings.size == @holdings.size
+      book_value = complete_cost_basis ? known_cost_holdings.sum { |holding| holding.cost_basis.to_d * holding.qty.to_d } : nil
+
+      {
+        available: true,
+        currency: currency,
+        quantity: quantity,
+        market_value: market_value,
+        book_value: book_value,
+        gain_loss: book_value ? market_value - book_value : nil,
+        covered_accounts: known_cost_holdings.size,
+        account_count: @holdings.size
+      }
+    end
+
     def scoped_securities
       Security.where(id: Holding.where(account_id: accessible_accounts.select(:id)).select(:security_id).distinct)
     end
