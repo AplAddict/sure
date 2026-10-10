@@ -8,6 +8,7 @@ class PagesController < ApplicationController
   #               false for content-sized widgets (tables, stat grids)
   #   min_height: floor in px
   DASHBOARD_SECTION_LAYOUTS = {
+    "ticker_news"        => { col_span: "full",   grow: false, min_height: 0,   width_toggle: true },
     # Width-toggleable but full by default: the feed is much shorter than any
     # other single-width widget, so defaulting to half leaves a grid hole the
     # masonry can't backfill (dense placement needs a later card short enough
@@ -55,6 +56,7 @@ class PagesController < ApplicationController
     # Preview-gated: skip the query outright rather than loading rows the
     # section won't be built from.
     @feed_insights = preview_features_enabled? ? Current.family.insights.visible.ordered.limit(Insight::FEED_LIMIT) : Insight.none
+    @ticker_news = cached_ticker_news
 
     @money_flow_accounts = income_statement.eligible_accounts
     # TransactionsController's default (account_ids absent) scopes to this
@@ -121,6 +123,16 @@ class PagesController < ApplicationController
   end
 
   private
+    def cached_ticker_news
+      security_ids = Holding.where(account_id: accessible_accounts.select(:id)).select(:security_id).distinct
+      SecurityResearchSnapshot.where(security_id: security_ids).filter_map do |snapshot|
+        Array(snapshot.section("news")).filter_map do |article|
+          next unless article["title"].present? && article["link"].to_s.start_with?("https://")
+          { title: article["title"], url: article["link"], source: article["source"].presence || "Source unavailable", published_at: article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase) }
+        end
+      end.flatten.uniq { |article| article[:url] }.sort_by { |article| article[:published_at].to_s }.reverse.first(8)
+    end
+
     def preferences_params
       prefs = params.require(:preferences)
       {}.tap do |permitted|
@@ -150,6 +162,15 @@ class PagesController < ApplicationController
 
     def build_dashboard_sections
       all_sections = [
+        {
+          key: "ticker_news",
+          title: "pages.dashboard.ticker_news.title",
+          partial: "pages/dashboard/ticker_news",
+          layout: section_layout("ticker_news"),
+          locals: { articles: @ticker_news },
+          visible: @ticker_news.any?,
+          collapsible: true
+        },
         insights_feed_section,
         {
           key: "cashflow_sankey",

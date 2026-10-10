@@ -1,6 +1,6 @@
 class ResearchController < ApplicationController
-  RESEARCH_ROOT = Pathname.new(ENV.fetch("INVEST_RESEARCH_PATH", "/run/invest-research"))
-  HEATMAP_FILE = "finviz_snapshot.json".freeze
+  NEWS_FILE = "news.json".freeze
+  PAGE_SIZE = 40
 
   def search
     @query = params[:q].to_s.strip
@@ -11,21 +11,47 @@ class ResearchController < ApplicationController
   end
 
   def news
-    @articles = article_rows
-  end
-
-  def heatmap
-    artifact = RESEARCH_ROOT.join(HEATMAP_FILE)
-    @heatmap = if artifact.file?
-      JSON.parse(artifact.read)
-    end
-  rescue JSON::ParserError
-    @heatmap = nil
+    @scope = %w[portfolio all].include?(params[:scope]) ? params[:scope] : "portfolio"
+    @query = params[:q].to_s.strip
+    @source = params[:source].to_s.strip
+    @category = params[:category].to_s.strip
+    @ticker = params[:ticker].to_s.upcase.strip
+    @sort = %w[latest title].include?(params[:sort]) ? params[:sort] : "latest"
+    @page = [params[:page].to_i, 1].max
+    @all_articles = news_rows
+    @sources = @all_articles.map { |article| article[:source] }.uniq.sort
+    @categories = @all_articles.map { |article| article[:category] }.compact.uniq.sort
+    @articles = filter_news(@all_articles)
+    @articles = @articles.sort_by { |article| @sort == "title" ? article[:title].downcase : article[:published_at].to_s }.reverse
+    @total = @articles.size
+    @articles = @articles.drop((@page - 1) * PAGE_SIZE).first(PAGE_SIZE)
   end
 
   private
     def scoped_securities
       Security.where(id: Holding.where(account_id: accessible_accounts.select(:id)).select(:security_id).distinct)
+    end
+
+    def news_rows
+      artifact = Pathname.new(ENV.fetch("INVEST_RESEARCH_PATH", "/run/invest-research")).join(NEWS_FILE)
+      Array(JSON.parse(artifact.read)).filter_map do |article|
+        next unless article["title"].present? && article["link"].to_s.start_with?("https://")
+        { title: article["title"], url: article["link"], description: article["description"].to_s.gsub(/<[^>]*>/, " ").squish, source: article["source"].presence || "Source unavailable", category: article["category"].presence, published_at: article["published"] || article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase) }
+      end.uniq { |article| article[:url] }
+    rescue Errno::ENOENT, JSON::ParserError
+      []
+    end
+
+    def filter_news(rows)
+      held = scoped_securities.pluck(:ticker).map(&:upcase).to_set
+      rows.select do |article|
+        text = [article[:title], article[:description], article[:source], article[:category], article[:tickers].join(" ")].join(" ").downcase
+        (@scope == "all" || (article[:tickers] & held.to_a).any?) &&
+          (@query.blank? || text.include?(@query.downcase)) &&
+          (@source.blank? || article[:source] == @source) &&
+          (@category.blank? || article[:category] == @category) &&
+          (@ticker.blank? || article[:tickers].include?(@ticker))
+      end
     end
 
     def article_rows
