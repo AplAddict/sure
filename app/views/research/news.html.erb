@@ -22,7 +22,7 @@
       <div class="flex flex-wrap items-center gap-2 text-xs">
         <span class="rounded-full bg-surface-inset px-2 py-1 text-secondary"><%= article[:source] %></span>
         <% if article[:category].present? %><span class="rounded-full bg-surface-inset px-2 py-1 text-secondary"><%= article[:category].humanize %></span><% end %>
-        <% article[:tickers].each do |ticker| %><span class="rounded-full bg-info-surface px-2 py-1 text-info"><%= ticker %></span><% end %>
+        <% article[:tickers].each do |ticker| %><%= link_to ticker, research_ticker_path(ticker), class: "rounded-full bg-info-surface px-2 py-1 text-info hover:underline" %><% end %>
         <span class="text-secondary"><%= article[:published_at].presence || "Publication time unavailable" %></span>
       </div>
       <%= link_to article[:url], target: "_blank", rel: "noopener", class: "block mt-3 text-base font-medium text-link leading-snug" do %><%= article[:title] %><% end %>

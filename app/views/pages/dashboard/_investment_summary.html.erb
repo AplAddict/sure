@@ -51,7 +51,7 @@
                       </div>
                     <% end %>
                     <div class="max-w-32">
-                      <p class="font-medium truncate"><%= holding.ticker %></p>
+                      <p class="font-medium truncate"><%= link_to holding.ticker, research_ticker_path(holding.ticker), class: "hover:underline" %></p>
                       <p class="text-xs text-secondary"><%= truncate(holding.name, length: 20) %></p>
                     </div>
                   </div>
