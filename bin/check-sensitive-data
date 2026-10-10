@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""Fail closed when a proposed Git change contains personal/runtime data.
+
+The checker intentionally scans only added lines in a Git range. This avoids
+flagging upstream examples while preventing new secrets or personal exports
+from entering Isaac's fork. It never prints matched values.
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import PurePosixPath
+
+FORBIDDEN_PATHS = [
+    re.compile(r"(^|/)\.env(?:$|\.)", re.I),
+    re.compile(r"(^|/)(?:secrets?|credentials?)(?:/|$)", re.I),
+    re.compile(r"(^|/)(?:uploads?|storage|backups?|exports?)(?:/|$)", re.I),
+    re.compile(r"(^|/)(?:log|tmp)(?:/|$)", re.I),
+    re.compile(r"\.(?:pem|key|p12|pfx|sqlite|sqlite3|db)$", re.I),
+    re.compile(r"\.(?:csv|tsv|xlsx|xls|numbers)$", re.I),
+]
+
+# Pattern name, regex. Never print the matching line/value in failures.
+CONTENT_RULES = [
+    ("private-key", re.compile(r"-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----")),
+    ("GitHub-token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b")),
+    ("OpenAI-key", re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b")),
+    ("AWS-access-key", re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")),
+    ("Slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{20,}\b")),
+    ("SSN", re.compile(r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")),
+    ("US-phone", re.compile(r"(?<!\d)(?:\+?1[ .-]?)?\(?[2-9]\d{2}\)?[ .-]\d{3}[ .-]\d{4}(?!\d)")),
+    ("non-example-email", re.compile(r"\b[A-Z0-9._%+-]+@(?!example\.(?:com|org|net)\b)[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)),
+]
+CARD_CANDIDATE = re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)")
+
+
+def git(*args: str) -> str:
+    try:
+        return subprocess.check_output(["git", *args], text=True, stderr=subprocess.PIPE).strip()
+    except subprocess.CalledProcessError as error:
+        message = error.stderr.strip() or "Git could not resolve the requested change range"
+        raise RuntimeError(message) from error
+
+
+def is_allowed_example(path: str) -> bool:
+    name = PurePosixPath(path).name.lower()
+    return name.endswith((".example", ".example.yml", ".example.yaml", ".template"))
+
+
+def luhn(number: str) -> bool:
+    digits = [int(c) for c in number if c.isdigit()]
+    if not 13 <= len(digits) <= 19:
+        return False
+    total = 0
+    for index, digit in enumerate(reversed(digits)):
+        total += digit if index % 2 == 0 else (digit * 2 - 9 if digit > 4 else digit * 2)
+    return total % 10 == 0
+
+
+def changed_paths(change_range: str) -> list[str]:
+    return [line.split("\t")[-1] for line in git("diff", "--name-status", change_range).splitlines() if line]
+
+
+def added_lines(change_range: str):
+    current_path = None
+    for line in git("diff", "--unified=0", "--no-ext-diff", change_range).splitlines():
+        if line.startswith("+++ b/"):
+            current_path = line[6:]
+        elif line.startswith("+") and not line.startswith("+++") and current_path:
+            yield current_path, line[1:]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--range", required=True, dest="change_range")
+    args = parser.parse_args()
+    findings: list[tuple[str, str]] = []
+
+    for path in changed_paths(args.change_range):
+        if not is_allowed_example(path) and any(rule.search(path) for rule in FORBIDDEN_PATHS):
+            findings.append((path, "forbidden runtime/personal-data path"))
+
+    for path, text in added_lines(args.change_range):
+        if "sensitive-data: allow" in text:
+            continue
+        for name, pattern in CONTENT_RULES:
+            if pattern.search(text):
+                findings.append((path, name))
+        if CARD_CANDIDATE.search(text) and any(luhn(candidate) for candidate in CARD_CANDIDATE.findall(text)):
+            findings.append((path, "payment-card number"))
+
+    if findings:
+        print("Sensitive-data guard blocked this change. No values are printed.", file=sys.stderr)
+        for path, reason in sorted(set(findings)):
+            print(f"- {path}: {reason}", file=sys.stderr)
+        print("Remove the data, use a non-secret example placeholder, or keep runtime data outside Git.", file=sys.stderr)
+        return 1
+
+    print("Sensitive-data guard passed.")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except RuntimeError as error:
+        print(f"Sensitive-data guard could not inspect the requested Git range: {error}", file=sys.stderr)
+        raise SystemExit(2)

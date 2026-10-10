@@ -35,6 +35,15 @@
 !/tmp/storage/.keep
 /db/development.sqlite3
 
+# Never commit local financial exports, backups, or imported personal files.
+/backups/
+/exports/
+/imports/
+/data/
+*.sqlite3
+*.p12
+*.pfx
+
 /public/assets
 
 # Ignore master key for decrypting credentials and more.
