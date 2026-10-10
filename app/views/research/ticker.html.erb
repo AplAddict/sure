@@ -1,0 +1,15 @@
+<% content_for :page_header do %>
+  <div class="mb-6"><h1 class="text-xl lg:text-3xl font-medium text-primary"><%= @ticker %></h1><p class="text-sm text-secondary mt-1"><%= @security.name.presence || "Ticker workspace" %> · broker-backed holdings by account</p></div>
+<% end %>
+<%= render "holdings/tradingview_chart", security: @security %>
+<section class="mt-6 rounded-xl border border-tertiary bg-container overflow-hidden">
+  <div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Holdings by account</h2><p class="text-xs text-secondary mt-1">Account rows are broker/Sure position truth. Open an account to return to its existing Holdings tab.</p></div>
+  <div class="divide-y divide-tertiary">
+    <% @holdings.each do |holding| %>
+      <div class="p-4 flex flex-wrap items-center justify-between gap-3">
+        <div><%= link_to holding.account.name, account_path(holding.account, tab: "holdings"), class: "font-medium text-link" %><p class="text-xs text-secondary mt-1"><%= format_quantity(holding.qty, exact: true) %> shares · <%= holding.avg_cost ? "cost #{format_money(holding.avg_cost)}" : "cost unavailable" %></p></div>
+        <div class="flex items-center gap-3"><span class="privacy-sensitive text-sm text-primary"><%= format_money(holding.amount_money) %></span><%= link_to "Open holding", holding_path(holding), data: { turbo_frame: :drawer }, class: "text-sm font-medium text-link" %></div>
+      </div>
+    <% end %>
+  </div>
+</section>

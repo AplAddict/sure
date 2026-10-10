@@ -27,6 +27,16 @@ class ResearchController < ApplicationController
     @articles = @articles.drop((@page - 1) * PAGE_SIZE).first(PAGE_SIZE)
   end
 
+  def ticker
+    @ticker = params[:ticker].to_s.upcase.strip
+    @holdings = accessible_accounts.flat_map do |account|
+      account.current_holdings.joins(:security).where(securities: { ticker: @ticker }).includes(:security).to_a
+    end
+    raise ActiveRecord::RecordNotFound if @holdings.empty?
+
+    @security = @holdings.first.security
+  end
+
   private
     def scoped_securities
       Security.where(id: Holding.where(account_id: accessible_accounts.select(:id)).select(:security_id).distinct)

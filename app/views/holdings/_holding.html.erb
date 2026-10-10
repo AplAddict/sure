@@ -12,7 +12,7 @@
         <%= link_to holding.name, holding_path(holding), data: { turbo_frame: :drawer }, class: "hover:underline" %>
 
         <% if holding.amount %>
-          <%= tag.p holding.ticker, class: "text-secondary text-xs uppercase" %>
+          <%= link_to holding.ticker, research_ticker_path(holding.ticker), class: "text-secondary text-xs uppercase hover:underline" %>
         <% else %>
           <%= render "missing_price_tooltip" %>
         <% end %>
