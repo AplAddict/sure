@@ -43,12 +43,10 @@ class Provider::SnaptradeAdapter < Provider::Base
   # @return [Provider::Snaptrade, nil] Returns nil if OAuth is not configured/authorized
   def self.build_provider(family: nil)
     return nil unless family.present?
-    return nil unless Provider::Snaptrade.oauth_configured?
-
     snaptrade_item = family.snaptrade_items.syncable.first
     return nil unless snaptrade_item
 
-    Provider::Snaptrade.new(snaptrade_item)
+    snaptrade_item.snaptrade_provider
   end
 
   def sync_path

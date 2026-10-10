@@ -10,12 +10,28 @@
     items = local_assigns[:snaptrade_items] || @snaptrade_items || Current.family.snaptrade_items.active.ordered
     snaptrade_item = items.reject(&:scheduled_for_deletion?).first
     oauth_env_configured = Provider::Snaptrade.oauth_configured?
+    personal_profile_configured = Provider::SnaptradePersonal.configured?
     redirect_flow_available = Provider::Snaptrade.authorization_code_configured?
     oauth_active = snaptrade_item&.oauth_token_active?
     oauth_item_id = snaptrade_item&.persisted? ? snaptrade_item.id : nil
   %>
 
-  <% if !oauth_env_configured %>
+  <% if personal_profile_configured %>
+    <div class="bg-surface-inset rounded-xl p-4 space-y-3">
+      <p class="text-sm font-medium text-primary"><%= t("providers.snaptrade.personal_title") %></p>
+      <p class="text-sm text-secondary"><%= t("providers.snaptrade.personal_status") %></p>
+      <% if snaptrade_item&.personal_profile? %>
+        <div class="flex items-center gap-2">
+          <%= icon("refresh-cw", as_button: true, href: sync_snaptrade_item_path(snaptrade_item), disabled: snaptrade_item.syncing?) %>
+          <% if snaptrade_item.unlinked_accounts_count > 0 %>
+            <%= render DS::Link.new(text: t("providers.snaptrade.setup_accounts_button"), icon: "settings", variant: :secondary, href: setup_accounts_snaptrade_item_path(snaptrade_item), frame: :modal) %>
+          <% end %>
+        </div>
+      <% else %>
+        <%= render DS::Link.new(text: t("providers.snaptrade.personal_setup_button"), icon: "shield-check", variant: :primary, full_width: true, href: setup_personal_snaptrade_items_path, method: :post) %>
+      <% end %>
+    </div>
+  <% elsif !oauth_env_configured %>
     <%= render "settings/providers/setup_steps",
                steps: [
                  t("providers.snaptrade.oauth_setup_step_1_html").html_safe,

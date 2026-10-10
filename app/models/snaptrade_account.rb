@@ -244,6 +244,7 @@ class SnaptradeAccount < ApplicationRecord
     # blocking the DB transaction with an external API call
     def enqueue_connection_cleanup
       return unless snaptrade_authorization_id.present?
+      return if snaptrade_item&.personal_profile?
 
       SnaptradeConnectionCleanupJob.perform_later(
         snaptrade_item_id: snaptrade_item_id,

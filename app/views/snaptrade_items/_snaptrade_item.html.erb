@@ -2,6 +2,7 @@
 
 <%= tag.div id: dom_id(snaptrade_item) do %>
   <% unlinked_count = snaptrade_item.unlinked_accounts_count %>
+  <% personal_profile = snaptrade_item.personal_profile? %>
   <% snaptrade_registered = snaptrade_item.oauth_configured? %>
   <% brokerage_connect_href = snaptrade_registered ? connect_snaptrade_item_path(snaptrade_item) : snaptrade_authorize_path(item_id: snaptrade_item.id) %>
   <% brokerage_connect_frame = snaptrade_registered ? "_top" : snaptrade_authorize_frame %>
@@ -56,7 +57,9 @@
 
         <% if Current.user&.admin? %>
           <div class="flex items-center gap-2">
-            <% if snaptrade_item.requires_update? || !snaptrade_registered %>
+            <% if personal_profile %>
+              <%= icon("refresh-cw", as_button: true, href: sync_snaptrade_item_path(snaptrade_item), disabled: snaptrade_item.syncing?) %>
+            <% elsif snaptrade_item.requires_update? || !snaptrade_registered %>
               <%= render DS::Link.new(
                 text: t(".reconnect"),
                 icon: "link",
@@ -74,13 +77,15 @@
             <% end %>
 
             <%= render DS::Menu.new do |menu| %>
-              <% menu.with_item(
-                variant: "link",
-                text: t(".connect_brokerage"),
-                icon: "plus",
-                href: brokerage_connect_href,
-                frame: brokerage_connect_frame
-              ) %>
+              <% unless personal_profile %>
+                <% menu.with_item(
+                  variant: "link",
+                  text: t(".connect_brokerage"),
+                  icon: "plus",
+                  href: brokerage_connect_href,
+                  frame: brokerage_connect_frame
+                ) %>
+              <% end %>
               <% if unlinked_count > 0 %>
                 <% menu.with_item(
                   variant: "link",
@@ -90,12 +95,14 @@
                   frame: :modal
                 ) %>
               <% end %>
-              <% menu.with_item(
-                variant: "link",
-                text: t(".manage_connections"),
-                icon: "cable",
-                href: settings_providers_path(manage: "1")
-              ) %>
+              <% unless personal_profile %>
+                <% menu.with_item(
+                  variant: "link",
+                  text: t(".manage_connections"),
+                  icon: "cable",
+                  href: settings_providers_path(manage: "1")
+                ) %>
+              <% end %>
               <% menu.with_item(
                 variant: "button",
                 text: t(".delete"),

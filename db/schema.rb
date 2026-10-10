@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_10_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -1593,7 +1593,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
     t.jsonb "variable_rate_schedule", default: {}, null: false
     t.check_constraint "down_payment IS NULL OR down_payment >= 0::numeric", name: "chk_loans_down_payment_non_negative"
     t.check_constraint "insurance_rate IS NULL OR insurance_rate >= 0::numeric", name: "chk_loans_insurance_rate_non_negative"
-    t.check_constraint "insurance_rate_type IS NULL OR (insurance_rate_type::text = ANY (ARRAY['level_term'::character varying, 'decreasing_life'::character varying]::text[]))", name: "chk_loans_insurance_rate_type"
+    t.check_constraint "insurance_rate_type IS NULL OR (insurance_rate_type::text = ANY (ARRAY['level_term'::character varying::text, 'decreasing_life'::character varying::text]))", name: "chk_loans_insurance_rate_type"
   end
 
   create_table "lunchflow_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2435,6 +2435,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
 
   create_table "snaptrade_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "client_id"
+    t.string "connection_mode", default: "oauth", null: false
     t.string "consumer_key"
     t.datetime "created_at", null: false
     t.uuid "family_id", null: false
@@ -2461,6 +2462,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
     t.datetime "updated_at", null: false
     t.index ["family_id"], name: "index_snaptrade_items_on_family_id"
     t.index ["status"], name: "index_snaptrade_items_on_status"
+    t.check_constraint "connection_mode::text = ANY (ARRAY['oauth'::character varying, 'personal_profile'::character varying]::text[])", name: "snaptrade_items_connection_mode"
   end
 
   create_table "sophtron_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

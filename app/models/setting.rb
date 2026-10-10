@@ -75,6 +75,12 @@ class Setting < RailsSettings::Base
     "https://cdn.brandfetch.io/#{path}/icon/fallback/#{fallback}/w/#{w}/h/#{h}?c=#{brand_fetch_client_id}"
   end
 
+  # SnapTrade Personal profile location and selector are operational metadata,
+  # never profile credentials. The profile file stays mounted read-only outside
+  # the database and is read only by Provider::SnaptradePersonal.
+  field :snaptrade_personal_profile_path, type: :string
+  field :snaptrade_personal_profile_name, type: :string
+
   # Provider selection
   field :exchange_rate_provider, type: :string, default: ENV.fetch("EXCHANGE_RATE_PROVIDER", "twelve_data")
   field :securities_provider, type: :string, default: ENV.fetch("SECURITIES_PROVIDER", "twelve_data")

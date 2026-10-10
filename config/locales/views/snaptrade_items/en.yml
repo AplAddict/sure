@@ -9,6 +9,10 @@ en:
     callback:
       success: "Brokerage connected! Please select which accounts to link."
       no_item: "SnapTrade configuration not found."
+    personal_not_configured: "SnapTrade Personal is not configured on this host."
+    personal_setup_started: "SnapTrade Personal is ready to sync local account data."
+    personal_read_only: "SnapTrade Personal is read-only; OAuth and remote connection management are unavailable."
+    personal_local_unlink: "Disconnected the local Sure link. SnapTrade Personal was not changed."
     complete_account_setup:
       success:
         one: "Successfully linked %{count} account."
@@ -146,6 +150,9 @@ en:
       oauth_setup_step_3: "Set SNAPTRADE_OAUTH_CLIENT_ID in your environment and restart. That alone enables the device code flow; add SNAPTRADE_OAUTH_CLIENT_SECRET for the browser flow too"
       free_tier_warning: "SnapTrade's free tier covers 20 brokerage connections."
       oauth_title: "SnapTrade OAuth"
+      personal_title: "SnapTrade Personal"
+      personal_status: "Read-only Personal profile active. Sync or set up locally discovered accounts."
+      personal_setup_button: "Use Personal profile"
       oauth_status_ready: "Authorize Sure to read your SnapTrade account data."
       oauth_status_ready_device: "Authorize Sure with a device code to read your SnapTrade account data."
       oauth_status_authorized: "Authorized with SnapTrade."

@@ -748,4 +748,16 @@ class SnaptradeItemsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#snaptrade-sync-spinner", count: 1, message: "Expected the spinner to be shown while sync is in progress"
     assert_select ".no-accounts-found", count: 0, message: "Expected the no-accounts UI to be hidden while a sync is active"
   end
+
+  test "Personal items render only local sync and setup actions" do
+    @snaptrade_item.update_columns(connection_mode: "personal_profile", oauth_access_token: nil, oauth_refresh_token: nil)
+
+    get accounts_url
+
+    assert_response :success
+    assert_select "a[href='#{sync_snaptrade_item_path(@snaptrade_item)}']", minimum: 1
+    assert_select "a[href='#{connect_snaptrade_item_path(@snaptrade_item)}']", count: 0
+    assert_no_match oauth_authorize_snaptrade_items_path(item_id: @snaptrade_item.id), response.body
+    assert_no_match "Manage Connections", response.body
+  end
 end

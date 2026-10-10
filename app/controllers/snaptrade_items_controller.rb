@@ -16,7 +16,7 @@ class SnaptradeItemsController < ApplicationController
   ].freeze
 
   before_action :set_snaptrade_item, only: [ :show, :destroy, :sync, :connect, :setup_accounts, :complete_account_setup, :connections, :delete_connection, :complete_oauth_device_flow ]
-  before_action :require_admin!, only: [ :destroy, :sync, :connect, :callback, :setup_accounts, :complete_account_setup, :connections, :delete_connection, :oauth_authorize, :oauth_callback, :oauth_device_authorize, :start_oauth_device_flow, :complete_oauth_device_flow, :preload_accounts, :select_accounts, :select_existing_account, :link_existing_account ]
+  before_action :require_admin!, only: [ :destroy, :sync, :connect, :callback, :setup_accounts, :complete_account_setup, :connections, :delete_connection, :oauth_authorize, :oauth_callback, :oauth_device_authorize, :start_oauth_device_flow, :complete_oauth_device_flow, :preload_accounts, :select_accounts, :select_existing_account, :link_existing_account, :setup_personal ]
 
   def index
     @snaptrade_items = Current.family.snaptrade_items.ordered
@@ -41,8 +41,24 @@ class SnaptradeItemsController < ApplicationController
     end
   end
 
+  # Creates a local-only item backed by the host-mounted Personal profile.
+  def setup_personal
+    unless Provider::SnaptradePersonal.configured?
+      redirect_to settings_providers_path, alert: t(".personal_not_configured")
+      return
+    end
+
+    item = Current.family.snaptrade_items.active.find_or_create_by!(connection_mode: "personal_profile") do |new_item|
+      new_item.name = t("snaptrade_items.default_name")
+    end
+    item.sync_later_with_follow_up unless item.syncing?
+    redirect_to setup_accounts_snaptrade_item_path(item), notice: t(".personal_setup_started")
+  end
+
   # Redirect user to SnapTrade connection portal
   def connect
+    return redirect_personal_mode if @snaptrade_item.personal_profile?
+
     redirect_url = callback_snaptrade_items_url(
       item_id: @snaptrade_item.id,
       return_to: params[:return_to].presence,
@@ -95,7 +111,7 @@ class SnaptradeItemsController < ApplicationController
     latest_sync = @snaptrade_item.syncs.ordered.first
     should_sync = latest_sync.nil? || !latest_sync.completed?
 
-    if @snaptrade_item.oauth_configured? && no_accounts && !@snaptrade_item.syncing? && should_sync
+    if @snaptrade_item.credentials_configured? && no_accounts && !@snaptrade_item.syncing? && should_sync
       @snaptrade_item.sync_later
     end
 
@@ -191,6 +207,8 @@ class SnaptradeItemsController < ApplicationController
 
   # Fetch connections list for Turbo Frame
   def connections
+    return redirect_personal_mode if @snaptrade_item.personal_profile?
+
     data = build_connections_list
     render partial: "snaptrade_items/connections_list", layout: false, locals: {
       connections: data[:connections],
@@ -211,6 +229,7 @@ class SnaptradeItemsController < ApplicationController
     else
       current_snaptrade_item || Current.family.snaptrade_items.create!(name: t("snaptrade_items.default_name"))
     end
+    return redirect_personal_mode if snaptrade_item.personal_profile?
 
     pkce = Provider::Snaptrade.generate_pkce
     state = SecureRandom.hex(32)
@@ -252,6 +271,7 @@ class SnaptradeItemsController < ApplicationController
       redirect_to settings_providers_path, alert: t(".failed")
       return
     end
+    return redirect_personal_mode if snaptrade_item.personal_profile?
 
     snaptrade_item.complete_oauth_exchange!(
       code: params[:code],
@@ -289,6 +309,7 @@ class SnaptradeItemsController < ApplicationController
     else
       current_snaptrade_item
     end
+    return redirect_personal_mode if @snaptrade_item&.personal_profile?
 
     render :oauth_device_flow
   end
@@ -303,6 +324,7 @@ class SnaptradeItemsController < ApplicationController
     else
       current_snaptrade_item || Current.family.snaptrade_items.create!(name: t("snaptrade_items.default_name"))
     end
+    return redirect_personal_mode if @snaptrade_item.personal_profile?
 
     @device_authorization = @snaptrade_item.start_oauth_device_flow(scope: @oauth_scope)
     store_pending_device_flow(@device_authorization)
@@ -317,6 +339,8 @@ class SnaptradeItemsController < ApplicationController
   # Device flow, step 2: redeem the confirmed code. From here the item is
   # indistinguishable from one authorized through the browser redirect.
   def complete_oauth_device_flow
+    return redirect_personal_mode if @snaptrade_item.personal_profile?
+
     assign_device_flow_context
 
     device_flow = pending_device_flow
@@ -372,6 +396,12 @@ class SnaptradeItemsController < ApplicationController
 
   # Delete a brokerage connection
   def delete_connection
+    if @snaptrade_item.personal_profile?
+      @snaptrade_item.snaptrade_accounts.where(snaptrade_authorization_id: params[:authorization_id]).destroy_all
+      redirect_to settings_providers_path, notice: t(".personal_local_unlink")
+      return
+    end
+
     authorization_id = params[:authorization_id]
 
     if authorization_id.blank?
@@ -428,7 +458,7 @@ class SnaptradeItemsController < ApplicationController
       return
     end
 
-    if snaptrade_item.oauth_configured?
+    if snaptrade_item.credentials_configured?
       snaptrade_item.sync_later_with_follow_up
       redirect_to setup_accounts_snaptrade_item_path(snaptrade_item)
     else
@@ -446,7 +476,7 @@ class SnaptradeItemsController < ApplicationController
       return
     end
 
-    if snaptrade_item.oauth_configured?
+    if snaptrade_item.credentials_configured?
       redirect_to setup_accounts_snaptrade_item_path(snaptrade_item, accountable_type: @accountable_type, return_to: @return_to)
     else
       redirect_to helpers.snaptrade_authorize_path(item_id: snaptrade_item.id, accountable_type: @accountable_type, return_to: @return_to)
@@ -510,6 +540,10 @@ class SnaptradeItemsController < ApplicationController
 
       active_items.syncable.ordered.first ||
         active_items.ordered.first
+    end
+
+    def redirect_personal_mode
+      redirect_to settings_providers_path, alert: t(".personal_read_only")
     end
 
     def assign_device_flow_context
@@ -603,6 +637,8 @@ class SnaptradeItemsController < ApplicationController
     end
 
     def build_connections_list
+      return { connections: [] } if @snaptrade_item.personal_profile?
+
       api_connections = @snaptrade_item.fetch_connections
 
       local_accounts = @snaptrade_item.snaptrade_accounts

@@ -1,0 +1,20 @@
+<div class="space-y-4">
+  <div>
+    <h2 class="font-medium mb-1"><%= t(".title") %></h2>
+    <p class="text-sm text-secondary"><%= t(".description") %></p>
+  </div>
+
+  <%= styled_form_with model: Setting.new,
+                       url: settings_hosting_path,
+                       method: :patch,
+                       data: { controller: "auto-submit-form", "auto-submit-form-trigger-event-value": "blur" } do |form| %>
+    <%= form.text_field :snaptrade_personal_profile_path,
+                        label: t(".profile_path"),
+                        value: Setting.snaptrade_personal_profile_path,
+                        data: { "auto-submit-form-target": "auto" } %>
+    <%= form.text_field :snaptrade_personal_profile_name,
+                        label: t(".profile_name"),
+                        value: Setting.snaptrade_personal_profile_name,
+                        data: { "auto-submit-form-target": "auto" } %>
+  <% end %>
+</div>

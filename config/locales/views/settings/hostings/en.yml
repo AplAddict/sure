@@ -303,6 +303,11 @@ en:
         requires_plan: requires %{plan} plan
         view_pricing: View Twelve Data pricing
         title: Twelve Data
+      snaptrade_personal_settings:
+        title: SnapTrade Personal
+        description: Configure only the read-only mounted profile path and profile name. Client and consumer credentials remain in the mounted JSON file and are never stored here.
+        profile_path: Read-only profile path
+        profile_name: Personal profile name
       update:
         invalid_demo_family: Selected family must own the configured demo email.
         select_demo_family: Select a disposable demo family first.

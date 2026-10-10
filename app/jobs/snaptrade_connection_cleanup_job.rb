@@ -23,6 +23,9 @@ class SnaptradeConnectionCleanupJob < ApplicationJob
       return
     end
 
+    # Personal profiles are read-only and never manage remote connections.
+    return if snaptrade_item.personal_profile?
+
     # Check if other accounts still use this authorization
     if snaptrade_item.snaptrade_accounts.where(snaptrade_authorization_id: authorization_id).exists?
       Rails.logger.info(

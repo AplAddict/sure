@@ -168,6 +168,7 @@ Rails.application.routes.draw do
       get :select_accounts
       get :select_existing_account
       post :link_existing_account
+      post :setup_personal
       get :callback
       get :oauth_authorize
       get :oauth_callback

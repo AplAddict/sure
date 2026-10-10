@@ -33,17 +33,18 @@ class SnaptradeItem < ApplicationRecord
   has_many :linked_accounts, through: :snaptrade_accounts
 
   scope :active, -> { where(scheduled_for_deletion: false) }
-  # Syncable = active + authorized via OAuth (has an access token).
+  # Syncable = active OAuth items with a token, plus Personal items whose
+  # mounted profile passes validation at provider construction time.
   # oauth_access_token is non-deterministically encrypted, so it can only be
   # queried with an IS NULL check (never persisted as "" -- see apply_oauth_tokens!).
-  scope :syncable, -> { active.where.not(oauth_access_token: nil) }
+  scope :syncable, -> { active.where(connection_mode: "personal_profile").or(active.where.not(oauth_access_token: nil)) }
   scope :ordered, -> { order(created_at: :desc) }
   scope :needs_update, -> { where(status: :requires_update) }
 
   def import_latest_snaptrade_data(sync: nil)
     provider = snaptrade_provider
     unless provider
-      Rails.logger.error "SnaptradeItem #{id} - Cannot import: OAuth not authorized"
+      Rails.logger.error "SnaptradeItem #{id} - Cannot import: connection is not configured"
       raise StandardError, "SnapTrade is not authorized"
     end
 
@@ -180,10 +181,17 @@ class SnaptradeItem < ApplicationRecord
   def oauth_configured?
     oauth_access_token.present?
   end
-  alias_method :credentials_configured?, :oauth_configured?
+
+  def personal_profile?
+    connection_mode == "personal_profile"
+  end
+
+  def credentials_configured?
+    personal_profile? ? Provider::SnaptradePersonal.configured? : oauth_configured?
+  end
 
   def fully_configured?
-    oauth_configured?
+    credentials_configured?
   end
 
   # Override Syncable#syncing? to also show syncing state when activities are being
