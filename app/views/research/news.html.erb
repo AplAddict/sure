@@ -1,13 +1,34 @@
-<% content_for :page_header do %><div class="mb-6"><h1 class="text-xl lg:text-3xl font-medium text-primary">News & impact</h1><p class="text-sm text-secondary mt-1">Cached source articles. Impact, sentiment, and clustering are unavailable in this artifact and are not inferred.</p></div><% end %>
-<%= form_with url: research_news_path, method: :get, class: "grid gap-2 md:grid-cols-3 mb-5" do |f| %>
-  <%= f.search_field :q, value: @query, placeholder: "Search headlines, descriptions, tickers", class: "form-field__input" %>
-  <%= f.select :scope, [["Held securities", "portfolio"], ["All cached news", "all"]], { selected: @scope }, class: "form-field__input" %>
-  <%= f.select :source, [["All sources", ""]] + @sources.map { |source| [source, source] }, { selected: @source }, class: "form-field__input" %>
-  <%= f.select :category, [["All categories", ""]] + @categories.map { |category| [category.to_s.humanize, category] }, { selected: @category }, class: "form-field__input" %>
-  <%= f.text_field :ticker, value: @ticker, placeholder: "Ticker", class: "form-field__input" %>
-  <%= f.select :sort, [["Latest", "latest"], ["Headline", "title"]], { selected: @sort }, class: "form-field__input" %>
-  <%= f.submit "Apply filters", class: "px-4 py-2 rounded-lg text-sm font-medium button-bg-primary text-inverse md:col-span-3" %>
+<% content_for :page_header do %>
+  <div class="mb-6 space-y-2">
+    <h1 class="text-xl lg:text-3xl font-medium text-primary">News & impact</h1>
+    <p class="text-sm text-secondary">Cached source articles with preserved source, topic, publication time, and ticker tags. Reference context only—not a trade signal.</p>
+  </div>
 <% end %>
+
+<%= form_with url: research_news_path, method: :get, class: "rounded-xl border border-tertiary bg-container p-4 grid gap-3 md:grid-cols-3 mb-5" do |f| %>
+  <div class="md:col-span-3"><%= f.search_field :q, value: @query, placeholder: "Search headlines, descriptions, tickers, or sources", class: "form-field__input", aria: { label: "Search news" } %></div>
+  <%= f.select :scope, [["Held securities", "portfolio"], ["All cached news", "all"]], { selected: @scope }, class: "form-field__input", aria: { label: "News scope" } %>
+  <%= f.select :source, [["All sources", ""]] + @sources.map { |source| [source, source] }, { selected: @source }, class: "form-field__input", aria: { label: "Source" } %>
+  <%= f.select :category, [["All topics", ""]] + @categories.map { |category| [category.to_s.humanize, category] }, { selected: @category }, class: "form-field__input", aria: { label: "Topic" } %>
+  <%= f.text_field :ticker, value: @ticker, placeholder: "Ticker", class: "form-field__input", aria: { label: "Ticker" } %>
+  <%= f.select :sort, [["Newest first", "latest"], ["Headline A–Z", "title"]], { selected: @sort }, class: "form-field__input", aria: { label: "Sort articles" } %>
+  <%= f.submit "Apply filters", class: "px-4 py-2 rounded-lg text-sm font-medium button-bg-primary text-inverse" %>
+<% end %>
+
 <p class="text-sm text-secondary mb-3"><%= @total %> matching articles · page <%= @page %></p>
-<section class="space-y-3"><% @articles.each do |article| %><article class="rounded-xl border border-tertiary p-4"><div class="flex flex-wrap gap-2 text-xs text-secondary"><span><%= article[:source] %></span><span><%= article[:category].to_s.humanize %></span><span><%= article[:published_at] || "Time unavailable" %></span><span><%= article[:tickers].join(", ") %></span></div><%= link_to article[:url], target: "_blank", rel: "noopener", class: "block mt-2 text-base font-medium text-link" do %><%= article[:title] %><% end %><% if article[:description].present? %><p class="mt-2 text-sm text-secondary"><%= truncate(article[:description], length: 220) %></p><% end %></article><% end %></section>
+<section class="space-y-3" aria-label="News articles">
+  <% @articles.each do |article| %>
+    <article class="rounded-xl border border-tertiary bg-container p-4">
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <span class="rounded-full bg-surface-inset px-2 py-1 text-secondary"><%= article[:source] %></span>
+        <% if article[:category].present? %><span class="rounded-full bg-surface-inset px-2 py-1 text-secondary"><%= article[:category].humanize %></span><% end %>
+        <% article[:tickers].each do |ticker| %><span class="rounded-full bg-info-surface px-2 py-1 text-info"><%= ticker %></span><% end %>
+        <span class="text-secondary"><%= article[:published_at].presence || "Publication time unavailable" %></span>
+      </div>
+      <%= link_to article[:url], target: "_blank", rel: "noopener", class: "block mt-3 text-base font-medium text-link leading-snug" do %><%= article[:title] %><% end %>
+      <% if article[:description].present? %><p class="mt-2 text-sm text-secondary leading-relaxed"><%= truncate(article[:description], length: 260) %></p><% end %>
+    </article>
+  <% end %>
+  <% if @articles.empty? %><p class="rounded-xl border border-tertiary p-5 text-sm text-secondary">No cached articles match these filters.</p><% end %>
+</section>
 <% if @total > @page * ResearchController::PAGE_SIZE %><%= link_to "Load more", research_news_path(request.query_parameters.merge(page: @page + 1)), class: "inline-block mt-5 text-sm font-medium text-link" %><% end %>
