@@ -176,11 +176,11 @@ class PortfolioHoldingsTest < ActionDispatch::IntegrationTest
     assert_equal toggle_keys.sort, lot_keys.sort, "a lot row with no toggle can never be opened"
   end
 
-  test "price and avg cost columns hide when the table is narrow and show when it has room" do
+  test "price, avg cost and weight hide when the table is narrow and show when it has room" do
     sign_in @owner
     get portfolio_holdings_path(account: @account.id)
 
-    assert_select "th.hidden.\\@3xl\\:table-cell", count: 2
+    assert_select "th.hidden.\\@3xl\\:table-cell", count: 3
     assert_select "table.\\@3xl\\:min-w-\\[820px\\]"
   end
 
