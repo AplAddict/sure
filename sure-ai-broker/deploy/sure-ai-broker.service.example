@@ -1,0 +1,48 @@
+[Unit]
+Description=Sure AI broker (text-only tool-call shim for an OAuth-backed model)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Stdlib-only Python; install the sure-ai-broker/ directory read-only at this path.
+WorkingDirectory=/opt/sure-ai-broker
+ExecStart=/usr/bin/python3 -m sure_ai_broker
+
+# Private bind only. Never expose publicly; put it on the internal Docker bridge
+# address that Sure reaches (and nothing else), or 127.0.0.1 with a host-side proxy.
+Environment=BROKER_BIND_HOST=127.0.0.1
+Environment=BROKER_BIND_PORT=8713
+# Fixed upstream (server-side only; clients cannot choose a model or URL).
+Environment=BROKER_UPSTREAM_BASE_URL=https://upstream.example.invalid/v1
+Environment=BROKER_UPSTREAM_MODEL=example-model
+# Secrets are delivered as credential files and never appear in the environment.
+LoadCredential=broker-token:/etc/credstore/sure-ai-broker/broker-token
+LoadCredential=upstream-token:/etc/credstore/sure-ai-broker/upstream-token
+Environment=BROKER_TOKEN_FILE=%d/broker-token
+Environment=BROKER_UPSTREAM_TOKEN_FILE=%d/upstream-token
+
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+MemoryMax=256M
+TasksMax=64
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

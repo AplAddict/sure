@@ -617,6 +617,9 @@ class Provider::Openai < Provider
         params[:tools] = tools if tools.present?
         params[:tool_choice] = "none" if tool_choice == :none && tools.present?
         params[:max_tokens] = explicit_max_response_tokens if explicit_max_response_tokens
+        # Opaque, chat-owner-scoped tenant key (SHA-256 of the owner id) so an
+        # isolating OpenAI-compatible backend never shares state across users.
+        params[:user] = "sure-chat-#{user_identifier}" if user_identifier.to_s.match?(/\A[0-9a-f]{64}\z/)
 
         begin
           raw_response = session_client.chat(parameters: params)

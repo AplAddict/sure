@@ -143,3 +143,4 @@ logs/security/
 # Ignore Playwright artifacts
 playwright-report/
 .playwright-mcp
+__pycache__/
