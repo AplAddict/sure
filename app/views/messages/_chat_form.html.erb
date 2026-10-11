@@ -5,14 +5,27 @@
 
   <%= form_with model: model,
                 class: "flex lg:flex-col gap-2 bg-container px-2 py-1.5 rounded-full lg:rounded-lg shadow-border-xs",
-                data: { chat_target: "form", controller: "chat-composer", chat_composer_url_value: chat_composer_options_path, action: "keydown->chat-composer#escape" } do |f| %>
+                data: { chat_target: "form", controller: "chat-composer", chat_composer_url_value: chat_composer_options_path, action: "keydown->chat-composer#escape submit->chat-composer#serialize", chat_composer_remove_label_value: t(".chip_remove") } do |f| %>
 
     <%# In the future, this will be a dropdown with different AI models %>
     <%= f.hidden_field :ai_model, value: default_ai_model %>
 
+    <%# Selected items from the buttons below render as removable bubbles; they are joined into the message on send. %>
+    <div class="flex flex-wrap gap-1.5 empty:hidden" role="list" aria-label="<%= t(".chips_label") %>" data-chat-composer-target="chips"></div>
+
+    <template data-chat-composer-target="chipTemplate" data-kind="mention">
+      <%= render "messages/composer_chip", icon_name: "at-sign" %>
+    </template>
+    <template data-chat-composer-target="chipTemplate" data-kind="range">
+      <%= render "messages/composer_chip", icon_name: "calendar" %>
+    </template>
+    <template data-chat-composer-target="chipTemplate" data-kind="prompt">
+      <%= render "messages/composer_chip", icon_name: "sparkles" %>
+    </template>
+
     <%= f.text_area :content, placeholder: t(".placeholder"), value: message_hint,
                   class: "w-full border-0 focus:ring-0 text-sm resize-none px-1 bg-transparent",
-                  data: { chat_target: "input", chat_composer_target: "input", action: "input->chat#autoResize keydown->chat#handleInputKeyDown" },
+                  data: { chat_target: "input", chat_composer_target: "input", action: "input->chat#autoResize keydown->chat#handleInputKeyDown keydown->chat-composer#backspace" },
                   rows: 1 %>
 
     <div class="flex items-center justify-between gap-1">
@@ -32,6 +45,7 @@
             <% prompt_sets[:range].each do |key| %>
               <button type="button" role="menuitem" class="block w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-hover rounded-md"
                       data-action="click->chat-composer#insert"
+                      data-chat-composer-kind-param="range"
                       data-chat-composer-text-param="<%= t(".ranges.#{key}") %>"><%= t(".ranges.#{key}") %></button>
             <% end %>
           </div>
@@ -46,7 +60,7 @@
             <% prompt_sets[:quick].each do |key| %>
               <button type="button" role="menuitem" class="block w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-hover rounded-md"
                       data-action="click->chat-composer#insert"
-                      data-chat-composer-mode-param="replace"
+                      data-chat-composer-kind-param="prompt"
                       data-chat-composer-text-param="<%= t(".prompts.#{key}") %>"><%= t(".prompts.#{key}") %></button>
             <% end %>
           </div>

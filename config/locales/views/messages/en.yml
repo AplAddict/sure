@@ -6,6 +6,8 @@ en:
     chat_form:
       placeholder: "Ask anything ..."
       disclaimer: "AI responses are informational only. Not financial advice!"
+      chip_remove: Remove
+      chips_label: Selected items
       coming_soon: Coming soon
       add_timeframe: Add a time range
       quick_prompts: Quick questions

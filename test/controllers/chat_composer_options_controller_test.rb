@@ -52,4 +52,23 @@ class ChatComposerOptionsControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-chat-composer-menu-param]", count: 3
     assert_select "[data-menu='mentions'] input[type=search]"
   end
+
+  test "menu choices render as removable bubbles, not text in the box" do
+    get new_chat_url
+    assert_response :success
+
+    # One bubble template per kind, each with a remove control and no preset text.
+    %w[mention range prompt].each do |kind|
+      assert_select "template[data-chat-composer-target='chipTemplate'][data-kind='#{kind}']", count: 1
+    end
+    assert_select "[data-chat-composer-target='chips']", count: 1
+    assert_select "template [data-chip-remove]", count: 3
+
+    # Items insert as bubbles (kind param), never with the old direct-to-textarea mode.
+    assert_select "[data-chat-composer-kind-param='range']"
+    assert_select "[data-chat-composer-kind-param='prompt']"
+    assert_select "[data-chat-composer-mode-param]", count: 0
+    assert_select "form[data-action~='submit->chat-composer#serialize']"
+    assert_select "textarea[data-action~='keydown->chat-composer#backspace']"
+  end
 end

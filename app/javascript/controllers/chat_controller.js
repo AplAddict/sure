@@ -63,7 +63,10 @@ export default class extends Controller {
   }
 
   #hasContent() {
-    return this.inputTarget.value.trim().length > 0;
+    return (
+      this.inputTarget.value.trim().length > 0 ||
+      this.formTarget.querySelector("[data-composer-chip]") !== null
+    );
   }
 
   #updateSubmitState() {

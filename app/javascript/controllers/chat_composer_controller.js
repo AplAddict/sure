@@ -3,8 +3,8 @@ import { Controller } from "@hotwired/stimulus";
 // Composer menus for the AI chat: quick prompts (⌘), @mentions, and time ranges (+).
 // Everything inserted is plain text the user can edit; nothing is sent until they submit.
 export default class extends Controller {
-  static targets = ["input", "menu", "filter", "mentionList", "mentionStatus"];
-  static values = { url: String };
+  static targets = ["input", "menu", "filter", "mentionList", "mentionStatus", "chips", "chipTemplate"];
+  static values = { url: String, removeLabel: { type: String, default: "Remove" } };
 
   connect() {
     this.loaded = false;
@@ -34,12 +34,46 @@ export default class extends Controller {
     if (name === "mentions") this.#loadMentions();
   }
 
+  // Menu items become bubbles. Nothing reaches the message until the form is sent.
   insert(event) {
     event.preventDefault();
-    const text = event.params.text;
+    const { text, kind } = event.params;
     if (!text) return;
-    this.#insertAtCursor(event.params.mode === "replace" ? text : `${text} `, event.params.mode === "replace");
+    this.#addChip(kind || "prompt", text);
     this.#closeAll();
+  }
+
+  removeChip(event) {
+    event.preventDefault();
+    const chip = event.currentTarget.closest("[data-composer-chip]");
+    if (!chip) return;
+    chip.remove();
+    this.#chipsChanged();
+    this.inputTarget.focus();
+  }
+
+  // Joins the bubbles and the typed text into the one message the server receives:
+  // quick questions first, then what was typed, then mentions and time ranges.
+  serialize() {
+    const chips = this.#chips();
+    if (chips.length === 0) return;
+
+    const byKind = (kind) => chips.filter((c) => c.dataset.kind === kind).map((c) => c.dataset.text);
+    const typed = this.inputTarget.value.trim();
+    const parts = [...byKind("prompt"), typed, ...byKind("mention"), ...byKind("range")].filter(Boolean);
+
+    this.inputTarget.value = parts.join(" ");
+    this.chipsTarget.replaceChildren();
+  }
+
+  // Backspace in an empty box removes the last bubble, like a tag input.
+  backspace(event) {
+    if (event.key !== "Backspace" || this.inputTarget.value !== "") return;
+    const last = this.#chips().at(-1);
+    if (!last) return;
+    event.preventDefault();
+    last.remove();
+    this.#chipsChanged();
   }
 
   filterMentions() {
@@ -57,22 +91,35 @@ export default class extends Controller {
       .forEach((el) => el.setAttribute("aria-expanded", "false"));
   }
 
-  #insertAtCursor(text, replace) {
-    const input = this.inputTarget;
-    if (replace) {
-      input.value = text;
-    } else {
-      const start = input.selectionStart ?? input.value.length;
-      const end = input.selectionEnd ?? input.value.length;
-      const before = input.value.slice(0, start);
-      const needsSpace = before.length > 0 && !/\s$/.test(before);
-      input.value = `${before}${needsSpace ? " " : ""}${text}${input.value.slice(end)}`;
-      const caret = (before + (needsSpace ? " " : "") + text).length;
-      input.setSelectionRange(caret, caret);
+  #chips() {
+    return this.hasChipsTarget ? Array.from(this.chipsTarget.querySelectorAll("[data-composer-chip]")) : [];
+  }
+
+  #addChip(kind, text) {
+    if (this.#chips().some((c) => c.dataset.kind === kind && c.dataset.text === text)) {
+      this.inputTarget.focus();
+      return;
     }
-    input.focus();
-    // Let the chat controller resize the box and enable the send button.
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const template = this.chipTemplateTargets.find((t) => t.dataset.kind === kind);
+    if (!template) return;
+
+    const chip = template.content.firstElementChild.cloneNode(true);
+    chip.dataset.kind = kind;
+    chip.dataset.text = text;
+    chip.querySelector("[data-chip-label]").textContent = text; // data, never markup
+    chip.title = text;
+    const remove = chip.querySelector("[data-chip-remove]");
+    remove.setAttribute("aria-label", `${this.removeLabelValue} ${text}`);
+    this.chipsTarget.appendChild(chip);
+
+    this.#chipsChanged();
+    this.inputTarget.focus();
+  }
+
+  #chipsChanged() {
+    // The chat controller listens for input to resize the box and enable Send.
+    this.inputTarget.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
   async #loadMentions() {
@@ -119,7 +166,7 @@ export default class extends Controller {
         button.className = "block w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-hover rounded-md truncate";
         button.textContent = name; // textContent: names are data, never markup
         button.addEventListener("click", () => {
-          this.#insertAtCursor(`${name} `, false);
+          this.#addChip("mention", name);
           this.#closeAll();
         });
         list.appendChild(button);

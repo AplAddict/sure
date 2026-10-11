@@ -6,6 +6,8 @@ de:
     chat_form:
       placeholder: Frag mich etwas …
       disclaimer: "KI-Antworten dienen nur zur Information. Keine Finanzberatung!"
+      chip_remove: Entfernen
+      chips_label: Ausgewählte Elemente
       coming_soon: Kommt bald
       add_timeframe: Zeitraum hinzufügen
       quick_prompts: Schnelle Fragen
