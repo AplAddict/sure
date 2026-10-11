@@ -1,0 +1,20 @@
+<%# locals: (flags:) %>
+<% if flags.empty? %>
+  <span class="text-secondary"><%= t("tax_loss_harvests.show.flags.clear") %></span>
+<% else %>
+  <ul class="space-y-1">
+    <% flags.each do |flag| %>
+      <li class="text-warning">
+        <% case flag.kind %>
+        <% when :recent_purchase %>
+          <%= t("tax_loss_harvests.show.flags.recent_purchase", date: l(flag.date, format: :short), qty: flag.detail.round(4).to_s("F")) %>
+          <span class="block text-secondary"><%= t("tax_loss_harvests.show.flags.recent_purchase_ends", date: l(flag.end_date, format: :short)) %></span>
+        <% when :held_elsewhere %>
+          <%= t("tax_loss_harvests.show.flags.held_elsewhere", accounts: flag.detail.to_sentence) %>
+        <% when :open_window %>
+          <%= t("tax_loss_harvests.show.flags.open_window", date: l(flag.end_date, format: :short)) %>
+        <% end %>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

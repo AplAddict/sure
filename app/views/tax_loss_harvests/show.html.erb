@@ -64,17 +64,17 @@
     <% else %>
       <div class="overflow-hidden rounded-xl bg-container shadow-border-xs">
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[56rem] text-sm">
+          <table class="w-full text-sm">
             <caption class="sr-only"><%= t(".table.caption") %></caption>
             <thead class="bg-container-inset text-xs uppercase tracking-wide text-secondary">
               <tr>
                 <th scope="col" class="px-4 py-2 text-left font-medium"><%= t(".table.security") %></th>
-                <th scope="col" class="px-4 py-2 text-left font-medium"><%= t(".table.account") %></th>
-                <th scope="col" class="px-4 py-2 text-right font-medium"><%= t(".table.value") %></th>
-                <th scope="col" class="px-4 py-2 text-right font-medium"><%= t(".table.cost") %></th>
+                <th scope="col" class="hidden px-4 py-2 text-left font-medium lg:table-cell"><%= t(".table.account") %></th>
+                <th scope="col" class="hidden px-4 py-2 text-right font-medium md:table-cell"><%= t(".table.value") %></th>
+                <th scope="col" class="hidden px-4 py-2 text-right font-medium md:table-cell"><%= t(".table.cost") %></th>
                 <th scope="col" class="px-4 py-2 text-right font-medium"><%= t(".table.loss") %></th>
-                <th scope="col" class="px-4 py-2 text-left font-medium"><%= t(".table.term") %></th>
-                <th scope="col" class="px-4 py-2 text-left font-medium"><%= t(".table.status") %></th>
+                <th scope="col" class="hidden px-4 py-2 text-left font-medium md:table-cell"><%= t(".table.term") %></th>
+                <th scope="col" class="hidden px-4 py-2 text-left font-medium md:table-cell"><%= t(".table.status") %></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-tertiary">
@@ -86,15 +86,18 @@
                       <% if row.candidate %><%= render DS::Pill.new(label: t(".table.candidate"), tone: :warning, marker: false, size: :sm) %><% end %>
                     </div>
                     <p class="max-w-[14rem] truncate text-xs text-secondary"><%= row.name %></p>
+                    <p class="mt-0.5 truncate text-xs text-subdued lg:hidden"><%= link_to row.account.name, account_path(row.account), class: "hover:underline" %></p>
+                    <p class="mt-1 text-xs text-secondary md:hidden"><%= t(".term.#{row.term}") %></p>
+                    <div class="mt-1 text-xs md:hidden"><%= render "tax_loss_harvests/wash_flags", flags: row.wash_flags %></div>
                   </td>
-                  <td class="px-4 py-3 text-secondary"><%= link_to row.account.name, account_path(row.account), class: "hover:underline" %></td>
-                  <td class="px-4 py-3 text-right font-mono privacy-sensitive"><%= row.market_value.format %></td>
-                  <td class="px-4 py-3 text-right font-mono privacy-sensitive"><%= row.cost_basis.format %></td>
+                  <td class="hidden px-4 py-3 text-secondary lg:table-cell"><%= link_to row.account.name, account_path(row.account), class: "hover:underline" %></td>
+                  <td class="hidden px-4 py-3 text-right font-mono privacy-sensitive md:table-cell"><%= row.market_value.format %></td>
+                  <td class="hidden px-4 py-3 text-right font-mono privacy-sensitive md:table-cell"><%= row.cost_basis.format %></td>
                   <td class="px-4 py-3 text-right font-mono text-primary">
                     <span class="privacy-sensitive"><%= row.loss.format %></span>
                     <% if row.loss_pct %><p class="text-xs text-secondary"><%= number_to_percentage(row.loss_pct, precision: 1) %></p><% end %>
                   </td>
-                  <td class="px-4 py-3">
+                  <td class="hidden px-4 py-3 md:table-cell">
                     <% if row.term == :unknown %>
                       <%= render DS::Pill.new(label: t(".term.unknown"), tone: :neutral, marker: false, size: :sm, title: t(".term.unknown_hint")) %>
                     <% elsif row.term == :mixed %>
@@ -105,26 +108,8 @@
                     <% end %>
                     <% if row.first_acquired %><p class="mt-1 text-xs text-subdued"><%= l(row.first_acquired, format: :long) %></p><% end %>
                   </td>
-                  <td class="px-4 py-3 text-xs">
-                    <% if row.wash_flags.empty? %>
-                      <span class="text-secondary"><%= t(".flags.clear") %></span>
-                    <% else %>
-                      <ul class="space-y-1">
-                        <% row.wash_flags.each do |flag| %>
-                          <li class="text-warning">
-                            <% case flag.kind %>
-                            <% when :recent_purchase %>
-                              <%= t(".flags.recent_purchase", date: l(flag.date, format: :short), qty: flag.detail.round(4).to_s("F")) %>
-                              <span class="block text-secondary"><%= t(".flags.recent_purchase_ends", date: l(flag.end_date, format: :short)) %></span>
-                            <% when :held_elsewhere %>
-                              <%= t(".flags.held_elsewhere", accounts: flag.detail.to_sentence) %>
-                            <% when :open_window %>
-                              <%= t(".flags.open_window", date: l(flag.end_date, format: :short)) %>
-                            <% end %>
-                          </li>
-                        <% end %>
-                      </ul>
-                    <% end %>
+                  <td class="hidden px-4 py-3 text-xs md:table-cell">
+                    <%= render "tax_loss_harvests/wash_flags", flags: row.wash_flags %>
                   </td>
                 </tr>
               <% end %>
