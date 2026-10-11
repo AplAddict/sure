@@ -10,7 +10,6 @@ class Assistant::ExternalConfigTest < ActiveSupport::TestCase
       assert_equal "http://from-env/v1/chat", Assistant::External.config.url
       assert_equal "openclaw/main", Assistant::External.config.model
       assert_equal "main", Assistant::External.config.agent_id
-      assert_equal "agent:main:main", Assistant::External.config.session_key
     end
   end
 
@@ -39,14 +38,14 @@ class Assistant::ExternalConfigTest < ActiveSupport::TestCase
     end
   end
 
-  test "config reads session_key with custom value" do
-    with_env_overrides(
-      "EXTERNAL_ASSISTANT_URL" => "http://example.com/v1/chat",
-      "EXTERNAL_ASSISTANT_TOKEN" => "test-token",
-      "EXTERNAL_ASSISTANT_SESSION_KEY" => "agent:finance-bot:finance"
-    ) do
-      assert_equal "agent:finance-bot:finance", Assistant::External.config.session_key
-    end
+  test "external sessions use opaque keys unique to each chat" do
+    first = Assistant::External.new(chats(:one)).send(:session_key)
+    second = Assistant::External.new(chats(:two)).send(:session_key)
+
+    assert_match(/\Asure-chat-[a-f0-9]{64}\z/, first)
+    assert_match(/\Asure-chat-[a-f0-9]{64}\z/, second)
+    assert_not_equal first, second
+    assert_not_includes first, chats(:one).user_id
   end
 
   test "available_for? fails closed even when the external service is configured" do
