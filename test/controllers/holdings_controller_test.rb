@@ -59,6 +59,29 @@ class HoldingsControllerTest < ActionDispatch::IntegrationTest
     assert_select "select[name=metric] option[selected][value=day_gain]"
   end
 
+  test "advanced holdings table includes cost per share and daily and total gain columns" do
+    get holdings_url(account_id: @account.id, view: "advanced")
+
+    assert_response :success
+    assert_includes response.body, "Cost/share"
+    assert_includes response.body, "Share price"
+    assert_includes response.body, "Total value"
+    assert_includes response.body, "Day gain"
+    assert_includes response.body, "Total gain"
+    assert_includes response.body, "Day gain %"
+    assert_includes response.body, "Total gain %"
+  end
+
+  test "share price is a fixed advanced-table column, not a compact metric option" do
+    get holdings_url(account_id: @account.id, view: "compact")
+
+    assert_response :success
+    assert_select "select[name=metric] option[value=share_price]", count: 0
+
+    get holdings_url(account_id: @account.id, view: "advanced")
+    assert_includes response.body, "Share price"
+  end
+
   test "destroys holding and associated entries" do
     assert_difference -> { Holding.count } => -1,
                       -> { Entry.count } => -1 do

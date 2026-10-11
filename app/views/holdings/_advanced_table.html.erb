@@ -2,7 +2,8 @@
 <% unavailable = "Unavailable" %>
 <% qty = ->(value) { value.zero? ? "0" : number_with_precision(value, precision: 8, strip_insignificant_zeros: true) } %>
 <% money = ->(amount, currency) { amount.nil? ? tag.span("—", class: "text-secondary", title: unavailable) : tag.span(format_money(Money.new(amount, currency)), class: "privacy-sensitive") } %>
-<% gain = ->(position) { position.gain ? tag.span(format_money(Money.new(position.gain, position.currency)), class: "privacy-sensitive #{position.gain.positive? ? "text-success" : position.gain.negative? ? "text-destructive" : "text-primary"}") : tag.span("—", class: "text-secondary", title: unavailable) } %>
+<% gain = ->(amount, currency) { amount.nil? ? tag.span("—", class: "text-secondary", title: unavailable) : tag.span(format_money(Money.new(amount, currency)), class: "privacy-sensitive #{amount.positive? ? "text-success" : amount.negative? ? "text-destructive" : "text-primary"}") } %>
+<% percent = ->(amount) { amount.nil? ? tag.span("—", class: "text-secondary", title: unavailable) : tag.span(number_to_percentage(amount, precision: 1), class: amount.positive? ? "text-success" : amount.negative? ? "text-destructive" : "text-primary") } %>
 <% sort_link = lambda do |label, key|
      active = portfolio.sort == key
      direction = active && portfolio.direction == "desc" ? "asc" : "desc"
@@ -11,16 +12,19 @@
      end
    end %>
 <div class="overflow-x-auto rounded-xl border border-tertiary" data-testid="account-holdings-advanced">
-  <table class="min-w-[820px] w-full text-sm">
+  <table class="min-w-[1120px] w-full text-sm">
     <caption class="sr-only">Advanced holdings table for <%= account.name %></caption>
     <thead class="bg-container-inset text-xs uppercase text-secondary">
       <tr>
         <th scope="col" class="px-4 py-2.5 text-left font-medium"><%= sort_link.call("Security", "symbol") %></th>
         <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Quantity", "quantity") %></th>
-        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Price", "price") %></th>
-        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Avg cost", "avg_cost") %></th>
+        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Share price", "price") %></th>
+        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Cost/share", "avg_cost") %></th>
         <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Total value", "market_value") %></th>
+        <th scope="col" class="px-3 py-2.5 text-right font-medium">Day gain</th>
         <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Total gain", "gain") %></th>
+        <th scope="col" class="px-3 py-2.5 text-right font-medium">Day gain %</th>
+        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Total gain %", "gain_pct") %></th>
         <th scope="col" class="px-4 py-2.5 text-right font-medium"><%= sort_link.call("Weight", "weight") %></th>
       </tr>
     </thead>
@@ -33,10 +37,13 @@
             <td class="px-3 py-3 text-right font-mono"><%= money.call(position.price, position.currency) %></td>
             <td class="px-3 py-3 text-right font-mono"><%= money.call(position.avg_cost, position.currency) %></td>
             <td class="px-3 py-3 text-right font-mono font-medium"><%= money.call(position.market_value, position.currency) %></td>
-            <td class="px-3 py-3 text-right font-mono"><%= gain.call(position) %></td>
+            <td class="px-3 py-3 text-right font-mono"><%= gain.call(position.day_gain, position.currency) %></td>
+            <td class="px-3 py-3 text-right font-mono"><%= gain.call(position.gain, position.currency) %></td>
+            <td class="px-3 py-3 text-right font-mono"><%= percent.call(position.day_gain_pct) %></td>
+            <td class="px-3 py-3 text-right font-mono"><%= percent.call(position.gain_pct) %></td>
             <td class="px-4 py-3 text-right font-mono"><%= position.weight ? number_to_percentage(position.weight, precision: 1) : "—" %></td>
           </tr>
-          <% if position.lots? %><tr class="bg-container-inset"><td colspan="7" class="px-4 py-2"><details><summary class="cursor-pointer text-xs font-medium text-link"><%= pluralize(position.lots.size, "broker tax lot") %></summary><div class="mt-2 grid gap-1 text-xs text-secondary"><% position.lots.each do |lot| %><div class="grid grid-cols-4 gap-2"><span><%= lot.acquired_on ? l(lot.acquired_on, format: :long) : "Date unavailable" %></span><span class="text-right"><%= qty.call(lot.quantity) %> shares</span><span class="text-right">Basis <%= money.call(lot.cost_basis, position.currency) %></span><span class="text-right">Value <%= money.call(lot.market_value, position.currency) %></span></div><% end %></div></details></td></tr><% end %>
+          <% if position.lots? %><tr class="bg-container-inset"><td colspan="10" class="px-4 py-2"><details><summary class="cursor-pointer text-xs font-medium text-link"><%= pluralize(position.lots.size, "broker tax lot") %></summary><div class="mt-2 grid gap-1 text-xs text-secondary"><% position.lots.each do |lot| %><div class="grid grid-cols-4 gap-2"><span><%= lot.acquired_on ? l(lot.acquired_on, format: :long) : "Date unavailable" %></span><span class="text-right"><%= qty.call(lot.quantity) %> shares</span><span class="text-right">Basis <%= money.call(lot.cost_basis, position.currency) %></span><span class="text-right">Value <%= money.call(lot.market_value, position.currency) %></span></div><% end %></div></details></td></tr><% end %>
         <% end %>
       <% end %>
     </tbody>

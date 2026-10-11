@@ -16,11 +16,13 @@ class PortfolioHoldings
     def unit_cost = cost_basis && quantity.positive? ? cost_basis / quantity : nil
   end
 
-  Position = Data.define(:account, :security, :quantity, :price, :avg_cost, :cost_basis, :market_value, :currency, :weight, :lots) do
+  Position = Data.define(:account, :security, :quantity, :price, :avg_cost, :cost_basis, :market_value, :currency, :weight, :lots, :day_change) do
     def ticker = security.ticker
     def name = security.name.presence || security.ticker
     def gain = cost_basis && market_value ? market_value - cost_basis : nil
     def gain_pct = cost_basis&.positive? && gain ? gain / cost_basis * 100 : nil
+    def day_gain = day_change&.value
+    def day_gain_pct = day_change&.percent
     def lots? = lots.any?
   end
 
@@ -149,7 +151,8 @@ class PortfolioHoldings
         market_value: value,
         currency: holding.currency,
         weight: account_total.positive? ? value / account_total * 100 : nil,
-        lots: verified_lots(lots_by_security[holding.security.ticker.to_s.upcase], quantity)
+        lots: verified_lots(lots_by_security[holding.security.ticker.to_s.upcase], quantity),
+        day_change: holding.day_change
       )
     end
 

@@ -5,7 +5,7 @@ class HoldingsController < ApplicationController
   before_action :require_holding_write_permission!, only: %i[update destroy unlock_cost_basis remap_security reset_security sync_prices]
 
   HOLDING_VIEWS = %w[compact advanced].freeze
-  DISPLAY_METRICS = %w[share_price total_value day_gain total_gain day_gain_pct total_gain_pct].freeze
+  DISPLAY_METRICS = %w[total_value day_gain total_gain day_gain_pct total_gain_pct].freeze
 
   def index
     @account = accessible_accounts.find(params[:account_id])

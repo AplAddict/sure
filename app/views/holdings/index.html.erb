@@ -21,7 +21,7 @@
       <%= form_with url: holdings_path, method: :get, class: "flex items-center justify-end gap-2", data: { controller: "auto-submit-form", turbo_frame: dom_id(@account, :holdings) } do |f| %>
         <%= f.hidden_field :account_id, value: @account.id %><%= f.hidden_field :view, value: @holdings_view %>
         <%= f.label :metric, "Right-side value", class: "text-xs text-secondary" %>
-        <%= f.select :metric, options_for_select([["Share price", "share_price"], ["Total value", "total_value"], ["Day gain", "day_gain"], ["Total gain", "total_gain"], ["Day gain %", "day_gain_pct"], ["Total gain %", "total_gain_pct"]], @display_metric), {}, class: "form-field__input text-sm", data: { auto_submit_form_target: "auto" } %>
+        <%= f.select :metric, options_for_select([["Total value", "total_value"], ["Day gain", "day_gain"], ["Total gain", "total_gain"], ["Day gain %", "day_gain_pct"], ["Total gain %", "total_gain_pct"]], @display_metric), {}, class: "form-field__input text-sm", data: { auto_submit_form_target: "auto" } %>
       <% end %>
     <% end %>
 
