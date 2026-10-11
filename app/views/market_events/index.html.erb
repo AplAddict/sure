@@ -1,0 +1,56 @@
+<% content_for :page_title, "Market Events" %>
+
+<div class="space-y-5 pb-8">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <p class="text-xs font-medium uppercase tracking-wide text-secondary">Holdings-derived calendar</p>
+      <h1 class="text-2xl font-semibold text-primary">Market Events</h1>
+      <p class="mt-1 max-w-3xl text-sm text-secondary">Generated from holdings, cached market data, and read-only options snapshots. This does not import or copy your external calendar.</p>
+    </div>
+    <%= link_to "Ticker research", research_search_path, class: "text-sm text-link hover:underline" %>
+  </div>
+
+  <%= form_with url: market_events_path, method: :get, class: "flex flex-wrap gap-2 rounded-xl bg-container p-3 shadow-border-xs" do |form| %>
+    <%= form.date_field :from, value: @from, class: "rounded-lg border border-tertiary bg-container px-2 py-1.5 text-sm text-primary" %>
+    <%= form.date_field :to, value: @to, class: "rounded-lg border border-tertiary bg-container px-2 py-1.5 text-sm text-primary" %>
+    <%= form.select :type, [["All event types", ""], ["Earnings", "earnings"], ["Ex-dividend", "ex_dividend"], ["Options expiration", "options_expiration"], ["Wash sales", "wash_sale"]], { selected: @event_type }, class: "rounded-lg border border-tertiary bg-container px-2 py-1.5 text-sm text-primary" %>
+    <%= form.submit "Apply", class: "rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-inverse" %>
+  <% end %>
+
+  <div class="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-primary">
+    <p class="font-medium">Wash sales: verification boundary</p>
+    <p class="mt-1 text-secondary"><%= @wash_sale_status[:reason] %></p>
+  </div>
+
+  <% if @events.empty? %>
+    <div class="rounded-xl bg-container p-8 text-center shadow-border-xs">
+      <p class="font-medium text-primary">No verified events in this range</p>
+      <p class="mt-1 text-sm text-secondary">Unavailable or stale source data is never shown as a fabricated market or tax event.</p>
+    </div>
+  <% else %>
+    <div class="overflow-hidden rounded-xl bg-container shadow-border-xs">
+      <% @events.group_by(&:date).each do |date, events| %>
+        <section class="border-b border-tertiary last:border-b-0">
+          <div class="bg-container-inset px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary"><%= l(date, format: :long) %></div>
+          <% events.each do |event| %>
+            <div class="flex items-center justify-between gap-4 px-4 py-3">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <%= link_to event.ticker, research_ticker_path(event.ticker), class: "font-semibold text-link hover:underline" %>
+                  <span class="rounded bg-container-inset px-1.5 py-0.5 text-[11px] font-medium text-secondary"><%= event.event_type.humanize %></span>
+                  <% if event.freshness == "stale" %><span class="text-[11px] text-warning">Stale source</span><% end %>
+                </div>
+                <p class="mt-1 text-sm text-primary"><%= event.title %></p>
+                <% if event.end_date > event.date %>
+                  <p class="mt-0.5 text-xs font-medium text-warning">Watch window: <%= l(event.date, format: :long) %> – <%= l(event.end_date, format: :long) %></p>
+                <% end %>
+                <p class="mt-0.5 truncate text-xs text-secondary"><%= event.details %></p>
+              </div>
+              <span class="shrink-0 text-xs text-secondary"><%= event.source %></span>
+            </div>
+          <% end %>
+        </section>
+      <% end %>
+    </div>
+  <% end %>
+</div>

@@ -527,6 +527,7 @@ Rails.application.routes.draw do
   get "research/search", to: "research#search", as: :research_search
   get "research/news", to: "research#news", as: :research_news
   get "research/tickers/:ticker", to: "research#ticker", as: :research_ticker
+  get "market-events", to: "market_events#index", as: :market_events
 
   resources :holdings, only: %i[index new show update destroy] do
     member do
