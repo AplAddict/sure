@@ -113,6 +113,18 @@ class BillsFeedsControllerTest < ActionDispatch::IntegrationTest
     assert_equal first, second
   end
 
+  test "wash-sale feed text states the inclusive start and end dates" do
+    event = MarketCalendar::EventBuilder::Event.new(
+      event_type: "wash_sale", ticker: "AAPL", title: "AAPL — Wash-sale watch window",
+      date: Date.new(2026, 10, 1), end_date: Date.new(2026, 10, 31),
+      details: "Recorded loss sale.", source: "Recorded trades", freshness: "calculated"
+    )
+    feed = BillsFeedsController.new
+
+    assert_equal "AAPL — Wash-sale window: Oct 1 to Oct 31, 2026", feed.send(:market_summary, event)
+    assert_match(/starts October 1, 2026 and ends October 31, 2026 \(inclusive\)/, feed.send(:market_description, event))
+  end
+
   private
 
     def create_bill(name:, amount:, account: accounts(:depository))

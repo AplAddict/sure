@@ -1,4 +1,17 @@
 <%# locals: (event:) %>
-<%= link_to research_ticker_path(event.ticker), class: "block rounded bg-info/10 px-1.5 py-0.5 text-xs text-info truncate hover:opacity-80", title: event.details do %>
-  <%= event.ticker %> · <%= event.event_type.humanize %>
+<% wash_sale = event.event_type == "wash_sale" %>
+<%= link_to research_ticker_path(event.ticker), class: "block rounded px-1.5 py-0.5 text-xs hover:opacity-80 #{wash_sale ? "bg-warning/15 text-warning" : "bg-info/10 text-info"}", title: event.details do %>
+  <% if wash_sale %>
+    <% timing = if event.end_date < Date.current
+      "Ended"
+    elsif event.date > Date.current
+      "Opens in #{(event.date - Date.current).to_i}d"
+    else
+      "Open · #{(event.end_date - Date.current).to_i}d left"
+    end %>
+    <span class="font-medium"><%= event.ticker %> · Wash window</span>
+    <span class="block text-[10px] leading-tight"><%= timing %> — starts <%= l(event.date, format: "%b %-d") %>; ends <%= l(event.end_date, format: "%b %-d") %></span>
+  <% else %>
+    <%= event.ticker %> · <%= event.event_type.humanize %>
+  <% end %>
 <% end %>

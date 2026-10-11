@@ -441,9 +441,9 @@ class BillsController < ApplicationController
 
       market_builder = MarketCalendar::EventBuilder.new(accounts: Current.user.accessible_accounts)
       market_events = market_builder.events
-      market_events = market_events.select { |event| event.date.between?(@grid_start, @grid_end) }
+      market_events = market_events.select { |event| event.date <= @grid_end && event.end_date >= @grid_start }
       market_events = market_events.select { |event| event.event_type == market_type } if market_type
-      @market_events_by_day = market_events.group_by(&:date)
+      @market_events_by_day = market_events.group_by { |event| [ event.date, @grid_start ].max }
       @wash_sale_status = market_builder.wash_sale_status
 
       month_occurrences = occurrences.select { |occurrence| occurrence.due_on.between?(@month, @month.end_of_month) }

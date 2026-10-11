@@ -142,7 +142,7 @@ en:
     views:
       aria_label: Bills views
       overview: Overview
-      calendar: Calendar
+      calendar: Events
       # Named for income rather than for a paycheck: a declared income series
       # can be a pension, an invoice or a benefit, and this is the only place
       # in the app where income is added or managed. "Plan" keeps it from

@@ -22,6 +22,13 @@
     <p class="mt-1 text-secondary"><%= @wash_sale_status[:reason] %></p>
   </div>
 
+  <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
+    <div class="rounded-xl bg-container p-3 shadow-border-xs"><p class="text-xs text-secondary">Open windows</p><p class="mt-1 text-xl font-semibold text-primary"><%= @wash_sale_insights[:open] %></p></div>
+    <div class="rounded-xl bg-container p-3 shadow-border-xs"><p class="text-xs text-secondary">Upcoming windows</p><p class="mt-1 text-xl font-semibold text-primary"><%= @wash_sale_insights[:upcoming] %></p></div>
+    <div class="rounded-xl bg-container p-3 shadow-border-xs"><p class="text-xs text-secondary">With replacement evidence</p><p class="mt-1 text-xl font-semibold text-primary"><%= @wash_sale_insights[:replacement_evidence] %></p></div>
+    <div class="rounded-xl bg-container p-3 shadow-border-xs"><p class="text-xs text-secondary">Next window end</p><p class="mt-1 text-sm font-semibold text-primary"><%= @wash_sale_insights[:next_deadline] ? l(@wash_sale_insights[:next_deadline], format: :long) : "None upcoming" %></p></div>
+  </div>
+
   <% if @events.empty? %>
     <div class="rounded-xl bg-container p-8 text-center shadow-border-xs">
       <p class="font-medium text-primary">No verified events in this range</p>
@@ -41,8 +48,20 @@
                   <% if event.freshness == "stale" %><span class="text-[11px] text-warning">Stale source</span><% end %>
                 </div>
                 <p class="mt-1 text-sm text-primary"><%= event.title %></p>
-                <% if event.end_date > event.date %>
-                  <p class="mt-0.5 text-xs font-medium text-warning">Watch window: <%= l(event.date, format: :long) %> – <%= l(event.end_date, format: :long) %></p>
+                <% if event.event_type == "wash_sale" %>
+                  <% days_remaining = (event.end_date - Date.current).to_i %>
+                  <% days_until_start = (event.date - Date.current).to_i %>
+                  <% window_state, timing = if event.end_date < Date.current
+                    [ "Ended", "ended #{(Date.current - event.end_date).to_i} days ago" ]
+                  elsif event.date > Date.current
+                    [ "Upcoming", "opens in #{days_until_start} #{'day'.pluralize(days_until_start)}" ]
+                  else
+                    [ "Open", "#{days_remaining} #{'day'.pluralize(days_remaining)} remaining" ]
+                  end %>
+                  <p class="mt-0.5 text-xs font-medium text-warning"><%= window_state %> wash-sale window — starts <%= l(event.date, format: :long) %>; ends <%= l(event.end_date, format: :long) %> (<%= timing %>).</p>
+                  <p class="mt-0.5 text-xs text-secondary">Recorded replacement-purchase evidence: <%= event.details.include?("replacement shares are recorded") ? "present — review the quantity below" : "none recorded in Sure" %>.</p>
+                <% elsif event.end_date > event.date %>
+                  <p class="mt-0.5 text-xs font-medium text-warning">Window starts <%= l(event.date, format: :long) %>; ends <%= l(event.end_date, format: :long) %>.</p>
                 <% end %>
                 <p class="mt-0.5 truncate text-xs text-secondary"><%= event.details %></p>
               </div>

@@ -91,12 +91,26 @@ class BillsFeedsController < ApplicationController
 
         calendar_event(
           uid: "market-#{Digest::SHA256.hexdigest(event.key)}@sure-events",
-          date: [ event.date, Date.current ].max,
+          date: event.date,
           end_date: event.end_date,
-          summary: event.title,
+          summary: market_summary(event),
           categories: market_categories(event),
-          description: "#{event.details} Source: #{event.source}. Freshness: #{event.freshness}."
+          description: market_description(event)
         )
+      end
+    end
+
+    def market_summary(event)
+      return event.title unless event.event_type == "wash_sale"
+
+      "#{event.ticker} — Wash-sale window: #{event.date.strftime("%b %-d")} to #{event.end_date.strftime("%b %-d, %Y")}"
+    end
+
+    def market_description(event)
+      if event.event_type == "wash_sale"
+        "Wash-sale watch window starts #{event.date.strftime("%B %-d, %Y")} and ends #{event.end_date.strftime("%B %-d, %Y")} (inclusive). #{event.details} Source: #{event.source}. Freshness: #{event.freshness}."
+      else
+        "#{event.details} Source: #{event.source}. Freshness: #{event.freshness}."
       end
     end
 
