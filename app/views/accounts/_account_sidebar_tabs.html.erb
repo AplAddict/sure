@@ -90,7 +90,7 @@
 
     <% if sidebar_holdings.any? %>
       <% tabs.with_panel(tab_id: "holdings") do %>
-        <div class="space-y-2" data-testid="sidebar-holdings">
+        <div class="space-y-2" data-testid="sidebar-holdings" data-controller="sidebar-holding-metric">
           <div class="flex items-center gap-2">
             <%= render DS::Link.new(
               text: t("accounts.sidebar.all_holdings"),
@@ -99,6 +99,12 @@
               icon: "table",
               class: "flex-1 justify-start"
             ) %>
+
+            <%= select_tag :sidebar_holding_metric,
+              options_for_select([["Value", "market_value"], ["Share price", "price"], ["Day gain / loss", "day_gain"], ["Day gain / loss %", "day_gain_pct"], ["Total gain / loss", "gain"], ["Total gain / loss %", "gain_pct"]]),
+              class: "max-w-32 rounded-md border border-tertiary bg-container px-1.5 py-1 text-xs text-primary",
+              aria: { label: "Holding sidebar metric" },
+              data: { sidebar_holding_metric_target: "selector", action: "change->sidebar-holding-metric#update" } %>
 
             <%= render DS::ExpandToggle.new(
               expand_label: t("accounts.sidebar.expand_all"),
@@ -131,8 +137,19 @@
                         <span class="min-w-0"><span class="block text-sm font-medium text-primary"><%= position.ticker %></span>
                         <span class="block truncate text-xs text-secondary"><%= position.name %></span></span>
                       </span>
+                      <% money_metric = ->(amount) { amount.nil? ? "—" : format_money(Money.new(amount, position.currency)) } %>
+                      <% percent_metric = ->(amount) { amount.nil? ? "—" : number_to_percentage(amount, precision: 1) } %>
+                      <% tone_for = ->(amount, neutral: "text-primary") { amount.nil? ? "text-secondary" : amount.positive? ? "text-success" : amount.negative? ? "text-destructive" : neutral } %>
+                      <% metrics = {
+                        market_value: { text: money_metric.call(position.market_value), tone: "text-primary" },
+                        price: { text: money_metric.call(position.price), tone: "text-primary" },
+                        day_gain: { text: money_metric.call(position.day_gain), tone: tone_for.call(position.day_gain) },
+                        day_gain_pct: { text: percent_metric.call(position.day_gain_pct), tone: tone_for.call(position.day_gain_pct) },
+                        gain: { text: money_metric.call(position.gain), tone: tone_for.call(position.gain) },
+                        gain_pct: { text: percent_metric.call(position.gain_pct), tone: tone_for.call(position.gain_pct) }
+                      } %>
                       <span class="text-right shrink-0">
-                        <span class="block text-sm text-primary privacy-sensitive"><%= format_money(Money.new(position.market_value, position.currency)) %></span>
+                        <span class="block text-sm text-primary privacy-sensitive" data-sidebar-holding-metric-target="value" data-sidebar-holding-metric-values="<%= metrics.to_json %>"><%= metrics[:market_value][:text] %></span>
                         <span class="block text-xs text-secondary"><%= position.weight ? number_to_percentage(position.weight, precision: 1) : "—" %></span>
                       </span>
                     <% end %>

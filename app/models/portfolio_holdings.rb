@@ -79,16 +79,18 @@ class PortfolioHoldings
     end
   end
 
-  SidebarPosition = Data.define(:ticker, :name, :logo_url, :market_value, :currency, :weight)
+  SidebarPosition = Data.define(:ticker, :name, :logo_url, :price, :market_value, :currency, :weight, :day_gain, :day_gain_pct, :gain, :gain_pct)
   SidebarAccount = Data.define(:account, :positions, :market_value)
 
-  # Just ticker, value and weight per account, for the sidebar. It deliberately
-  # skips cost basis and lots (both query per position) because it renders on
-  # every page; the full page is one click away.
+  # Sidebar values are sourced from the current holding record. Cost-basis or
+  # prior-day data that cannot be evidenced stays nil and is rendered as —.
+  # Lots remain on the full holdings page because they are broker tax records.
   def sidebar_accounts
     @sidebar_accounts ||= begin
-      holdings = Holding::CurrentForInvestmentAccounts.new(accounts.map(&:id)).relation.includes(:security).to_a
-        .reject { |holding| holding.qty.to_d.zero? || holding.security.nil? }.group_by(&:account_id)
+      current_rows = Holding::CurrentForInvestmentAccounts.new(accounts.map(&:id)).relation.includes(:security).to_a
+        .reject { |holding| holding.qty.to_d.zero? || holding.security.nil? }
+      holdings = current_rows.group_by(&:account_id)
+      previous_rows = sidebar_previous_holdings(current_rows)
 
       accounts.filter_map do |account|
         rows = holdings[account.id]
@@ -96,13 +98,25 @@ class PortfolioHoldings
 
         total = rows.sum(BigDecimal("0")) { |holding| holding.amount.to_d }
         positions = rows.sort_by { |holding| -holding.amount.to_d }.map do |holding|
+          prior = previous_rows[sidebar_position_key(holding)]&.reverse_each&.find { |candidate| candidate.date < holding.date }
+          day_change = prior&.amount_money ? Trend.new(current: holding.amount_money, previous: prior.amount_money) : nil
+          basis_per_share = holding.cost_basis
+          known_basis = basis_per_share && (holding.cost_basis_locked? || basis_per_share.positive?)
+          cost_basis = known_basis ? holding.qty.to_d * basis_per_share.to_d : nil
+          gain = cost_basis ? holding.amount.to_d - cost_basis : nil
+
           SidebarPosition.new(
             ticker: holding.security.ticker,
             name: holding.security.name.presence || holding.security.ticker,
             logo_url: holding.security.display_logo_url,
+            price: holding.price&.to_d,
             market_value: holding.amount.to_d,
             currency: holding.currency,
-            weight: total.positive? ? holding.amount.to_d / total * 100 : nil
+            weight: total.positive? ? holding.amount.to_d / total * 100 : nil,
+            day_gain: day_change&.value,
+            day_gain_pct: day_change&.percent,
+            gain: gain,
+            gain_pct: cost_basis&.positive? && gain ? gain / cost_basis * 100 : nil
           )
         end
         SidebarAccount.new(account: account, positions: positions, market_value: total)
@@ -115,6 +129,23 @@ class PortfolioHoldings
   end
 
   private
+    # Fetch prior snapshots for every displayed holding in one query. Rendering
+    # the sidebar on unrelated pages must not issue one query per position.
+    def sidebar_previous_holdings(current_rows)
+      return {} if current_rows.empty?
+
+      account_ids = current_rows.map(&:account_id).uniq
+      security_ids = current_rows.map(&:security_id).uniq
+      current_ids = current_rows.map(&:id)
+      Holding.where(account_id: account_ids, security_id: security_ids).where.not(id: current_ids)
+        .select(:id, :account_id, :security_id, :currency, :date, :amount)
+        .order(:date).to_a.group_by { |holding| sidebar_position_key(holding) }
+    end
+
+    def sidebar_position_key(holding)
+      [ holding.account_id, holding.security_id, holding.currency ]
+    end
+
     def default_direction = %w[symbol].include?(@sort) ? "asc" : "desc"
 
     def build_block(account, rows, lots_by_security)

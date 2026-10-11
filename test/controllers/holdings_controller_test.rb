@@ -72,6 +72,18 @@ class HoldingsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Total gain %"
   end
 
+  test "advanced tax-lot details label gain loss with dollar and percentage measures" do
+    PortfolioHoldings.any_instance.stubs(:provider_lots).returns(
+      @account.id => { @holding.security.ticker => [ { quantity: @holding.qty, cost_basis: 1000, current_value: @holding.amount, original_purchase_date: "2024-01-02" }.with_indifferent_access ] }
+    )
+
+    get holdings_url(account_id: @account.id, view: "advanced")
+
+    assert_response :success
+    assert_includes response.body, "Gain / loss"
+    assert_includes response.body, "Gain / loss %"
+  end
+
   test "share price is a fixed advanced-table column, not a compact metric option" do
     get holdings_url(account_id: @account.id, view: "compact")
 

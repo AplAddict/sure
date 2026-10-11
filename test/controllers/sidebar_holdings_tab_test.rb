@@ -71,6 +71,17 @@ class SidebarHoldingsTabTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=sidebar-holding-position]", minimum: 17
   end
 
+  test "sidebar holdings offers metric selection and supplies color-coded change values" do
+    sign_in @owner
+    get root_path(account_sidebar_tab: "holdings")
+
+    assert_response :success
+    assert_select "[data-testid=sidebar-holdings][data-controller~=sidebar-holding-metric]"
+    assert_select "[data-testid=sidebar-holdings] select[data-sidebar-holding-metric-target=selector] option[value=price]"
+    assert_select "[data-testid=sidebar-holdings] select[data-sidebar-holding-metric-target=selector] option[value=day_gain_pct]"
+    assert_select "[data-testid=sidebar-holdings] [data-sidebar-holding-metric-target=value][data-sidebar-holding-metric-values]"
+  end
+
   test "sidebar summary lists positions largest first with weights that sum to 100" do
     other = Security.create!(ticker: "SBSML", exchange_mic: "XNAS", name: "Small")
     @private.holdings.create!(security: other, date: Date.current, qty: 1, price: 100, amount: 100, currency: "USD")

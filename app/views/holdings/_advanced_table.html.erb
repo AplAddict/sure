@@ -43,7 +43,30 @@
             <td class="px-3 py-3 text-right font-mono"><%= percent.call(position.gain_pct) %></td>
             <td class="px-4 py-3 text-right font-mono"><%= position.weight ? number_to_percentage(position.weight, precision: 1) : "—" %></td>
           </tr>
-          <% if position.lots? %><tr class="bg-container-inset"><td colspan="10" class="px-4 py-2"><details><summary class="cursor-pointer text-xs font-medium text-link"><%= pluralize(position.lots.size, "broker tax lot") %></summary><div class="mt-2 grid gap-1 text-xs text-secondary"><% position.lots.each do |lot| %><div class="grid grid-cols-4 gap-2"><span><%= lot.acquired_on ? l(lot.acquired_on, format: :long) : "Date unavailable" %></span><span class="text-right"><%= qty.call(lot.quantity) %> shares</span><span class="text-right">Basis <%= money.call(lot.cost_basis, position.currency) %></span><span class="text-right">Value <%= money.call(lot.market_value, position.currency) %></span></div><% end %></div></details></td></tr><% end %>
+          <% if position.lots? %>
+            <tr class="bg-container-inset">
+              <td colspan="10" class="px-4 py-2">
+                <details>
+                  <summary class="cursor-pointer text-xs font-medium text-link"><%= pluralize(position.lots.size, "broker tax lot") %></summary>
+                  <div class="mt-2 min-w-[680px] text-xs">
+                    <div class="grid grid-cols-6 gap-2 px-1 pb-1 font-medium uppercase tracking-wide text-secondary">
+                      <span>Acquired</span><span class="text-right">Shares</span><span class="text-right">Basis</span><span class="text-right">Value</span><span class="text-right">Gain / loss</span><span class="text-right">Gain / loss %</span>
+                    </div>
+                    <% position.lots.each do |lot| %>
+                      <div class="grid grid-cols-6 gap-2 border-t border-tertiary px-1 py-1.5 text-secondary">
+                        <span><%= lot.acquired_on ? l(lot.acquired_on, format: :long) : "Date unavailable" %></span>
+                        <span class="text-right"><%= qty.call(lot.quantity) %></span>
+                        <span class="text-right"><%= money.call(lot.cost_basis, position.currency) %></span>
+                        <span class="text-right"><%= money.call(lot.market_value, position.currency) %></span>
+                        <span class="text-right"><%= gain.call(lot.gain, position.currency) %></span>
+                        <span class="text-right"><%= percent.call(lot.gain_pct) %></span>
+                      </div>
+                    <% end %>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          <% end %>
         <% end %>
       <% end %>
     </tbody>
