@@ -50,17 +50,19 @@
 
 <% end %>
 
-<%# Two independent columns, not one grid: a card never stretches to the height
-    of its neighbour, and long lists scroll inside their own card. %>
+<%# Fundamentals reads as a short strip across the full width. Below it, two
+    independent columns (a card never stretches to its neighbour's height), roughly
+    balanced, with long lists scrolling inside their own bounded card. %>
+<section class="mt-6 rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Fundamentals & stock data</h2></div><%= render "holdings/stock_data", security: @security %></section>
+
 <div class="mt-6 grid items-start gap-6 @4xl:grid-cols-2">
   <div class="min-w-0 space-y-6">
-    <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Fundamentals & stock data</h2></div><%= render "holdings/stock_data", security: @security %></section>
-    <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Headline analysis</h2></div><%= render "holdings/jev_headline_analysis", security: @security %></section>
+    <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Ticker research</h2></div><div class="max-h-[34rem] overflow-y-auto"><%= render "holdings/ticker_research", security: @security %></div></section>
     <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Research notes</h2></div><div class="max-h-[28rem] overflow-y-auto"><%= render "holdings/ticker_research_notes", security: @security %></div></section>
   </div>
   <div class="min-w-0 space-y-6">
-    <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Ticker research</h2></div><div class="max-h-[34rem] overflow-y-auto"><%= render "holdings/ticker_research", security: @security %></div></section>
     <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">News</h2></div><div class="max-h-[34rem] overflow-y-auto"><%= render "holdings/ticker_news", security: @security %></div></section>
+    <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Headline analysis</h2></div><%= render "holdings/jev_headline_analysis", security: @security %></section>
   </div>
 </div>
 </div>

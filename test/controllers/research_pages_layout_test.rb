@@ -38,6 +38,9 @@ class ResearchPagesLayoutTest < ActionDispatch::IntegrationTest
     # Two independent columns that never stretch a card to its neighbour's height,
     # with long lists scrolling inside their own bounded card.
     assert_select ".\\@4xl\\:grid-cols-2.items-start > div.min-w-0", count: 2
+    # Fundamentals is a full-width strip above the columns, not a card inside one
+    assert_select "section > div > h2", text: "Fundamentals & stock data"
+    assert_select ".\\@4xl\\:grid-cols-2.items-start h2", text: "Fundamentals & stock data", count: 0
     assert_select ".max-h-\\[34rem\\].overflow-y-auto", minimum: 2
   end
 end

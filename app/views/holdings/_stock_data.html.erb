@@ -15,44 +15,64 @@
       <p class="text-xs text-secondary"><%= t("holdings.stock_data.as_of", time: l(data.fetched_at, format: :long)) %></p>
     <% end %>
 
-    <dl class="space-y-2 text-sm">
-      <div class="text-xs font-medium uppercase tracking-wide text-secondary"><%= t("holdings.stock_data.valuation") %></div>
-      <% [
-        [ :market_cap, big.call(data.market_cap) ],
-        [ :trailing_pe, num.call(data.trailing_pe) ],
-        [ :forward_pe, num.call(data.forward_pe) ],
-        [ :beta, num.call(data.beta) ],
-        [ :dividend_yield, pct.call(data.dividend_yield, 2) ],
-        [ :ex_dividend_date, day.call(data.ex_dividend_date) ],
-        [ :fifty_two_week_range, (data.fifty_two_week_low && data.fifty_two_week_high) ? "#{format_money(Money.new(data.fifty_two_week_low, ccy))} – #{format_money(Money.new(data.fifty_two_week_high, ccy))}" : unavailable ]
-      ].each do |key, value| %>
-        <div class="flex items-center justify-between"><dt class="text-secondary"><%= t("holdings.stock_data.fields.#{key}") %></dt><dd class="text-primary privacy-sensitive"><%= value %></dd></div>
-      <% end %>
+    <%# Four independent groups. They sit side by side when the card has room and
+        stack when it does not, so a wide card is short instead of one long list. %>
+    <div class="@container">
+      <div class="grid gap-x-8 gap-y-5 @md:grid-cols-2 @3xl:grid-cols-4">
+        <section>
+          <h3 class="pb-2 text-xs font-medium uppercase tracking-wide text-secondary"><%= t("holdings.stock_data.valuation") %></h3>
+          <dl class="space-y-2 text-sm">
+            <% [
+              [ :market_cap, big.call(data.market_cap) ],
+              [ :trailing_pe, num.call(data.trailing_pe) ],
+              [ :forward_pe, num.call(data.forward_pe) ],
+              [ :beta, num.call(data.beta) ],
+              [ :dividend_yield, pct.call(data.dividend_yield, 2) ],
+              [ :ex_dividend_date, day.call(data.ex_dividend_date) ],
+              [ :fifty_two_week_range, (data.fifty_two_week_low && data.fifty_two_week_high) ? "#{format_money(Money.new(data.fifty_two_week_low, ccy))} – #{format_money(Money.new(data.fifty_two_week_high, ccy))}" : unavailable ]
+            ].each do |key, value| %>
+              <div class="flex items-baseline justify-between gap-3"><dt class="text-secondary"><%= t("holdings.stock_data.fields.#{key}") %></dt><dd class="text-right text-primary privacy-sensitive"><%= value %></dd></div>
+            <% end %>
+          </dl>
+        </section>
 
-      <div class="pt-2 text-xs font-medium uppercase tracking-wide text-secondary"><%= t("holdings.stock_data.profitability") %></div>
-      <% [
-        [ :profit_margin, pct.call(data.profit_margin) ],
-        [ :operating_margin, pct.call(data.operating_margin) ],
-        [ :revenue_growth, pct.call(data.revenue_growth) ],
-        [ :earnings_growth, pct.call(data.earnings_growth) ],
-        [ :return_on_equity, pct.call(data.return_on_equity) ]
-      ].each do |key, value| %>
-        <div class="flex items-center justify-between"><dt class="text-secondary"><%= t("holdings.stock_data.fields.#{key}") %></dt><dd class="text-primary"><%= value %></dd></div>
-      <% end %>
+        <section>
+          <h3 class="pb-2 text-xs font-medium uppercase tracking-wide text-secondary"><%= t("holdings.stock_data.profitability") %></h3>
+          <dl class="space-y-2 text-sm">
+            <% [
+              [ :profit_margin, pct.call(data.profit_margin) ],
+              [ :operating_margin, pct.call(data.operating_margin) ],
+              [ :revenue_growth, pct.call(data.revenue_growth) ],
+              [ :earnings_growth, pct.call(data.earnings_growth) ],
+              [ :return_on_equity, pct.call(data.return_on_equity) ]
+            ].each do |key, value| %>
+              <div class="flex items-baseline justify-between gap-3"><dt class="text-secondary"><%= t("holdings.stock_data.fields.#{key}") %></dt><dd class="text-right text-primary"><%= value %></dd></div>
+            <% end %>
+          </dl>
+        </section>
 
-      <div class="pt-2 text-xs font-medium uppercase tracking-wide text-secondary"><%= t("holdings.stock_data.analysts") %></div>
-      <div class="flex items-center justify-between"><dt class="text-secondary"><%= t("holdings.stock_data.fields.recommendation") %></dt><dd class="text-primary"><%= data.recommendation.present? ? data.recommendation.to_s.tr("_", " ").titleize : unavailable %></dd></div>
-      <div class="flex items-center justify-between"><dt class="text-secondary"><%= t("holdings.stock_data.fields.target_mean_price") %></dt><dd class="text-primary"><%= data.target_mean_price ? format_money(Money.new(data.target_mean_price, ccy)) : unavailable %></dd></div>
-      <% if (ratings = data.ratings) %>
-        <div class="flex items-center justify-between"><dt class="text-secondary"><%= t("holdings.stock_data.fields.ratings") %></dt>
-          <dd class="text-primary tabular-nums"><%= t("holdings.stock_data.ratings_line", strong_buy: ratings["strong_buy"].to_i, buy: ratings["buy"].to_i, hold: ratings["hold"].to_i, sell: ratings["sell"].to_i, strong_sell: ratings["strong_sell"].to_i) %></dd></div>
-      <% else %>
-        <div class="flex items-center justify-between"><dt class="text-secondary"><%= t("holdings.stock_data.fields.ratings") %></dt><dd class="text-primary"><%= unavailable %></dd></div>
-      <% end %>
+        <section>
+          <h3 class="pb-2 text-xs font-medium uppercase tracking-wide text-secondary"><%= t("holdings.stock_data.analysts") %></h3>
+          <dl class="space-y-2 text-sm">
+            <div class="flex items-baseline justify-between gap-3"><dt class="text-secondary"><%= t("holdings.stock_data.fields.recommendation") %></dt><dd class="text-right text-primary"><%= data.recommendation.present? ? data.recommendation.to_s.tr("_", " ").titleize : unavailable %></dd></div>
+            <div class="flex items-baseline justify-between gap-3"><dt class="text-secondary"><%= t("holdings.stock_data.fields.target_mean_price") %></dt><dd class="text-right text-primary"><%= data.target_mean_price ? format_money(Money.new(data.target_mean_price, ccy)) : unavailable %></dd></div>
+            <% if (ratings = data.ratings) %>
+              <div class="flex items-baseline justify-between gap-3"><dt class="text-secondary"><%= t("holdings.stock_data.fields.ratings") %></dt>
+                <dd class="text-right text-primary tabular-nums"><%= t("holdings.stock_data.ratings_line", strong_buy: ratings["strong_buy"].to_i, buy: ratings["buy"].to_i, hold: ratings["hold"].to_i, sell: ratings["sell"].to_i, strong_sell: ratings["strong_sell"].to_i) %></dd></div>
+            <% else %>
+              <div class="flex items-baseline justify-between gap-3"><dt class="text-secondary"><%= t("holdings.stock_data.fields.ratings") %></dt><dd class="text-right text-primary"><%= unavailable %></dd></div>
+            <% end %>
+          </dl>
+        </section>
 
-      <div class="pt-2 text-xs font-medium uppercase tracking-wide text-secondary"><%= t("holdings.stock_data.events") %></div>
-      <div class="flex items-center justify-between"><dt class="text-secondary"><%= t("holdings.stock_data.fields.next_earnings_date") %></dt><dd class="text-primary"><%= day.call(data.next_earnings_date) %></dd></div>
-    </dl>
+        <section>
+          <h3 class="pb-2 text-xs font-medium uppercase tracking-wide text-secondary"><%= t("holdings.stock_data.events") %></h3>
+          <dl class="space-y-2 text-sm">
+            <div class="flex items-baseline justify-between gap-3"><dt class="text-secondary"><%= t("holdings.stock_data.fields.next_earnings_date") %></dt><dd class="text-right text-primary"><%= day.call(data.next_earnings_date) %></dd></div>
+          </dl>
+        </section>
+      </div>
+    </div>
     <p class="text-xs text-subdued"><%= t("holdings.stock_data.source_note") %></p>
   </div>
 <% else %>
