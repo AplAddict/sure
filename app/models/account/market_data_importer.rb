@@ -68,6 +68,7 @@ class Account::MarketDataImporter
     all_security_ids = (current_security_ids | traded_security_ids)
     return if all_security_ids.empty?
 
+    Security.activate_research_only(all_security_ids)
     securities = Security.online.where(id: all_security_ids).index_by(&:id)
 
     start_dates    = first_required_price_dates

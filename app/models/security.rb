@@ -107,6 +107,13 @@ class Security < ApplicationRecord
 
   scope :online, -> { where(offline: false) }
   scope :research_only, -> { where(offline: true, offline_reason: RESEARCH_ONLY_REASON) }
+
+  # A research-only row is a placeholder for a ticker nobody owned. The moment an
+  # account gets a holding or trade in it (some importers look securities up by a
+  # bare ticker and so land on this row), it must be priced like any other.
+  def self.activate_research_only(ids)
+    research_only.where(id: ids).update_all(offline: false, offline_reason: nil, failed_fetch_count: 0, failed_fetch_at: nil, updated_at: Time.current)
+  end
   scope :standard, -> { where(kind: "standard") }
 
   # Parses the combobox ID format "SYMBOL|EXCHANGE|PROVIDER" into a hash.

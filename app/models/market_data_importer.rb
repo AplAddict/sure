@@ -22,6 +22,10 @@ class MarketDataImporter
       return
     end
 
+    # A research-only placeholder that has since been bought is priced like any other
+    Security.activate_research_only(Holding.select(:security_id).distinct)
+    Security.activate_research_only(Trade.select(:security_id).distinct)
+
     # Import all securities that aren't marked as "offline" (i.e. they're available from the provider)
     Security.online.find_each do |security|
       security.import_provider_prices(

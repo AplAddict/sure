@@ -54,6 +54,28 @@ class Security::ResearchUniverseTest < ActiveSupport::TestCase
     assert_includes Security::HealthChecker.send(:checkable), securities(:aapl)
   end
 
+  test "a research-only security that gains a holding is brought online for pricing" do
+    Security::ResearchUniverse.new(root: @root).seed
+    bought = Security.research_only.find_by!(ticker: "ZZUA")
+    untouched = Security.research_only.find_by!(ticker: "ZZUB")
+
+    Security.activate_research_only([ bought.id ])
+
+    assert_not bought.reload.offline?
+    assert_nil bought.offline_reason
+    assert_includes Security.online, bought
+    assert untouched.reload.offline?, "tickers nobody holds stay research-only"
+  end
+
+  test "activation never touches a security that is offline for another reason" do
+    broken = Security.create!(ticker: "ZZBK", name: "Broken", offline: true, offline_reason: "health_check_failed")
+
+    Security.activate_research_only([ broken.id ])
+
+    assert broken.reload.offline?
+    assert_equal "health_check_failed", broken.offline_reason
+  end
+
   test "a missing or malformed artifact seeds nothing and does not raise" do
     File.write(@root.join("liquid_equity_universe_scan.json"), "{ not json")
     FileUtils.rm(@root.join("quiver_research.json"))
