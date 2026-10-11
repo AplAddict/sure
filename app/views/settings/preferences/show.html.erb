@@ -31,6 +31,24 @@
     <% end %>
   </div>
 <% end %>
+<%= settings_section title: "Balances" do %>
+  <%= form_with url: settings_preferences_path, method: :patch,
+        data: { controller: "auto-submit-form" } do |f| %>
+    <label for="family_include_pending_transactions_in_balances" class="flex cursor-pointer items-center gap-4 justify-between">
+      <div class="text-sm space-y-1">
+        <p class="text-primary font-medium">Include pending transactions in selected account balances</p>
+        <p class="text-secondary">Master switch. When enabled, only accounts you explicitly select add pending activity to their displayed balance and current total. Provider-reported balances, history, and reports stay unchanged.</p>
+      </div>
+      <%= render DS::Toggle.new(
+            id: "family_include_pending_transactions_in_balances",
+            name: "family[include_pending_transactions_in_balances]",
+            checked: Current.family.include_pending_transactions_in_balances?,
+            disabled: !Current.user.admin?,
+            data: { auto_submit_form_target: "auto" }
+      ) %>
+    </label>
+  <% end %>
+<% end %>
 <%= settings_section title: t(".budget_title"), subtitle: t(".budget_subtitle") do %>
   <div>
     <%= styled_form_with model: @user, class: "space-y-4", data: { controller: "auto-submit-form" } do |form| %>

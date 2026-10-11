@@ -11,8 +11,12 @@ class Assistant::External < Assistant::Base
       config.url.present? && config.token.present? && config.model.present?
     end
 
-    def available_for?(user)
-      configured? && allowed_user?(user)
+    def available_for?(_user)
+      # Quarantined: this adapter historically reused one external session key,
+      # which is not an acceptable isolation boundary for financial data. Keep
+      # it unavailable until a separately reviewed, per-user external contract
+      # is implemented and verified.
+      false
     end
 
     def allowed_user?(user)
@@ -65,6 +69,8 @@ class Assistant::External < Assistant::Base
   end
 
   def respond_to(message, assistant_message: nil)
+    raise Assistant::Error, "External assistant is disabled while its session-isolation boundary is under review." unless self.class.available_for?(chat.user)
+
     response_completed = false
     assistant_message ||= AssistantMessage.new(chat: chat, content: "", ai_model: "external-agent")
 

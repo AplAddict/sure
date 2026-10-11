@@ -14,6 +14,11 @@ class Settings::PreferencesController < ApplicationController
   def update
     @user = Current.user
     user_params = params.permit(user: [ :preview_features_enabled ]).fetch(:user, {})
+    family_params = params.permit(family: [ :include_pending_transactions_in_balances ]).fetch(:family, {})
+
+    if family_params.key?(:include_pending_transactions_in_balances) && !@user.admin?
+      return redirect_to settings_preferences_path, alert: "Only an administrator can change family balance settings."
+    end
 
     @user.transaction do
       @user.lock!
@@ -23,6 +28,7 @@ class Settings::PreferencesController < ApplicationController
           ActiveModel::Type::Boolean.new.cast(user_params[:preview_features_enabled])
       end
       @user.update!(preferences: updated_prefs)
+      Current.family.update!(family_params) if family_params.key?(:include_pending_transactions_in_balances)
     end
     redirect_to settings_preferences_path
   end

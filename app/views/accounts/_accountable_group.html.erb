@@ -50,7 +50,7 @@
             <% if account.physical_metal? && account.physical_metal.unpriced? %>
             <%= tag.p "Unpriced", class: "text-sm font-medium text-secondary whitespace-nowrap" %>
           <% else %>
-            <%= tag.p format_money(account.balance_money), class: "text-sm font-medium text-primary whitespace-nowrap privacy-sensitive" %>
+            <%= tag.p format_money(account.display_balance_money), class: "text-sm font-medium text-primary whitespace-nowrap privacy-sensitive" %>
           <% end %>
             <%= turbo_frame_tag dom_id(account, :sparkline), src: sparkline_account_path(account), loading: "lazy", data: { controller: "turbo-frame-timeout", turbo_frame_timeout_timeout_value: 10000 } do %>
               <div class="flex items-center w-8 h-4 ml-auto">

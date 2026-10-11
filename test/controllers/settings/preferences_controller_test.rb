@@ -51,6 +51,16 @@ class Settings::PreferencesControllerTest < ActionDispatch::IntegrationTest
     assert_not user.reload.preview_features_enabled?
   end
 
+  test "admin can toggle the family pending-balance master switch" do
+    family = users(:family_admin).family
+    assert_not family.include_pending_transactions_in_balances?
+
+    patch settings_preferences_url, params: { family: { include_pending_transactions_in_balances: "1" } }
+
+    assert_redirected_to settings_preferences_url
+    assert family.reload.include_pending_transactions_in_balances?
+  end
+
   test "household budget toggle and sharing card only render once personal_budgets is on" do
     user = users(:family_admin)
     user.update!(preferences: (user.preferences || {}).merge("preview_features_enabled" => true))

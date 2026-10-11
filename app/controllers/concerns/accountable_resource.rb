@@ -156,7 +156,7 @@ module AccountableResource
         :name, :balance, :subtype, :currency, :accountable_type, :return_to,
         :opening_balance_date,
         :institution_name, :institution_domain, :notes, :exclude_from_reports, :ownership_percentage,
-        :enable_category_matcher,
+        :enable_category_matcher, :include_pending_in_balance,
         accountable_attributes: self.class.permitted_accountable_attributes
       )
     end

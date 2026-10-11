@@ -34,6 +34,19 @@
       </div>
     <% end %>
 
+    <% if account.persisted? %>
+      <div class="flex items-center justify-between gap-3 py-2">
+        <div class="space-y-1">
+          <p class="text-sm text-primary">Include pending transactions in this balance</p>
+          <p class="text-secondary text-sm">Adds provider-marked pending activity to this account's displayed balance and current total. Use only if the provider balance does not already include pending activity.</p>
+        </div>
+        <%= form.toggle :include_pending_in_balance, disabled: !Current.family.include_pending_transactions_in_balances? %>
+      </div>
+      <% unless Current.family.include_pending_transactions_in_balances? %>
+        <p class="text-secondary text-xs">Turn on the pending-balance master switch in Settings first.</p>
+      <% end %>
+    <% end %>
+
     <details class="group">
       <summary class="cursor-pointer text-sm text-secondary hover:text-primary flex items-center gap-1 py-2">
         <%= icon "chevron-right", size: "sm", class: "group-open:rotate-90 transition-transform" %>

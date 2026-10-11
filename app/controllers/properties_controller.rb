@@ -233,6 +233,7 @@ class PropertiesController < ApplicationController
               :institution_name,
               :institution_domain,
               :notes,
+              :include_pending_in_balance,
               accountable_attributes: [ :id, :subtype, :year_built, :area_unit, :area_value ]
             )
     end

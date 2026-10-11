@@ -2,6 +2,7 @@ require "test_helper"
 
 class BalanceSheetTest < ActiveSupport::TestCase
   include BalanceTestHelper
+  include EntriesTestHelper
 
   setup do
     @family = families(:empty)
@@ -34,6 +35,37 @@ class BalanceSheetTest < ActiveSupport::TestCase
     create_account(balance: 50000, accountable: Depository.new)
 
     assert_equal 50000 - 1000, BalanceSheet.new(@family).net_worth
+  end
+
+  test "pending transactions affect selected account totals only when the family master switch is enabled" do
+    account = create_account(balance: 1_000, accountable: Depository.new)
+    pending_entry = create_transaction(account: account, amount: 125)
+    pending_entry.transaction.update!(extra: { "plaid" => { "pending" => true } })
+    account.update!(include_pending_in_balance: true)
+
+    assert_equal 1_000, account.display_balance
+    assert_equal 1_000, BalanceSheet.new(@family).assets.total
+
+    @family.update!(include_pending_transactions_in_balances: true)
+
+    assert_equal 875, account.reload.display_balance
+    assert_equal 875, BalanceSheet.new(@family).assets.total
+  end
+
+  test "pending-balance projection ignores excluded pending entries and accounts not selected for it" do
+    selected = create_account(balance: 1_000, accountable: Depository.new)
+    unselected = create_account(balance: 2_000, accountable: Depository.new)
+    [ selected, unselected ].each do |account|
+      entry = create_transaction(account: account, amount: 100)
+      entry.transaction.update!(extra: { "plaid" => { "pending" => true } })
+    end
+    selected.entries.pending.first.update!(excluded: true)
+    selected.update!(include_pending_in_balance: true)
+    @family.update!(include_pending_transactions_in_balances: true)
+
+    assert_equal 1_000, selected.reload.display_balance
+    assert_equal 2_000, unselected.reload.display_balance
+    assert_equal 3_000, BalanceSheet.new(@family).assets.total
   end
 
   test "disabled accounts do not affect totals" do

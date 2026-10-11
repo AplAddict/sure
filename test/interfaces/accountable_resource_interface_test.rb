@@ -28,4 +28,17 @@ module AccountableResourceInterfaceTest
     @account.reload
     assert_equal "EUR", @account.currency
   end
+
+  test "update saves whether pending transactions affect this account balance" do
+    assert_not @account.include_pending_in_balance?
+
+    patch send("#{@account.accountable_type.underscore}_path", @account), params: {
+      account: {
+        name: @account.name,
+        include_pending_in_balance: "1"
+      }
+    }
+
+    assert @account.reload.include_pending_in_balance?
+  end
 end

@@ -40,6 +40,28 @@ class Account < ApplicationRecord
 
   monetize :balance, :cash_balance
 
+  # `balance` remains the provider-reported/current-anchor balance. Pending
+  # activity is projected only for display, never written back to the ledger or
+  # provider balance.
+  def pending_transactions_affect_balance?
+    family.include_pending_transactions_in_balances? && include_pending_in_balance?
+  end
+
+  def pending_balance_adjustment
+    return 0.to_d unless pending_transactions_affect_balance?
+
+    pending_flows = entries.pending.excluding_split_parents.where(excluded: false).sum(:amount)
+    asset? ? -pending_flows : pending_flows
+  end
+
+  def display_balance
+    balance + pending_balance_adjustment
+  end
+
+  def display_balance_money
+    Money.new(display_balance, currency)
+  end
+
   enum :classification, { asset: "asset", liability: "liability" }, validate: { allow_nil: true }
 
   VISIBLE_STATUSES = %w[draft active].freeze

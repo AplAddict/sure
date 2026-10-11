@@ -104,7 +104,7 @@ class BalanceSheet::AccountTotals
     # to the family's currency using pre-fetched exchange rates.
     # @return [BigDecimal] balance in the family's currency
     def converted_balance_for(account)
-      owned_balance = account.balance * account.ownership_share
+      owned_balance = account.display_balance * account.ownership_share
       return owned_balance if account.currency == family.currency
 
       rate = exchange_rates[account.currency]

@@ -21,7 +21,7 @@
       <p><%= accounts.count %></p>
 
       <% unless accounts.any?(&:syncing?) %>
-        <p class="ml-auto privacy-sensitive"><%= totals_by_currency(collection: accounts, money_method: :balance_money) %></p>
+        <p class="ml-auto privacy-sensitive"><%= totals_by_currency(collection: accounts, money_method: :display_balance_money) %></p>
       <% end %>
     </div>
     <div class="bg-container rounded-lg shadow-border-xs overflow-hidden">

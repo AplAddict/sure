@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_10_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -108,6 +108,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_210000) do
     t.datetime "disabled_at"
     t.boolean "enable_category_matcher", default: true, null: false
     t.boolean "exclude_from_reports", default: false, null: false
+    t.boolean "include_pending_in_balance", default: false, null: false
     t.uuid "family_id", null: false
     t.uuid "import_id"
     t.string "institution_domain"
@@ -854,6 +855,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_210000) do
     t.boolean "early_access", default: false
     t.string "enabled_currencies", array: true
     t.boolean "household_budget_enabled", default: true, null: false
+    t.boolean "include_pending_transactions_in_balances", default: false, null: false
     t.datetime "last_sync_all_attempted_at"
     t.datetime "latest_sync_activity_at", default: -> { "CURRENT_TIMESTAMP" }
     t.datetime "latest_sync_completed_at", default: -> { "CURRENT_TIMESTAMP" }

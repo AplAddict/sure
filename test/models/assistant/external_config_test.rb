@@ -2,7 +2,11 @@ require "test_helper"
 
 class Assistant::ExternalConfigTest < ActiveSupport::TestCase
   test "config reads URL from environment with priority over Setting" do
-    with_env_overrides("EXTERNAL_ASSISTANT_URL" => "http://from-env/v1/chat") do
+    with_env_overrides(
+      "EXTERNAL_ASSISTANT_URL" => "http://from-env/v1/chat",
+      "EXTERNAL_ASSISTANT_MODEL" => nil,
+      "EXTERNAL_ASSISTANT_AGENT_ID" => nil
+    ) do
       assert_equal "http://from-env/v1/chat", Assistant::External.config.url
       assert_equal "openclaw/main", Assistant::External.config.model
       assert_equal "main", Assistant::External.config.agent_id
@@ -45,18 +49,18 @@ class Assistant::ExternalConfigTest < ActiveSupport::TestCase
     end
   end
 
-  test "available_for? allows any user when no allowlist is set" do
+  test "available_for? fails closed even when the external service is configured" do
     user = OpenStruct.new(email: "anyone@example.com")
     with_env_overrides("EXTERNAL_ASSISTANT_URL" => "http://x", "EXTERNAL_ASSISTANT_TOKEN" => "t", "EXTERNAL_ASSISTANT_MODEL" => "openclaw/main", "EXTERNAL_ASSISTANT_ALLOWED_EMAILS" => nil) do
-      assert Assistant::External.available_for?(user)
+      assert_not Assistant::External.available_for?(user)
     end
   end
 
-  test "available_for? restricts to allowlisted emails" do
+  test "available_for? remains unavailable for allowlisted emails" do
     allowed = OpenStruct.new(email: "josh@example.com")
     denied = OpenStruct.new(email: "other@example.com")
     with_env_overrides("EXTERNAL_ASSISTANT_URL" => "http://x", "EXTERNAL_ASSISTANT_TOKEN" => "t", "EXTERNAL_ASSISTANT_MODEL" => "openclaw/main", "EXTERNAL_ASSISTANT_ALLOWED_EMAILS" => "josh@example.com, admin@example.com") do
-      assert Assistant::External.available_for?(allowed)
+      assert_not Assistant::External.available_for?(allowed)
       assert_not Assistant::External.available_for?(denied)
     end
   end
