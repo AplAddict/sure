@@ -36,6 +36,15 @@ class BillsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "events includes a two-week action queue and earnings exposure" do
+    get bills_url(view: "events")
+
+    assert_response :success
+    assert_select "h2", text: "Next 14 days"
+    assert_select "h2", text: "Earnings exposure"
+    assert_match(/No verified events|items/, response.body)
+  end
+
   test "bills page shell is localized in German" do
     @user.update!(locale: "de")
     Provider::Registry.stubs(:preferred_llm_provider).returns(Object.new)

@@ -9,6 +9,51 @@
     <% end %>
   </div>
 
+  <div class="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+    <section class="overflow-hidden rounded-xl bg-container shadow-border-xs">
+      <div class="flex items-baseline justify-between gap-3 border-b border-tertiary px-4 py-3">
+        <div><h2 class="font-medium text-primary">Next 14 days</h2><p class="mt-0.5 text-xs text-secondary">Bills, paydays, and holdings-derived market deadlines in one action queue.</p></div>
+        <span class="shrink-0 text-xs text-secondary"><%= @next_14_days.size %> items</span>
+      </div>
+      <% if @next_14_days.empty? %>
+        <p class="px-4 py-5 text-sm text-secondary">No verified events or scheduled cash-flow items in the next 14 days.</p>
+      <% else %>
+        <div class="divide-y divide-tertiary">
+          <% @next_14_days.each do |item| %>
+            <div class="flex items-center gap-3 px-4 py-2.5">
+              <div class="w-12 shrink-0 text-center"><p class="text-[11px] uppercase text-secondary"><%= l(item[:date], format: "%b") %></p><p class="text-sm font-semibold text-primary"><%= item[:date].day %></p></div>
+              <div class="min-w-0 flex-1"><p class="truncate text-sm font-medium text-primary"><%= item[:title] %></p><p class="truncate text-xs text-secondary"><%= item[:kind] %> · <%= item[:details] %></p></div>
+              <% if item[:amount] %><span class="shrink-0 text-sm font-medium text-primary privacy-sensitive"><%= format_money(item[:amount]) %></span><% end %>
+              <% if item[:freshness] == "stale" %><span class="shrink-0 text-[11px] text-warning">Stale</span><% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </section>
+
+    <section class="overflow-hidden rounded-xl bg-container shadow-border-xs">
+      <div class="border-b border-tertiary px-4 py-3"><h2 class="font-medium text-primary">Earnings exposure</h2><p class="mt-0.5 text-xs text-secondary">Held equities reporting in the next 14 days. Options are not included in equity value or exposure.</p></div>
+      <% if @earnings_exposure.empty? %>
+        <p class="px-4 py-5 text-sm text-secondary">No held securities have a verified earnings date in the next 14 days.</p>
+      <% else %>
+        <div class="divide-y divide-tertiary">
+          <% @earnings_exposure.each do |exposure| %>
+            <% event = exposure[:event] %>
+            <div class="px-4 py-3">
+              <div class="flex items-center justify-between gap-3"><%= link_to event.ticker, research_ticker_path(event.ticker), class: "font-semibold text-link hover:underline" %><span class="text-xs text-secondary"><%= l(event.date, format: :long) %></span></div>
+              <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-secondary">
+                <span><%= exposure[:account_count] %> <%= "account".pluralize(exposure[:account_count]) %></span>
+                <% if exposure[:position_value] && exposure[:currency] %><span class="privacy-sensitive">Position <%= format_money(Money.new(exposure[:position_value], exposure[:currency])) %></span><% else %><span>Position value unavailable across currencies</span><% end %>
+                <% if exposure[:weight] %><span><%= number_to_percentage(exposure[:weight], precision: 1) %> of tracked equities</span><% elsif !exposure[:comparable_currency] %><span>Weight unavailable across currencies</span><% end %>
+                <% if event.freshness == "stale" %><span class="text-warning">Market data stale</span><% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </section>
+  </div>
+
   <%# The nav group and a totals line carrying two money values do not share
       375px, and neither had anywhere to wrap. %>
   <div class="flex flex-wrap items-center justify-between gap-2">

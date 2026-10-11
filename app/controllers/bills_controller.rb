@@ -439,8 +439,12 @@ class BillsController < ApplicationController
         {}
       end
 
-      market_builder = MarketCalendar::EventBuilder.new(accounts: Current.user.accessible_accounts)
-      market_events = market_builder.events
+      accessible_accounts = Current.user.accessible_accounts.to_a
+      market_builder = MarketCalendar::EventBuilder.new(accounts: accessible_accounts)
+      all_market_events = market_builder.events
+      @next_14_days = next_14_day_items(all_market_events)
+      @earnings_exposure = earnings_exposure(all_market_events, accessible_accounts)
+      market_events = all_market_events
       market_events = market_events.select { |event| event.date <= @grid_end && event.end_date >= @grid_start }
       market_events = market_events.select { |event| event.event_type == market_type } if market_type
       @market_events_by_day = market_events.group_by { |event| [ event.date, @grid_start ].max }
@@ -449,6 +453,59 @@ class BillsController < ApplicationController
       month_occurrences = occurrences.select { |occurrence| occurrence.due_on.between?(@month, @month.end_of_month) }
       @month_expected, @month_unconvertible = total_of(month_occurrences) { |occurrence| occurrence.resolved_expected_amount_money }
       @month_paid, _ = total_of(month_occurrences) { |occurrence| occurrence.confirmed_allocated_money }
+    end
+
+    ACTION_WINDOW_DAYS = 14
+
+    def next_14_day_items(market_events)
+      today = Date.current
+      through = today + ACTION_WINDOW_DAYS.days
+      bills = Current.family.recurring_occurrences
+                           .open_status
+                           .where(recurring_transaction_id: payable_series_ids)
+                           .where(due_on: today..through)
+                           .includes(:recurring_transaction)
+                           .map do |occurrence|
+        { date: occurrence.effective_due_on, kind: "Bill", title: occurrence.recurring_transaction.display_name, amount: occurrence.resolved_expected_amount_money, details: "Scheduled bill" }
+      end
+      paychecks = Current.family.recurring_occurrences
+                               .open_status
+                               .joins(:recurring_transaction)
+                               .where(recurring_transactions: { status: :active, bill_type: :income, manual: true })
+                               .merge(RecurringTransaction.accessible_by(Current.user))
+                               .where(due_on: today..through)
+                               .includes(:recurring_transaction)
+                               .map do |occurrence|
+        { date: occurrence.due_on, kind: "Paycheck", title: occurrence.recurring_transaction.display_name, amount: occurrence.resolved_expected_amount_money, details: "Expected payday" }
+      end
+      market = market_events.filter_map do |event|
+        next if event.end_date < today || event.date > through
+
+        { date: [ event.date, today ].max, kind: event.event_type.humanize, title: event.title, details: event.details, ticker: event.ticker, freshness: event.freshness }
+      end
+
+      (bills + paychecks + market).sort_by { |item| [ item[:date], item[:kind], item[:title] ] }
+    end
+
+    def earnings_exposure(market_events, accounts)
+      today = Date.current
+      through = today + ACTION_WINDOW_DAYS.days
+      holdings = accounts.flat_map do |account|
+        rows = account.current_holdings
+        rows = rows.includes(:security) if rows.respond_to?(:includes)
+        rows.to_a
+      end
+      all_currencies = holdings.map(&:currency).compact.uniq
+      total_value = all_currencies.one? ? holdings.sum { |holding| holding.amount.to_d } : nil
+
+      market_events.select { |event| event.event_type == "earnings" && event.date.between?(today, through) }.map do |event|
+        positions = holdings.select { |holding| holding.security.ticker == event.ticker }
+        currencies = positions.map(&:currency).compact.uniq
+        position_value = currencies.one? ? positions.sum { |holding| holding.amount.to_d } : nil
+        weight = position_value && total_value&.positive? ? (position_value / total_value * 100) : nil
+
+        { event:, account_count: positions.map(&:account_id).uniq.size, currency: currencies.one? ? currencies.first : nil, position_value:, weight:, comparable_currency: total_value.present? }
+      end.sort_by { |exposure| exposure[:event].date }
     end
 
     def materialize_for_calendar(through)
