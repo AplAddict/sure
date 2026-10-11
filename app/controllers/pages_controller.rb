@@ -34,9 +34,20 @@ class PagesController < ApplicationController
   skip_authentication only: %i[redis_configuration_error privacy terms]
   before_action :ensure_intro_guest!, only: :intro
 
+  DASHBOARD_VIEWS = %w[overview decision].freeze
+
   def dashboard
     if Current.user&.ui_layout_intro?
       redirect_to chats_path and return
+    end
+
+    @decision_center = InvestmentDecisionCenter.new(user: Current.user)
+    @decision_available = @decision_center.available?
+    @dashboard_view = resolve_dashboard_view
+
+    if @dashboard_view == "decision"
+      @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("investment_decision_center.breadcrumb"), nil ] ]
+      render :decision_center and return
     end
 
     @balance_sheet = Current.family.balance_sheet
@@ -55,7 +66,7 @@ class PagesController < ApplicationController
     @outflows_data = build_outflows_donut_data(net_totals)
     # Preview-gated: skip the query outright rather than loading rows the
     # section won't be built from.
-    @feed_insights = preview_features_enabled? ? Current.family.insights.visible.ordered.limit(Insight::FEED_LIMIT) : Insight.none
+    @feed_insights = preview_features_enabled? ? Current.user.visible_insights.visible.ordered.limit(Insight::FEED_LIMIT) : Insight.none
     @ticker_news = cached_ticker_news
 
     @money_flow_accounts = income_statement.eligible_accounts
@@ -123,6 +134,31 @@ class PagesController < ApplicationController
   end
 
   private
+    # The homepage has two views of the same data: the all-finances overview and
+    # the investment decision center. An explicit ?view= is remembered per user,
+    # but never on a hover-prefetch request (that would flip the saved choice
+    # before the user clicked), and "decision" is only honoured when the member
+    # actually has investment accounts to show.
+    def resolve_dashboard_view
+      requested = params[:view].to_s
+      saved = Current.user.dashboard_view
+
+      if DASHBOARD_VIEWS.include?(requested)
+        unless prefetch_request? || requested == saved
+          Current.user.update_dashboard_preferences("dashboard_view" => requested)
+        end
+        view = requested
+      else
+        view = saved
+      end
+
+      view == "decision" && @decision_available ? "decision" : "overview"
+    end
+
+    def prefetch_request?
+      request.headers["X-Sec-Purpose"] == "prefetch" || request.headers["Sec-Purpose"].to_s.include?("prefetch")
+    end
+
     def cached_ticker_news
       security_ids = Holding.where(account_id: accessible_accounts.select(:id)).select(:security_id).distinct
       SecurityResearchSnapshot.includes(security: :headline_analysis).where(security_id: security_ids).filter_map do |snapshot|

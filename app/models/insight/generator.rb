@@ -18,8 +18,15 @@ class Insight::Generator
     :currency,
     :period_start,
     :period_end,
-    :dedup_key
-  )
+    :dedup_key,
+    :user_id
+  ) do
+    # user_id is optional so every pre-existing generator (and test) that builds
+    # a family-wide insight keeps working unchanged.
+    def initialize(user_id: nil, **attributes)
+      super(user_id: user_id, **attributes)
+    end
+  end
 
   class << self
     # Declares the insight_type values this generator can emit. The job uses
@@ -35,8 +42,11 @@ class Insight::Generator
     end
   end
 
-  def initialize(family)
+  # `user` is set only for generators that read one member's own accounts
+  # (see Insight::USER_SCOPED_TYPES); family-wide generators leave it nil.
+  def initialize(family, user: nil)
     @family = family
+    @user = user
   end
 
   def generate
@@ -44,7 +54,7 @@ class Insight::Generator
   end
 
   private
-    attr_reader :family
+    attr_reader :family, :user
 
     def income_statement
       @income_statement ||= IncomeStatement.new(family)
@@ -65,7 +75,8 @@ class Insight::Generator
         currency: family.currency,
         period_start: period&.start_date,
         period_end: period&.end_date,
-        dedup_key: dedup_key
+        dedup_key: dedup_key,
+        user_id: user&.id
       )
     end
 
@@ -82,6 +93,12 @@ class Insight::Generator
 
     def month_token(date = Date.current)
       date.strftime("%Y-%m")
+    end
+
+    # Dedup keys are unique per family, so a user-scoped key must carry its
+    # owner or two members would overwrite each other's row.
+    def user_key(*parts)
+      [ parts.first, "u#{user.id}", *parts.drop(1) ].join(":")
     end
 
     # Formats a number for display facts with a true minus sign (U+2212) —

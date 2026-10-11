@@ -1,0 +1,61 @@
+---
+en:
+  tax_loss_harvests:
+    show:
+      eyebrow: Taxable accounts you can access
+      title: Tax loss harvest
+      subtitle: Unrealized losses in your taxable accounts, with holding period and wash-sale checks. Nothing here sells, buys or changes an account.
+      research_link: Ticker research
+      events_link: Wash-sale windows
+      summary:
+        candidates: Harvest candidates
+        candidates_hint: "Loss of %{pct}% or more of cost"
+        total_loss: Unrealized loss
+        total_loss_hint: Measured positions only
+        short_term: Short-term loss
+        long_term: Long-term loss
+        unknown_term: Holding period unknown
+        realized: Realized this year
+        realized_hint:
+          one: "%{count} sale could not be measured"
+          other: "%{count} sales could not be measured"
+        realized_known: All recorded sales measured
+      scope_note: "%{count} retirement or tax-advantaged accounts are not shown. Gains and losses inside them are not taxed when realized, but a purchase there can still trigger a wash sale."
+      boundary:
+        title: How to read this
+        body: Estimates from recorded cost basis and trades. Holding period is rebuilt first-in, first-out from trades Sure has recorded, so your broker's tax lots are the authority. Wash-sale flags are checks to review, not tax advice.
+      table:
+        caption: Positions at a loss
+        security: Security
+        account: Account
+        value: Value
+        cost: Cost basis
+        loss: Loss
+        loss_pct: Loss %
+        term: Holding period
+        status: Wash-sale check
+        candidate: Candidate
+      term:
+        short: Short-term
+        long: Long-term
+        mixed: Mixed
+        mixed_detail: "%{long} long / %{short} short"
+        unknown: Unknown
+        unknown_hint: Recorded trades do not fully account for this position
+      flags:
+        clear: No flags
+        recent_purchase: "Bought %{date} (%{qty} shares)"
+        recent_purchase_ends: "Selling now disallows the loss on those shares until %{date}"
+        held_elsewhere: "Also held in %{accounts}"
+        open_window: "Open loss-sale window until %{date}"
+      unavailable:
+        title: Not measured
+        description: These positions are left out of every total. They are not treated as zero.
+        cost_basis_unknown: Cost basis unknown
+        exchange_rate_missing: No exchange rate stored
+      empty:
+        title: No unrealized losses
+        description: None of the positions in your taxable accounts are currently below their recorded cost basis.
+      no_accounts:
+        title: No taxable investment accounts
+        description: Only taxable accounts you own or that are shared with you are included.

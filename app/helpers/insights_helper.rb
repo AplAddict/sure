@@ -10,7 +10,12 @@ module InsightsHelper
     "budget_on_track" => "circle-check",
     # Same shield the reserve panel uses on the goal page, so the two read as
     # the same object seen from two places.
-    "maintained_goal_depleted" => "shield-alert"
+    "maintained_goal_depleted" => "shield-alert",
+    "tax_loss_harvest" => "trending-down",
+    "wash_sale_window" => "timer",
+    "position_concentration" => "pie-chart",
+    "position_events" => "calendar-clock",
+    "cost_basis_gap" => "circle-help"
   }.freeze
 
   def insight_icon_key(insight)
@@ -81,6 +86,16 @@ module InsightsHelper
     when "budget_on_track"
       # Still the right figure here, where overall usage *is* the subject.
       facts["budget_spent_pct"] && [ "#{facts["budget_spent_pct"]}%", t("insights.figures.of_budget") ]
+    when "tax_loss_harvest"
+      facts["loss"] && [ facts["loss"], t("insights.figures.harvestable", count: facts["count"].to_i) ]
+    when "wash_sale_window"
+      facts["next_end"] && [ facts["count"].to_s, t("insights.figures.open_windows", count: facts["count"].to_i) ]
+    when "position_concentration"
+      facts["weight"] && [ "#{facts["weight"]}%", t("insights.figures.of_portfolio") ]
+    when "position_events"
+      facts["count"] && [ facts["count"].to_s, t("insights.figures.this_week") ]
+    when "cost_basis_gap"
+      facts["count"] && [ facts["count"].to_s, t("insights.figures.without_cost_basis", count: facts["count"].to_i) ]
     end
   end
 
@@ -117,6 +132,15 @@ module InsightsHelper
     when "maintained_goal_depleted"
       goal = insight.family.goals.find_by(id: metadata["goal_id"])
       goal && { text: t("insights.actions.maintained_goal_depleted"), href: goal_path(goal) }
+    when "tax_loss_harvest", "cost_basis_gap"
+      { text: t("insights.actions.#{insight.insight_type}"), href: tax_loss_harvest_path }
+    when "wash_sale_window"
+      { text: t("insights.actions.wash_sale_window"), href: market_events_path(type: "wash_sale") }
+    when "position_events"
+      { text: t("insights.actions.position_events"), href: market_events_path }
+    when "position_concentration"
+      ticker = metadata["ticker"].to_s
+      ticker.present? && { text: t("insights.actions.position_concentration", ticker: ticker), href: research_ticker_path(ticker) }
     end
   end
 
@@ -158,6 +182,10 @@ module InsightsHelper
       metadata["direction"] == "below" ? :positive : :warning
     when "cash_flow_warning"
       metadata["negative"] ? :negative : :warning
+    when "wash_sale_window"
+      metadata["replaced_tickers"].present? ? :warning : :neutral
+    when "tax_loss_harvest", "position_concentration"
+      :warning
     when "budget_at_risk", "maintained_goal_depleted"
       # Warning, not negative: the reserve is short, not overdrawn, and red is
       # reserved here for money actually going the wrong side of zero.

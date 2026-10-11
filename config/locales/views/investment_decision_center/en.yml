@@ -1,0 +1,59 @@
+---
+en:
+  investment_decision_center:
+    breadcrumb: Investment decision center
+    title: Investment decision center
+    subtitle: Where your portfolio stands, what needs a decision, and what to keep an eye on. Based only on accounts you can access.
+    switch:
+      aria_label: Homepage view
+      overview: Overview
+      decision: Investments
+    pulse:
+      heading: Portfolio pulse
+      portfolio_value: Portfolio value
+      holdings: In holdings
+      cash: Cash
+      day_change: Today
+      unrealized: Unrealized gain / loss
+      unavailable: Unavailable
+      unavailable_hint: Not enough recorded price history or cost basis to measure
+      as_of: "Holdings as of %{date}"
+      stale: "Holdings last updated %{date}. Figures may be out of date."
+      no_holdings_date: No holdings snapshot is recorded yet.
+    actions:
+      heading: Needs a decision
+      none_title: Nothing is waiting on a decision
+      none_description: No harvestable losses, open wash-sale windows or upcoming earnings and dividend dates were found in your accounts.
+      review: Review
+      harvest:
+        title: Harvestable losses
+        detail: "%{count} positions, %{loss} of unrealized loss"
+      wash_sale:
+        title: Open wash-sale windows
+        detail: "%{count} windows open"
+        replaced:
+          one: "%{count} has a recorded replacement purchase"
+          other: "%{count} have recorded replacement purchases"
+      events:
+        title: Earnings and dividend dates this week
+        detail: "%{count} dates: %{tickers}"
+      cost_basis:
+        title: Positions without cost basis
+        detail: "%{count} left out of gain and loss figures: %{tickers}"
+      boundary: These are prompts to review, not trade recommendations. Wash-sale and holding-period results are estimates from recorded data.
+    monitor:
+      heading: Largest positions
+      holding: Holding
+      weight: Weight
+      value: Value
+      return: Return
+      return_unavailable: Cost basis unknown
+      concentrated: Concentrated
+      empty: No positions are recorded in your investment accounts.
+    links:
+      heading: Go deeper
+      harvest: Tax loss harvest
+      events: Market events
+      research: Ticker research
+      insights: Insights
+      reports: Investment reports

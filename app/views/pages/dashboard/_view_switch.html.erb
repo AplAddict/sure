@@ -1,0 +1,8 @@
+<%# locals: (active:) %>
+<%# Same data, two lenses: the all-finances overview and the investment decision
+    center. Links (not buttons) so each view has a URL; prefetch is disabled
+    because choosing a view is remembered per user. %>
+<%= render DS::SegmentedControl.new(aria_label: t("investment_decision_center.switch.aria_label")) do |control| %>
+  <% control.with_segment(t("investment_decision_center.switch.overview"), active: active == "overview", href: root_path(view: "overview"), data: { turbo_prefetch: false }) %>
+  <% control.with_segment(t("investment_decision_center.switch.decision"), active: active == "decision", href: root_path(view: "decision"), data: { turbo_prefetch: false }) %>
+<% end %>

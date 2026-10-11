@@ -5,7 +5,7 @@ class Api::V1::InsightsController < Api::V1::BaseController
   before_action :require_preview_features_for_api
 
   def index
-    insights = current_resource_owner.family.insights.visible.ordered
+    insights = current_resource_owner.visible_insights.visible.ordered
 
     render json: {
       insights: insights.map { |insight| serialize(insight) }

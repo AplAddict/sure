@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -1478,9 +1478,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120000) do
     t.string "status", default: "active", null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.uuid "user_id"
     t.index ["family_id", "dedup_key"], name: "index_insights_on_family_id_and_dedup_key", unique: true
     t.index ["family_id", "generated_at"], name: "index_insights_on_family_id_and_generated_at"
     t.index ["family_id", "status"], name: "index_insights_on_family_id_and_status"
+    t.index ["user_id", "status"], name: "index_insights_on_user_id_and_status"
     t.check_constraint "priority::text = ANY (ARRAY['high'::character varying::text, 'medium'::character varying::text, 'low'::character varying::text])", name: "chk_insights_priority"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'read'::character varying::text, 'dismissed'::character varying::text, 'expired'::character varying::text])", name: "chk_insights_status"
   end
@@ -3073,6 +3075,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120000) do
   add_foreign_key "indexa_capital_accounts", "indexa_capital_items"
   add_foreign_key "indexa_capital_items", "families"
   add_foreign_key "insights", "families"
+  add_foreign_key "insights", "users", on_delete: :cascade
   add_foreign_key "invitations", "families"
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "kraken_accounts", "kraken_items"

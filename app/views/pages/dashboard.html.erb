@@ -10,6 +10,9 @@
     </div>
 
     <div class="flex items-center gap-2">
+      <% if @decision_available %>
+        <%= render "pages/dashboard/view_switch", active: "overview" %>
+      <% end %>
       <%= render DS::Link.new(
         icon: "plus",
         text: t("pages.dashboard.new"),

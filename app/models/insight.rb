@@ -16,6 +16,10 @@
 # migration — only the vocabulary the code and the UI speak was wrong.
 class Insight < ApplicationRecord
   belongs_to :family
+  # nil = a family-wide insight (every member sees it, as before). Set = an
+  # insight computed from one member's own accessible accounts; only that
+  # member ever reads it.
+  belongs_to :user, optional: true
 
   TYPES = %w[
     spending_anomaly
@@ -27,6 +31,20 @@ class Insight < ApplicationRecord
     budget_at_risk
     budget_on_track
     maintained_goal_depleted
+    tax_loss_harvest
+    wash_sale_window
+    position_concentration
+    position_events
+    cost_basis_gap
+  ].freeze
+
+  # Types computed per user from the accounts that user can access.
+  USER_SCOPED_TYPES = %w[
+    tax_loss_harvest
+    wash_sale_window
+    position_concentration
+    position_events
+    cost_basis_gap
   ].freeze
 
   # How many the dashboard widget shows. Shared so PagesController (first render)
@@ -41,6 +59,14 @@ class Insight < ApplicationRecord
   # Mirrors the DB unique index so direct callers get a validation error
   # instead of ActiveRecord::RecordNotUnique; races still hit the index.
   validates :dedup_key, uniqueness: { scope: :family_id }
+  validate :user_belongs_to_family
+  validate :user_scoped_types_have_owner
+
+  # What one member may read: every family-wide insight plus their own.
+  # Never use `family.insights` for anything a person sees.
+  scope :visible_to, ->(user) {
+    where(family_id: user.family_id).where(user_id: [ nil, user.id ])
+  }
 
   # Everything the user hasn't acknowledged; what the feed renders.
   scope :visible, -> { where(status: [ :active, :read ]) }
@@ -48,6 +74,10 @@ class Insight < ApplicationRecord
     order(Arel.sql("CASE insights.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END"))
       .order(generated_at: :desc)
   }
+
+  def user_scoped?
+    user_id.present?
+  end
 
   def mark_read!
     return unless active?
@@ -70,4 +100,18 @@ class Insight < ApplicationRecord
 
     update!(status: :read, dismissed_at: nil, read_at: read_at || Time.current)
   end
+
+  private
+    def user_belongs_to_family
+      return if user.nil? || user.family_id == family_id
+
+      errors.add(:user, "must belong to the insight's family")
+    end
+
+    # A user-scoped type with no owner would be shown to the whole family.
+    def user_scoped_types_have_owner
+      return unless insight_type.in?(USER_SCOPED_TYPES) && user_id.nil?
+
+      errors.add(:user, "is required for #{insight_type} insights")
+    end
 end

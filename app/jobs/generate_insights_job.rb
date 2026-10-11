@@ -53,22 +53,27 @@ class GenerateInsightsJob < ApplicationJob
       Array(notifiable_insights).each { |insight| DeliverInsightNotificationJob.enqueue_for(insight) }
     end
 
+    # One stream per member, carrying only what that member may read (the
+    # family-wide rows plus their own). A shared family stream would deliver one
+    # member's brokerage insights to every open /insights page in the family.
     def broadcast_feed(family)
-      insights = family.insights.visible.ordered.to_a
-      unread_ids = insights.select(&:active?).map(&:id).to_set
+      family.users.with_preview_features.find_each do |user|
+        insights = Insight.visible_to(user).visible.ordered.to_a
+        unread_ids = insights.select(&:active?).map(&:id).to_set
 
-      Turbo::StreamsChannel.broadcast_replace_to(
-        [ family, :insights ],
-        target: "insights-list",
-        partial: "insights/list",
-        locals: { insights: insights, unread_ids: unread_ids }
-      )
-      Turbo::StreamsChannel.broadcast_replace_to(
-        [ family, :insights ],
-        target: "insights-refresh",
-        partial: "insights/refresh_button",
-        locals: { pending: false }
-      )
+        Turbo::StreamsChannel.broadcast_replace_to(
+          [ user, :insights ],
+          target: "insights-list",
+          partial: "insights/list",
+          locals: { insights: insights, unread_ids: unread_ids }
+        )
+        Turbo::StreamsChannel.broadcast_replace_to(
+          [ user, :insights ],
+          target: "insights-refresh",
+          partial: "insights/refresh_button",
+          locals: { pending: false }
+        )
+      end
     end
 
     # A visible insight whose generator ran successfully but did not re-emit
@@ -76,11 +81,28 @@ class GenerateInsightsJob < ApplicationJob
     # generator crashed are left untouched so a transient failure can't wipe
     # out healthy insights.
     def expire_stale_insights(family, result)
+      keys = result.insights.map(&:dedup_key)
+
+      # Family-wide rows only: a user-scoped row is judged against its owner's
+      # own generator run below, never against the family-wide types.
       family.insights
         .visible
-        .where(insight_type: result.succeeded_types)
-        .where.not(dedup_key: result.insights.map(&:dedup_key))
+        .where(user_id: nil, insight_type: result.succeeded_types)
+        .where.not(dedup_key: keys)
         .update_all(status: "expired", updated_at: Time.current)
+
+      # Each evaluated member's rows expire only for generators that completed
+      # for that member, so a crash (or a member we did not evaluate) can never
+      # wipe out healthy rows.
+      result.user_succeeded_types.each do |user_id, types|
+        next if types.empty?
+
+        family.insights
+          .visible
+          .where(user_id: user_id, insight_type: types)
+          .where.not(dedup_key: keys)
+          .update_all(status: "expired", updated_at: Time.current)
+      end
     end
 
     def upsert_insights(family, generated_insights)
@@ -93,6 +115,7 @@ class GenerateInsightsJob < ApplicationJob
 
         if existing.nil?
           family.insights.create!(
+            user_id: generated.user_id,
             insight_type: generated.insight_type,
             priority: generated.priority,
             status: "active",

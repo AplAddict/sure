@@ -165,6 +165,11 @@ class User < ApplicationRecord
     family.accounts.accessible_by(self)
   end
 
+  # Family-wide insights plus this member's own; see Insight.visible_to.
+  def visible_insights
+    Insight.visible_to(self)
+  end
+
   def finance_accounts
     family.accounts.included_in_finances_for(self)
   end
@@ -624,6 +629,11 @@ class User < ApplicationRecord
   end
 
   # Dashboard preferences management
+  # Which homepage view the member last chose: "overview" or "decision".
+  def dashboard_view
+    preferences&.dig("dashboard_view") == "decision" ? "decision" : "overview"
+  end
+
   def dashboard_section_collapsed?(section_key)
     preferences&.dig("collapsed_sections", section_key) == true
   end

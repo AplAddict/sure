@@ -42,6 +42,7 @@ class Insight::BodyWriter
     end
 
     def llm_body(generated_insight)
+      provider = provider_for(generated_insight)
       return nil unless provider
 
       prompt = <<~PROMPT
@@ -74,10 +75,25 @@ class Insight::BodyWriter
     # initiates each call) LLM narration is gated on someone in the family
     # having AI enabled — consent to share financial data with the provider,
     # and a cost cap in managed mode. Everyone else gets the template body.
-    def provider
-      return @provider if defined?(@provider)
-      return @provider = nil unless family.users.any?(&:ai_enabled?)
+    #
+    # A user-scoped insight is built from one member's own accounts, so it is
+    # only narrated when THAT member has AI enabled: another member's consent
+    # does not extend to sending this member's holdings to the provider.
+    def provider_for(generated_insight)
+      if generated_insight.user_id.present?
+        owner = family.users.find_by(id: generated_insight.user_id)
+        return nil unless owner&.ai_enabled?
 
-      @provider = Provider::Registry.preferred_llm_provider
+        return preferred_provider
+      end
+
+      return @family_provider if defined?(@family_provider)
+      @family_provider = family.users.any?(&:ai_enabled?) ? preferred_provider : nil
+    end
+
+    def preferred_provider
+      return @preferred_provider if defined?(@preferred_provider)
+
+      @preferred_provider = Provider::Registry.preferred_llm_provider
     end
 end

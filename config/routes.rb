@@ -528,6 +528,7 @@ Rails.application.routes.draw do
   get "research/news", to: "research#news", as: :research_news
   get "research/tickers/:ticker", to: "research#ticker", as: :research_ticker
   get "market-events", to: "market_events#index", as: :market_events
+  get "tax-loss-harvest", to: "tax_loss_harvests#show", as: :tax_loss_harvest
 
   resources :holdings, only: %i[index new show update destroy] do
     member do

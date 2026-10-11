@@ -85,6 +85,7 @@ en:
     subscriptions: Subscription
     system_health: System Health
     tags: Tags
+    tax_loss_harvests: Tax loss harvest
     trades: Trades
     transactions: Transactions
     transfer_matches: Transfer matches

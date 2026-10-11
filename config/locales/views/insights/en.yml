@@ -34,6 +34,14 @@ en:
       budget_at_risk: Budget
       budget_on_track: Budget
       maintained_goal_depleted: Reserve
+      tax_loss_harvest: Tax loss harvest
+      wash_sale_window: Wash sale
+      position_concentration: Concentration
+      position_events: Upcoming events
+      cost_basis_gap: Cost basis
+    position_event_labels:
+      earnings: earnings
+      ex_dividend: ex-dividend
     meta:
       next_n_days:
         one: Next day
@@ -54,6 +62,17 @@ en:
       idle_days:
         one: idle %{count} day
         other: idle %{count} days
+      harvestable:
+        one: across %{count} position
+        other: across %{count} positions
+      open_windows:
+        one: open window
+        other: open windows
+      of_portfolio: of your portfolio
+      this_week: this week
+      without_cost_basis:
+        one: position unmeasured
+        other: positions unmeasured
     actions:
       spending_anomaly: View %{category} transactions
       cash_flow_warning: Review recurring transactions
@@ -63,6 +82,11 @@ en:
       idle_cash: Go to account
       budget: View budget
       maintained_goal_depleted: View reserve
+      tax_loss_harvest: Review harvest candidates
+      cost_basis_gap: See unmeasured positions
+      wash_sale_window: View wash-sale windows
+      position_events: View market events
+      position_concentration: Research %{ticker}
     titles:
       spending_anomaly:
         above: "%{category} spending is trending up"
@@ -81,6 +105,19 @@ en:
         one: One category needs attention in your budget
         other: "%{count} categories need attention in your budget"
       budget_on_track: Your budget is on track
+      tax_loss_harvest:
+        one: One position has a harvestable loss
+        other: "%{count} positions have harvestable losses"
+      wash_sale_window:
+        one: One wash-sale window is open
+        other: "%{count} wash-sale windows are open"
+      position_concentration: "%{ticker} is a large share of your portfolio"
+      position_events:
+        one: One earnings or dividend date this week
+        other: "%{count} earnings or dividend dates this week"
+      cost_basis_gap:
+        one: One position has no recorded cost basis
+        other: "%{count} positions have no recorded cost basis"
     templates:
       spending_anomaly:
         above: You're on pace to spend %{projected_spend} on %{category} this month, about %{deviation_pct}% more than your recent monthly average of %{baseline_spend}.
@@ -100,3 +137,12 @@ en:
         over: "%{categories} went over budget this month. You've used %{budget_spent_pct}% of your total budget so far."
         near: "%{categories} are close to their limits this month. You've used %{budget_spent_pct}% of your total budget so far."
       budget_on_track: You've spent %{spent} of your %{budgeted} budget (%{budget_spent_pct}%) and everything is within its limit.
+      tax_loss_harvest:
+        clear: "Your taxable accounts hold %{loss} of unrealized losses across %{count} positions, led by %{largest} at %{largest_loss}. None are flagged for a wash-sale risk."
+        flagged: "Your taxable accounts hold %{loss} of unrealized losses across %{count} positions, led by %{largest} at %{largest_loss}. %{flagged} of them have a wash-sale flag to review before selling."
+      wash_sale_window:
+        open: "A loss sale in %{tickers} left a 30-day wash-sale window open until %{next_end}. No replacement purchases are recorded in it."
+        replaced: "A loss sale in %{tickers} left a 30-day wash-sale window open until %{next_end}, and replacement purchases are recorded inside it for %{replaced} of them. Review before relying on the loss."
+      position_concentration: "%{name} (%{ticker}) is %{weight}% of your investment portfolio, worth %{value}."
+      position_events: "Coming up on positions you hold: %{events}."
+      cost_basis_gap: "%{tickers} have no recorded cost basis, so they are left out of gain, loss and harvest figures rather than counted as zero."
