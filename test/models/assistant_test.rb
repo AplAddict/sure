@@ -15,8 +15,16 @@ class AssistantTest < ActiveSupport::TestCase
     preview_user.update!(preferences: (preview_user.preferences || {}).merge("preview_features_enabled" => true))
     preview_classes = Assistant.function_classes(preview_user)
 
-    assert_includes preview_classes, Assistant::Function::GetInsights
     assert_includes preview_classes, Assistant::Function::GetValuations
+
+    # family_admin shares a family with another member, so family-wide stores are withheld.
+    assert_operator preview_user.family.users.count, :>, 1
+    assert_not_includes preview_classes, Assistant::Function::GetInsights
+
+    solo = users(:inactive_trial_user)
+    assert_equal 1, solo.family.users.count
+    solo.update!(preferences: (solo.preferences || {}).merge("preview_features_enabled" => true))
+    assert_includes Assistant.function_classes(solo.reload), Assistant::Function::GetInsights
   end
 
   setup do

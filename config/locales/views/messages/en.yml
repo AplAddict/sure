@@ -7,3 +7,25 @@ en:
       placeholder: "Ask anything ..."
       disclaimer: "AI responses are informational only. Not financial advice!"
       coming_soon: Coming soon
+      add_timeframe: Add a time range
+      quick_prompts: Quick questions
+      mention: Mention an account, category or merchant
+      mention_search: Search your accounts ...
+      mention_loading: Loading ...
+      mention_failed: Could not load your list. Try again.
+      mention_empty: Nothing matches.
+      mention_accounts: Accounts
+      mention_categories: Categories
+      mention_merchants: Merchants
+      ranges:
+        this_month: this month
+        last_month: last month
+        last_30_days: in the last 30 days
+        year_to_date: so far this year
+        last_12_months: over the last 12 months
+      prompts:
+        net_worth: What is my net worth, and how has it changed recently?
+        spending_month: How much did I spend this month, by category?
+        upcoming_bills: Which bills and subscriptions are coming up?
+        biggest_expenses: What were my biggest expenses this month?
+        subscriptions: Which recurring charges could I cut?

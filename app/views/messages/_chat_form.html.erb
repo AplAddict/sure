@@ -5,22 +5,67 @@
 
   <%= form_with model: model,
                 class: "flex lg:flex-col gap-2 bg-container px-2 py-1.5 rounded-full lg:rounded-lg shadow-border-xs",
-                data: { chat_target: "form" } do |f| %>
+                data: { chat_target: "form", controller: "chat-composer", chat_composer_url_value: chat_composer_options_path, action: "keydown->chat-composer#escape" } do |f| %>
 
     <%# In the future, this will be a dropdown with different AI models %>
     <%= f.hidden_field :ai_model, value: default_ai_model %>
 
     <%= f.text_area :content, placeholder: t(".placeholder"), value: message_hint,
                   class: "w-full border-0 focus:ring-0 text-sm resize-none px-1 bg-transparent",
-                  data: { chat_target: "input", action: "input->chat#autoResize keydown->chat#handleInputKeyDown" },
+                  data: { chat_target: "input", chat_composer_target: "input", action: "input->chat#autoResize keydown->chat#handleInputKeyDown" },
                   rows: 1 %>
 
     <div class="flex items-center justify-between gap-1">
-      <div class="items-center gap-1 hidden lg:flex">
-        <%# These are disabled for now, but in the future, will all open specific menus with their own context and search %>
-        <% ["plus", "command", "at-sign", "mouse-pointer-click"].each do |icon| %>
-          <%= icon(icon, as_button: true, disabled: true, class: "cursor-not-allowed", title: t(".coming_soon")) %>
-        <% end %>
+      <div class="items-center gap-1 hidden lg:flex relative">
+        <%# The composer controller edits the same textarea the chat controller owns. %>
+        <% prompt_sets = {
+          range: [ :this_month, :last_month, :last_30_days, :year_to_date, :last_12_months ],
+          quick: [ :net_worth, :spending_month, :upcoming_bills, :biggest_expenses, :subscriptions ]
+        } %>
+
+        <div class="relative">
+          <%= icon("plus", as_button: true, title: t(".add_timeframe"), "aria-label": t(".add_timeframe"),
+                   "aria-haspopup": "true", "aria-expanded": "false",
+                   data: { action: "click->chat-composer#toggle", chat_composer_menu_param: "range" }) %>
+          <div class="hidden absolute bottom-full left-0 mb-2 w-52 bg-container rounded-lg shadow-border-lg p-1 z-20" role="menu" data-chat-composer-target="menu" data-menu="range">
+            <p class="px-3 pt-2 pb-1 text-xs font-medium text-secondary"><%= t(".add_timeframe") %></p>
+            <% prompt_sets[:range].each do |key| %>
+              <button type="button" role="menuitem" class="block w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-hover rounded-md"
+                      data-action="click->chat-composer#insert"
+                      data-chat-composer-text-param="<%= t(".ranges.#{key}") %>"><%= t(".ranges.#{key}") %></button>
+            <% end %>
+          </div>
+        </div>
+
+        <div class="relative">
+          <%= icon("command", as_button: true, title: t(".quick_prompts"), "aria-label": t(".quick_prompts"),
+                   "aria-haspopup": "true", "aria-expanded": "false",
+                   data: { action: "click->chat-composer#toggle", chat_composer_menu_param: "quick" }) %>
+          <div class="hidden absolute bottom-full left-0 mb-2 w-72 bg-container rounded-lg shadow-border-lg p-1 z-20" role="menu" data-chat-composer-target="menu" data-menu="quick">
+            <p class="px-3 pt-2 pb-1 text-xs font-medium text-secondary"><%= t(".quick_prompts") %></p>
+            <% prompt_sets[:quick].each do |key| %>
+              <button type="button" role="menuitem" class="block w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-hover rounded-md"
+                      data-action="click->chat-composer#insert"
+                      data-chat-composer-mode-param="replace"
+                      data-chat-composer-text-param="<%= t(".prompts.#{key}") %>"><%= t(".prompts.#{key}") %></button>
+            <% end %>
+          </div>
+        </div>
+
+        <div class="relative">
+          <%= icon("at-sign", as_button: true, title: t(".mention"), "aria-label": t(".mention"),
+                   "aria-haspopup": "true", "aria-expanded": "false",
+                   data: { action: "click->chat-composer#toggle", chat_composer_menu_param: "mentions" }) %>
+          <div class="hidden absolute bottom-full left-0 mb-2 w-72 bg-container rounded-lg shadow-border-lg p-1 z-20" data-chat-composer-target="menu" data-menu="mentions">
+            <input type="search" autocomplete="off" placeholder="<%= t(".mention_search") %>" aria-label="<%= t(".mention_search") %>"
+                   class="w-full border-0 focus:ring-0 text-sm px-3 py-2 bg-transparent"
+                   data-chat-composer-target="filter" data-action="input->chat-composer#filterMentions">
+            <p class="px-3 py-1 text-xs text-secondary empty:hidden" data-chat-composer-target="mentionStatus"
+               data-loading="<%= t(".mention_loading") %>" data-failed="<%= t(".mention_failed") %>" data-empty="<%= t(".mention_empty") %>"></p>
+            <div class="max-h-64 overflow-y-auto" data-chat-composer-target="mentionList"
+                 data-accounts-label="<%= t(".mention_accounts") %>" data-categories-label="<%= t(".mention_categories") %>" data-merchants-label="<%= t(".mention_merchants") %>"></div>
+          </div>
+        </div>
       </div>
 
       <%= icon("arrow-up", as_button: true, type: "submit",

@@ -7,3 +7,25 @@ de:
       placeholder: Frag mich etwas …
       disclaimer: "KI-Antworten dienen nur zur Information. Keine Finanzberatung!"
       coming_soon: Kommt bald
+      add_timeframe: Zeitraum hinzufügen
+      quick_prompts: Schnelle Fragen
+      mention: Konto, Kategorie oder Händler erwähnen
+      mention_search: Konten durchsuchen …
+      mention_loading: Wird geladen …
+      mention_failed: Liste konnte nicht geladen werden. Bitte erneut versuchen.
+      mention_empty: Keine Treffer.
+      mention_accounts: Konten
+      mention_categories: Kategorien
+      mention_merchants: Händler
+      ranges:
+        this_month: diesen Monat
+        last_month: letzten Monat
+        last_30_days: in den letzten 30 Tagen
+        year_to_date: seit Jahresbeginn
+        last_12_months: in den letzten 12 Monaten
+      prompts:
+        net_worth: Wie hoch ist mein Nettovermögen und wie hat es sich zuletzt verändert?
+        spending_month: Wie viel habe ich diesen Monat ausgegeben, nach Kategorie?
+        upcoming_bills: Welche Rechnungen und Abos stehen an?
+        biggest_expenses: Was waren meine größten Ausgaben diesen Monat?
+        subscriptions: Welche wiederkehrenden Kosten könnte ich streichen?
