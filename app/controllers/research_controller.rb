@@ -4,6 +4,10 @@ class ResearchController < ApplicationController
 
   def search
     @query = params[:q].to_s.strip
+    if (target = direct_ticker_target)
+      return redirect_to research_ticker_path(target)
+    end
+
     @securities = scoped_securities
     @securities = @securities.where("LOWER(securities.ticker) LIKE :q OR LOWER(securities.name) LIKE :q", q: "%#{@query.downcase}%") if @query.present?
     @securities = @securities.order(:ticker).limit(30)
@@ -19,8 +23,9 @@ class ResearchController < ApplicationController
     else
       Security.none
     end
-    @lookup_ticker = @query.upcase if @query.match?(Security::FundamentalsRefresher::YAHOO_SYMBOL) &&
-                                      @securities.none? { |s| s.ticker.casecmp?(@query) } && @other_securities.none? { |s| s.ticker.casecmp?(@query) }
+    candidate = @query.upcase
+    @lookup_ticker = candidate if candidate.match?(Security::FundamentalsRefresher::YAHOO_SYMBOL) &&
+                                  @securities.none? { |s| s.ticker.casecmp?(candidate) } && @other_securities.none? { |s| s.ticker.casecmp?(candidate) }
     @articles = article_rows.select { |article| @query.blank? || article[:title].downcase.include?(@query.downcase) || article[:source].downcase.include?(@query.downcase) || article[:tickers].any? { |ticker| ticker.downcase.include?(@query.downcase) } }.first(30)
   end
 
@@ -61,6 +66,17 @@ class ResearchController < ApplicationController
   end
 
   private
+    # A query that is exactly a ticker opens its page instead of a results list.
+    # "$XYZ" is an explicit ticker even if we have not seen it yet (the ticker page
+    # queues the lookup); a bare word only jumps when it is a ticker we know, so
+    # searching a company name still shows results.
+    def direct_ticker_target
+      explicit = @query.start_with?("$")
+      symbol = @query.delete_prefix("$").strip.upcase
+      return unless symbol.match?(Security::FundamentalsRefresher::YAHOO_SYMBOL)
+      symbol if explicit || Security.where("UPPER(securities.ticker) = ?", symbol).exists?
+    end
+
     # Any known ticker has a page, held or not. A ticker we have never seen is
     # looked up in the background and its page appears on refresh; one the market
     # source says does not exist is a normal 404.

@@ -125,10 +125,40 @@ class ResearchUnheldTickersTest < ActionDispatch::IntegrationTest
 
     Security.create!(ticker: held.security.ticker, exchange_operating_mic: "XZZZ", offline: true, offline_reason: Security::RESEARCH_ONLY_REASON)
 
-    get research_search_path(q: held.security.ticker)
+    # A partial match, since the exact ticker now jumps straight to its page
+    get research_search_path(q: held.security.ticker.downcase[0..-2])
 
     assert_response :success
     assert_select "[data-testid=other-tickers] a", text: held.security.ticker, count: 0
+  end
+
+  test "an exact ticker in search opens its page, case-insensitively, held or not" do
+    research_only!("ZZUG")
+
+    get research_search_path(q: "zzug")
+    assert_redirected_to research_ticker_path("ZZUG")
+
+    get research_search_path(q: "  $zzug ")
+    assert_redirected_to research_ticker_path("ZZUG")
+  end
+
+  test "a dollar-prefixed ticker we have never seen opens its page and queues the lookup" do
+    get research_search_path(q: "$qqzx")
+    assert_redirected_to research_ticker_path("QQZX")
+
+    assert_enqueued_with(job: TickerResearchGenerateJob, args: [ "QQZX" ]) { get research_ticker_path("QQZX") }
+  end
+
+  test "a bare word that is not a known ticker still shows results, not a redirect" do
+    research_only!("ZZUH", name: "Quokka Industries")
+
+    get research_search_path(q: "quokka")
+    assert_response :success
+    assert_select "[data-testid=other-tickers] a", text: "ZZUH"
+
+    get research_search_path(q: "qqzw")
+    assert_response :success
+    assert_select "[data-testid=lookup-ticker] a", text: "Open QQZW"
   end
 
   test "search lists no unheld tickers without a query" do
