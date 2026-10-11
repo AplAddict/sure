@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -434,6 +434,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_150000) do
     t.index ["family_id", "agreed", "created_at"], name: "index_categorization_comparisons_on_family_agreement"
     t.index ["family_id"], name: "index_categorization_comparisons_on_family_id"
     t.index ["transaction_id"], name: "index_categorization_comparisons_on_transaction_id"
+  end
+
+  create_table "chat_documents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_statement_id"
+    t.integer "byte_size", null: false
+    t.uuid "chat_id", null: false
+    t.string "content_sha256", null: false
+    t.string "content_type", null: false
+    t.datetime "created_at", null: false
+    t.string "error_code"
+    t.text "extracted_text"
+    t.string "filename", null: false
+    t.uuid "message_id", null: false
+    t.string "status", default: "extracted", null: false
+    t.boolean "truncated", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.index ["chat_id"], name: "index_chat_documents_on_chat_id"
+    t.index ["message_id"], name: "index_chat_documents_on_message_id"
   end
 
   create_table "chats", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3004,6 +3022,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_150000) do
   add_foreign_key "categories", "families"
   add_foreign_key "categorization_comparisons", "families"
   add_foreign_key "categorization_comparisons", "transactions", on_delete: :nullify
+  add_foreign_key "chat_documents", "chats"
+  add_foreign_key "chat_documents", "messages"
   add_foreign_key "chats", "users"
   add_foreign_key "coinbase_accounts", "coinbase_items"
   add_foreign_key "coinbase_items", "families"

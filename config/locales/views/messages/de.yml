@@ -6,4 +6,45 @@ de:
     chat_form:
       placeholder: Frag mich etwas …
       disclaimer: "KI-Antworten dienen nur zur Information. Keine Finanzberatung!"
+      chip_remove: Entfernen
+      chips_label: Ausgewählte Elemente
       coming_soon: Kommt bald
+      add_timeframe: Zeitraum hinzufügen
+      quick_prompts: Schnelle Fragen
+      mention: Konto, Kategorie oder Händler erwähnen
+      mention_search: Konten durchsuchen …
+      mention_loading: Wird geladen …
+      mention_failed: Liste konnte nicht geladen werden. Bitte erneut versuchen.
+      mention_empty: Keine Treffer.
+      mention_accounts: Konten
+      mention_categories: Kategorien
+      mention_merchants: Händler
+      mention_groups:
+        depository: Bank- & Girokonten
+        credit_card: Kreditkarten
+        loan: Kredite
+        investment: Geldanlagen
+        crypto: Krypto
+        property: Immobilien
+        vehicle: Fahrzeuge
+        other: Sonstiges
+      attach_document: PDF-, CSV- oder Textdatei anhängen
+      default_document_prompt: Bitte lies das angehängte Dokument und fasse es zusammen.
+      upload_errors:
+        unsupported_type: Es können nur PDF-, CSV- oder Textdateien angehängt werden.
+        too_large: Diese Datei ist größer als 10 MB.
+        too_many: Du kannst bis zu 3 Dateien pro Nachricht anhängen.
+        empty: Diese Datei ist leer.
+        generic: Die Datei konnte nicht angehängt werden.
+      ranges:
+        this_month: diesen Monat
+        last_month: letzten Monat
+        last_30_days: in den letzten 30 Tagen
+        year_to_date: seit Jahresbeginn
+        last_12_months: in den letzten 12 Monaten
+      prompts:
+        net_worth: Wie hoch ist mein Nettovermögen und wie hat es sich zuletzt verändert?
+        spending_month: Wie viel habe ich diesen Monat ausgegeben, nach Kategorie?
+        upcoming_bills: Welche Rechnungen und Abos stehen an?
+        biggest_expenses: Was waren meine größten Ausgaben diesen Monat?
+        subscriptions: Welche wiederkehrenden Kosten könnte ich streichen?

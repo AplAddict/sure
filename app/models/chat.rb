@@ -30,6 +30,7 @@ class Chat < ApplicationRecord
   belongs_to :user
 
   has_one :viewer, class_name: "User", foreign_key: :last_viewed_chat_id, dependent: :nullify # "Last chat user has viewed"
+  has_many :chat_documents, dependent: :destroy # before :messages (FK order)
   has_many :messages, dependent: :destroy
 
   validates :title, presence: true

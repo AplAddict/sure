@@ -35,6 +35,11 @@ module Assistant
     Function::RecordBillPayment
   ].freeze
 
+  FAMILY_WIDE_FUNCTION_CLASSES = [
+    Function::SearchFamilyFiles,
+    Function::GetInsights
+  ].freeze
+
   MCP_READ_FUNCTION_CLASSES = [
     Function::GetTransactions,
     Function::GetRecurringTransactions,
@@ -92,10 +97,18 @@ module Assistant
         Function::UpdateTransaction,
         Function::CreateTransaction,
         Function::DeleteTransaction,
-        Function::UpdateBudget
+        Function::UpdateBudget,
+        Function::ArchiveChatDocument
       ]
 
       classes += PREVIEW_FUNCTION_CLASSES if user&.preview_features_enabled?
+
+      # These read family-wide stores that cannot be filtered per account, so
+      # they are only offered when the family has a single member.
+      unless user.nil? || user.family.users.count == 1
+        classes -= FAMILY_WIDE_FUNCTION_CLASSES
+      end
+
       classes
     end
 

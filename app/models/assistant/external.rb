@@ -1,5 +1,5 @@
 class Assistant::External < Assistant::Base
-  Config = Struct.new(:url, :token, :model, :agent_id, :session_key, keyword_init: true)
+  Config = Struct.new(:url, :token, :model, :agent_id, keyword_init: true)
   MAX_CONVERSATION_MESSAGES = 20
 
   class << self
@@ -32,8 +32,7 @@ class Assistant::External < Assistant::Base
         url: ENV["EXTERNAL_ASSISTANT_URL"].presence || Setting.external_assistant_url.presence,
         token: ENV["EXTERNAL_ASSISTANT_TOKEN"].presence || Setting.external_assistant_token.presence,
         model: selected_model || legacy_model,
-        agent_id: routing_agent_id,
-        session_key: ENV.fetch("EXTERNAL_ASSISTANT_SESSION_KEY", "agent:main:main")
+        agent_id: routing_agent_id
       )
     end
 
@@ -88,7 +87,7 @@ class Assistant::External < Assistant::Base
 
     model = client.chat(
       messages: messages,
-      user: "sure-family-#{chat.user.family_id}"
+      user: session_key
     ) do |text|
       assistant_message.append_text!(text)
     end
@@ -122,7 +121,7 @@ class Assistant::External < Assistant::Base
         token: self.class.config.token,
         model: self.class.config.model,
         agent_id: self.class.config.agent_id,
-        session_key: self.class.config.session_key
+        session_key: session_key
       )
     end
 
@@ -130,5 +129,9 @@ class Assistant::External < Assistant::Base
       chat.conversation_messages.where(status: "complete").ordered.last(MAX_CONVERSATION_MESSAGES).map do |msg|
         { role: msg.role, content: msg.content }
       end
+    end
+
+    def session_key
+      "sure-chat-#{Digest::SHA256.hexdigest("#{Rails.application.secret_key_base}:#{chat.user_id}:#{chat.id}")}"
     end
 end

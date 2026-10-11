@@ -302,6 +302,8 @@ Rails.application.routes.draw do
   end
 
   # AI chats
+  resource :chat_composer_options, only: :show, controller: "chat_composer_options"
+
   resources :chats do
     resources :messages, only: :create do
       member do

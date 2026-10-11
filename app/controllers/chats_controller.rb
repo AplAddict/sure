@@ -19,9 +19,22 @@ class ChatsController < ApplicationController
   end
 
   def create
-    @chat = Current.user.chats.start!(chat_params[:content], model: chat_params[:ai_model])
+    files = params.dig(:chat, :documents) || params[:documents]
+    content = chat_params[:content].presence
+    content ||= t("messages.chat_form.default_document_prompt") if Array(files).reject(&:blank?).any?
+
+    # The first message and its documents commit together, so the assistant job never runs
+    # against a half-attached message.
+    Chat.transaction do
+      @chat = Current.user.chats.start!(content.to_s, model: chat_params[:ai_model])
+      ChatDocument.attach_all!(chat: @chat, message: @chat.messages.find_by!(type: "UserMessage"), files: files)
+    end
+
     set_last_viewed_chat(@chat)
     redirect_to chat_path(@chat, thinking: true)
+  rescue ChatDocument::InvalidUpload => e
+    redirect_back_or_to chats_path,
+      alert: t("messages.chat_form.upload_errors.#{e.code}", default: t("messages.chat_form.upload_errors.generic"))
   end
 
   def edit

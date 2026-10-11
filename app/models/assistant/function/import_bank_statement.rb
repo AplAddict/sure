@@ -78,17 +78,17 @@ class Assistant::Function::ImportBankStatement < Assistant::Function
         success: false,
         error: "account_required",
         message: "Please specify which account to import transactions into",
-        available_accounts: family.accounts.visible.depository.map { |a| { id: a.id, name: a.name } }
+        available_accounts: family.accounts.writable_by(user).visible.depository.map { |a| { id: a.id, name: a.name } }
       }
     end
 
-    account = family.accounts.find_by(id: params["account_id"])
+    account = family.accounts.writable_by(user).find_by(id: params["account_id"])
     unless account
       return {
         success: false,
         error: "account_not_found",
         message: "Account not found",
-        available_accounts: family.accounts.visible.depository.map { |a| { id: a.id, name: a.name } }
+        available_accounts: family.accounts.writable_by(user).visible.depository.map { |a| { id: a.id, name: a.name } }
       }
     end
 

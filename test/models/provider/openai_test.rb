@@ -588,6 +588,25 @@ class Provider::OpenaiTest < ActiveSupport::TestCase
     assert_equal expected, @subject.supported_models_description
   end
 
+  test "custom provider sends only an opaque owner-scoped user key" do
+    provider = Provider::Openai.new("test-token", uri_base: "https://broker.example.invalid/v1", model: "custom-model")
+    owner_digest = Digest::SHA256.hexdigest("owner-1")
+    captured = []
+    fake_client = mock
+    fake_client.stubs(:chat).with { |parameters:| captured << parameters; true }.returns(
+      { "choices" => [ { "message" => { "content" => "ok" } } ] }
+    )
+    provider.stubs(:client).returns(fake_client)
+
+    provider.chat_response("hi", model: "custom-model", user_identifier: owner_digest)
+    provider.chat_response("hi", model: "custom-model", user_identifier: "not-a-digest\n")
+    provider.chat_response("hi", model: "custom-model", user_identifier: nil)
+
+    assert_equal "sure-chat-#{owner_digest}", captured[0][:user]
+    assert_not captured[1].key?(:user), "malformed identifiers must not be forwarded"
+    assert_not captured[2].key?(:user)
+  end
+
   test "supported_models_description returns configured model for custom provider" do
     custom_provider = Provider::Openai.new(
       "test-token",

@@ -2,4 +2,10 @@
 
 <div id="<%= dom_id(user_message) %>" class="bg-surface-inset px-3 py-2 rounded-lg max-w-[85%] w-fit ml-auto mb-6">
   <div class="prose prose--ai-chat"><%= markdown(user_message.content) %></div>
+  <% user_message.chat_documents.each do |document| %>
+    <p class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-container shadow-border-xs px-2.5 py-1 text-xs text-secondary max-w-full">
+      <%= icon("paperclip", size: "xs", color: "current") %>
+      <span class="truncate"><%= document.filename %></span>
+    </p>
+  <% end %>
 </div>
