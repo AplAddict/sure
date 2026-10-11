@@ -53,9 +53,9 @@ class Assistant::AccountPrivacyTest < ActiveSupport::TestCase
   test "family-wide stores are withheld from multi-member families" do
     classes = Assistant.function_classes(@owner)
     assert_not_includes classes, Assistant::Function::SearchFamilyFiles
-    assert_not_includes classes, Assistant::Function::GetInsights
     @owner.update!(preferences: (@owner.preferences || {}).merge("preview_features_enabled" => true))
-    assert_not_includes Assistant.function_classes(@owner.reload), Assistant::Function::GetInsights
+    # Insights are scoped per user (Insight.visible_to), so the tool stays available.
+    assert_includes Assistant.function_classes(@owner.reload), Assistant::Function::GetInsights
   end
 
   test "family-wide stores stay available to a single-member family" do

@@ -35,9 +35,10 @@ module Assistant
     Function::RecordBillPayment
   ].freeze
 
+  # Read family-wide stores that cannot be filtered per account. (GetInsights used to be
+  # here, but insights are now scoped per user via Insight.visible_to, so it is safe.)
   FAMILY_WIDE_FUNCTION_CLASSES = [
-    Function::SearchFamilyFiles,
-    Function::GetInsights
+    Function::SearchFamilyFiles
   ].freeze
 
   MCP_READ_FUNCTION_CLASSES = [

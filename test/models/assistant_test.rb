@@ -17,9 +17,11 @@ class AssistantTest < ActiveSupport::TestCase
 
     assert_includes preview_classes, Assistant::Function::GetValuations
 
-    # family_admin shares a family with another member, so family-wide stores are withheld.
+    # family_admin shares a family with another member: file search (not filterable per
+    # account) is withheld, while insights stay available because they are scoped per user.
     assert_operator preview_user.family.users.count, :>, 1
-    assert_not_includes preview_classes, Assistant::Function::GetInsights
+    assert_includes preview_classes, Assistant::Function::GetInsights
+    assert_not_includes preview_classes, Assistant::Function::SearchFamilyFiles
 
     solo = users(:inactive_trial_user)
     assert_equal 1, solo.family.users.count
