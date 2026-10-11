@@ -21,7 +21,7 @@ class PortfolioHoldings
     def name = security.name.presence || security.ticker
     def gain = cost_basis && market_value ? market_value - cost_basis : nil
     def gain_pct = cost_basis&.positive? && gain ? gain / cost_basis * 100 : nil
-    def lots? = lots.size > 1
+    def lots? = lots.any?
   end
 
   AccountBlock = Data.define(:account, :positions, :market_value, :cost_basis, :cash, :currency) do

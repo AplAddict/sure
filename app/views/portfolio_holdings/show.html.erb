@@ -13,6 +13,7 @@
      end
    end %>
 <% unavailable = t("portfolio_holdings.unavailable") %>
+<% qty = ->(value) { value.zero? ? "0" : number_with_precision(value, precision: 8, strip_insignificant_zeros: true) } %>
 <% money = ->(amount, currency) { amount.nil? ? tag.span("—", class: "text-secondary", title: unavailable) : tag.span(format_money(Money.new(amount, currency)), class: "privacy-sensitive") } %>
 <% gain_cell = lambda do |amount, pct, currency|
      if amount.nil?
@@ -94,14 +95,14 @@
           </ul>
         </div>
 
-        <div class="overflow-x-auto mt-3">
-          <table class="w-full min-w-[820px] text-sm">
+        <div class="@container mt-3"><div class="overflow-x-auto">
+          <table class="w-full min-w-[560px] @3xl:min-w-[820px] text-sm">
             <thead class="bg-container-inset text-xs uppercase text-secondary">
               <tr>
                 <th scope="col" class="px-4 py-2 text-left font-medium"><%= sort_link.call(t("portfolio_holdings.columns.symbol"), "symbol", align: "left") %></th>
                 <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.quantity"), "quantity") %></th>
-                <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.price"), "price") %></th>
-                <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.avg_cost"), "avg_cost") %></th>
+                <th scope="col" class="hidden @3xl:table-cell px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.price"), "price") %></th>
+                <th scope="col" class="hidden @3xl:table-cell px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.avg_cost"), "avg_cost") %></th>
                 <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.cost_basis"), "cost_basis") %></th>
                 <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.market_value"), "market_value") %></th>
                 <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.gain"), "gain") %></th>
@@ -119,14 +120,14 @@
                   <td class="px-3 py-3 text-right font-mono">
                     <% if position.lots? %>
                       <button type="button" class="inline-flex items-center gap-1 text-primary hover:underline" data-holding-lots-target="toggle" data-lots-key="<%= key %>" data-action="holding-lots#toggle" aria-expanded="false" aria-label="<%= t("portfolio_holdings.toggle_lots", ticker: position.ticker, count: position.lots.size) %>">
-                        <span data-chevron class="inline-block transition-transform" aria-hidden="true">›</span><%= format_quantity(position.quantity, exact: true) %><span class="text-xs text-secondary">(<%= position.lots.size %>)</span>
+                        <span data-chevron class="inline-block transition-transform" aria-hidden="true">›</span><%= qty.call(position.quantity) %><span class="text-xs text-secondary">(<%= position.lots.size %>)</span>
                       </button>
                     <% else %>
-                      <%= format_quantity(position.quantity, exact: true) %>
+                      <%= qty.call(position.quantity) %>
                     <% end %>
                   </td>
-                  <td class="px-3 py-3 text-right font-mono"><%= money.call(position.price, position.currency) %></td>
-                  <td class="px-3 py-3 text-right font-mono"><%= money.call(position.avg_cost, position.currency) %></td>
+                  <td class="hidden @3xl:table-cell px-3 py-3 text-right font-mono"><%= money.call(position.price, position.currency) %></td>
+                  <td class="hidden @3xl:table-cell px-3 py-3 text-right font-mono"><%= money.call(position.avg_cost, position.currency) %></td>
                   <td class="px-3 py-3 text-right font-mono"><%= money.call(position.cost_basis, position.currency) %></td>
                   <td class="px-3 py-3 text-right font-mono font-medium"><%= money.call(position.market_value, position.currency) %></td>
                   <td class="px-3 py-3 text-right font-mono"><%= gain_cell.call(position.gain, position.gain_pct, position.currency) %></td>
@@ -140,9 +141,9 @@
                 <% position.lots.each do |lot| %>
                   <tr hidden class="bg-container-inset text-xs" data-holding-lots-target="lot" data-lots-for="<%= key %>" data-testid="lot-row">
                     <td class="py-2 pl-10 pr-3 text-secondary"><%= lot.acquired_on ? l(lot.acquired_on, format: :long) : t("portfolio_holdings.date_unavailable") %></td>
-                    <td class="px-3 py-2 text-right font-mono"><%= format_quantity(lot.quantity, exact: true) %></td>
-                    <td class="px-3 py-2 text-right font-mono text-secondary">—</td>
-                    <td class="px-3 py-2 text-right font-mono"><%= money.call(lot.unit_cost, position.currency) %></td>
+                    <td class="px-3 py-2 text-right font-mono"><%= qty.call(lot.quantity) %></td>
+                    <td class="hidden @3xl:table-cell px-3 py-2 text-right font-mono text-secondary">—</td>
+                    <td class="hidden @3xl:table-cell px-3 py-2 text-right font-mono"><%= money.call(lot.unit_cost, position.currency) %></td>
                     <td class="px-3 py-2 text-right font-mono"><%= money.call(lot.cost_basis, position.currency) %></td>
                     <td class="px-3 py-2 text-right font-mono"><%= money.call(lot.market_value, position.currency) %></td>
                     <td class="px-3 py-2 text-right font-mono"><%= gain_cell.call(lot.gain, lot.gain_pct, position.currency) %></td>
@@ -152,7 +153,7 @@
               <% end %>
             </tbody>
           </table>
-        </div>
+        </div></div>
       </section>
     <% end %>
 

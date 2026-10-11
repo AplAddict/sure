@@ -155,6 +155,45 @@ class PortfolioHoldingsTest < ActionDispatch::IntegrationTest
     assert_select "tr[hidden][data-testid=lot-row]", count: 2
   end
 
+  test "a position with a single lot can still be opened to see its purchase date" do
+    with_lots("PHBIG", units: 10, lots: [ lot("2025-03-03T05:00:00Z", "10", "1000", "2000") ])
+    sign_in @owner
+    get portfolio_holdings_path(account: @account.id)
+
+    assert_response :success
+    assert_select "button[data-holding-lots-target=toggle]", count: 1
+    assert_select "tr[hidden][data-testid=lot-row]", text: /March 03, 2025|Mar(ch)? 3, 2025|2025/
+  end
+
+  test "every hidden lot row has a toggle that controls it" do
+    with_lots("PHBIG", units: 10, lots: [ lot("2025-01-01T05:00:00Z", "6", "500", "1200"), lot("2025-06-01T04:00:00Z", "4", "500", "800") ])
+    sign_in @owner
+    get portfolio_holdings_path(account: @account.id)
+
+    toggle_keys = css_select("button[data-holding-lots-target=toggle]").map { |b| b["data-lots-key"] }.uniq
+    lot_keys = css_select("tr[data-testid=lot-row]").map { |r| r["data-lots-for"] }.uniq
+
+    assert_equal toggle_keys.sort, lot_keys.sort, "a lot row with no toggle can never be opened"
+  end
+
+  test "price and avg cost columns hide when the table is narrow and show when it has room" do
+    sign_in @owner
+    get portfolio_holdings_path(account: @account.id)
+
+    assert_select "th.hidden.\\@3xl\\:table-cell", count: 2
+    assert_select "table.\\@3xl\\:min-w-\\[820px\\]"
+  end
+
+  test "a long fractional quantity is shown without a screenful of digits" do
+    crypto = Security.create!(ticker: "PHFRC", exchange_mic: "XNAS")
+    @account.holdings.create!(security: crypto, date: Date.current, qty: BigDecimal("0.446965250369237877"), price: 750, amount: 335.21, currency: "USD")
+    sign_in @owner
+    get portfolio_holdings_path(account: @account.id)
+
+    assert_match(/0\.44696525(?!\d)/, response.body)
+    assert_no_match(/0\.446965250369237877/, response.body)
+  end
+
   test "missing figures render as an em dash, not zero" do
     sign_in @owner
     get portfolio_holdings_path(account: @account.id)
