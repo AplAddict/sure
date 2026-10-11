@@ -28,16 +28,22 @@ class Security::HealthChecker
     end
 
     private
+      # Research-only securities are never priced, and a passing check would bring
+      # them back online, so they are not health-checked.
+      def checkable
+        Security.standard.where.not(offline_reason: Security::RESEARCH_ONLY_REASON).or(Security.standard.where(offline_reason: nil))
+      end
+
       # If a security has never had a health check, we prioritize it, regardless of batch size
       def never_checked_scope
-        Security.standard.where(last_health_check_at: nil)
+        checkable.where(last_health_check_at: nil)
       end
 
       # Any securities not checked for 30 days are due
       # We only process the batch size, which means some "due" securities will not be checked today
       # This is by design, to prevent all securities from coming due at the same time
       def due_for_check_scope
-        Security.standard.where(last_health_check_at: ..HEALTH_CHECK_INTERVAL.ago)
+        checkable.where(last_health_check_at: ..HEALTH_CHECK_INTERVAL.ago)
                          .order(last_health_check_at: :asc)
       end
   end

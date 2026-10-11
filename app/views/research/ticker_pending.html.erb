@@ -1,0 +1,18 @@
+<% content_for :page_header do %>
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <p class="text-xs font-medium uppercase tracking-wide text-secondary">Unified ticker workspace</p>
+      <h1 class="mt-1 text-xl lg:text-3xl font-medium text-primary"><%= @ticker %></h1>
+    </div>
+    <%= link_to "Search", research_search_path, class: "text-sm font-medium text-link hover:underline" %>
+  </div>
+<% end %>
+
+<section class="max-w-xl rounded-xl border border-tertiary bg-container p-6" data-testid="ticker-pending">
+  <h2 class="font-medium text-primary">Looking up <%= @ticker %></h2>
+  <p class="mt-2 text-sm text-secondary">This ticker has no research page yet. We are checking the market data source and building one now. Refresh in a minute.</p>
+  <div class="mt-4 flex gap-3">
+    <%= link_to "Refresh", research_ticker_path(@ticker), class: "px-4 py-2 rounded-lg text-sm font-medium button-bg-primary text-inverse" %>
+    <%= link_to "Back to search", research_search_path, class: "px-4 py-2 rounded-lg text-sm font-medium button-bg-secondary text-primary" %>
+  </div>
+</section>

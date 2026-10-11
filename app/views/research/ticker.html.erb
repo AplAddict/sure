@@ -3,14 +3,16 @@
     <div>
       <p class="text-xs font-medium uppercase tracking-wide text-secondary">Unified ticker workspace</p>
       <h1 class="mt-1 text-xl lg:text-3xl font-medium text-primary"><%= @ticker %></h1>
-      <p class="text-sm text-secondary mt-1"><%= @security.name.presence || "Ticker workspace" %> · all accessible Sure holdings</p>
+      <p class="text-sm text-secondary mt-1"><%= @security.name.presence || "Ticker workspace" %> · <%= @holdings.any? ? "all accessible Sure holdings" : "not held in your accounts" %></p>
     </div>
     <%= link_to "Search", research_search_path, class: "text-sm font-medium text-link hover:underline" %>
   </div>
 <% end %>
 
 <div class="@container">
-<% if @aggregate_position[:available] %>
+<% if @holdings.empty? %>
+  <%= render "research/market_snapshot", security: @security, scan: @scan %>
+<% elsif @aggregate_position[:available] %>
   <% currency = @aggregate_position[:currency] %>
   <% gain = @aggregate_position[:gain_loss] %>
   <% gain_pct = @aggregate_position[:book_value].positive? ? gain / @aggregate_position[:book_value] * 100 : nil if gain %>
@@ -26,32 +28,39 @@
   <p class="mb-6 text-xs text-secondary">This symbol is held in more than one currency, so aggregate money totals are intentionally unavailable. Account-level values remain below.</p>
 <% end %>
 
-<%= render "holdings/analyst_price_bar", security: @security, current_price: @holdings.first&.price %>
+<%= render "holdings/analyst_price_bar", security: @security, current_price: @holdings.first&.price || @scan&.dig("regularMarketPrice") %>
 
 <%= render "holdings/tradingview_chart", security: @security %>
 
+<% if @holdings.any? %>
 <section class="mt-6 rounded-xl border border-tertiary bg-container overflow-hidden">
   <div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Equity positions & cost basis</h2><p class="mt-1 text-xs text-secondary">Broker/Sure position truth by account. Aggregate totals above remain conservative.</p></div>
   <div class="overflow-x-auto"><table class="w-full min-w-[900px] text-sm"><thead class="border-b border-tertiary bg-surface"><tr class="text-left text-xs font-medium uppercase tracking-wide text-secondary"><th class="px-4 py-3">Account</th><th class="px-3 py-3 text-right">Shares</th><th class="px-3 py-3 text-right">Mark</th><th class="px-3 py-3 text-right">Market value</th><th class="px-3 py-3 text-right">Cost / share</th><th class="px-3 py-3 text-right">Total basis</th><th class="px-3 py-3 text-right">Unrealized P/L</th><th class="px-4 py-3">Basis source</th></tr></thead><tbody class="divide-y divide-tertiary"><% @holdings.each do |holding| %><% basis_total = holding.cost_basis.present? && holding.qty.positive? ? holding.cost_basis * holding.qty : nil %><% position_gain = basis_total ? holding.amount - basis_total : nil %><% position_gain_pct = basis_total&.positive? ? position_gain / basis_total * 100 : nil %><tr><td class="px-4 py-3"><%= link_to holding.account.name, account_path(holding.account, tab: "holdings"), class: "font-medium text-link hover:underline" %></td><td class="px-3 py-3 text-right text-primary"><%= format_quantity(holding.qty, exact: true) %></td><td class="px-3 py-3 text-right privacy-sensitive text-primary"><%= format_money(Money.new(holding.price, holding.currency)) %></td><td class="px-3 py-3 text-right privacy-sensitive font-medium text-primary"><%= format_money(holding.amount_money) %></td><td class="px-3 py-3 text-right privacy-sensitive text-primary"><%= holding.cost_basis ? format_money(Money.new(holding.cost_basis, holding.currency)) : "Unavailable" %></td><td class="px-3 py-3 text-right privacy-sensitive text-primary"><%= basis_total ? format_money(Money.new(basis_total, holding.currency)) : "Unavailable" %></td><td class="px-3 py-3 text-right privacy-sensitive <%= position_gain&.positive? ? "text-success" : position_gain&.negative? ? "text-destructive" : "text-secondary" %>"><%= position_gain ? "#{format_money(Money.new(position_gain, holding.currency))}#{position_gain_pct ? " (#{number_to_percentage(position_gain_pct, precision: 1)})" : ""}" : "Unavailable" %></td><td class="px-4 py-3 text-xs text-secondary"><%= holding.cost_basis_source_label || "Unavailable" %></td></tr><% end %></tbody></table></div>
 </section>
 
-<div class="mt-6">
-  <section class="rounded-xl border border-tertiary bg-container overflow-hidden">
+<section class="mt-6 rounded-xl border border-tertiary bg-container overflow-hidden">
     <div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Purchase activity & tax lots</h2><p class="mt-1 text-xs text-secondary">Preserved buy records by account. Provider tax lots are shown only when SnapTrade supplies them.</p></div>
     <% if @purchase_entries.any? %><div class="overflow-x-auto"><table class="w-full min-w-[700px] text-sm"><thead class="border-b border-tertiary bg-surface"><tr class="text-left text-xs font-medium uppercase tracking-wide text-secondary"><th class="px-4 py-3">Purchase date</th><th class="px-3 py-3">Account</th><th class="px-3 py-3 text-right">Quantity</th><th class="px-3 py-3 text-right">Unit cost</th><th class="px-4 py-3 text-right">Fee</th></tr></thead><tbody class="divide-y divide-tertiary"><% @purchase_entries.first(50).each do |entry| %><% trade = entry.trade %><tr><td class="px-4 py-3 text-primary"><%= l(entry.date, format: :long) %></td><td class="px-3 py-3"><%= link_to entry.account.name, account_path(entry.account, tab: "holdings"), class: "font-medium text-link hover:underline" %></td><td class="px-3 py-3 text-right text-primary"><%= format_quantity(trade.qty, exact: true) %></td><td class="px-3 py-3 text-right privacy-sensitive text-primary"><%= trade.price_money.format %></td><td class="px-4 py-3 text-right privacy-sensitive text-primary"><%= trade.fee.present? && trade.fee.positive? ? trade.fee_money.format : "—" %></td></tr><% end %></tbody></table></div><div class="border-t border-tertiary px-4 py-3 text-xs text-secondary">Tax-lot availability: <strong class="text-primary">Unavailable from this provider</strong>. Sure will not infer FIFO/open lots from purchase activity.</div><% else %><p class="p-4 text-sm text-secondary">No preserved purchase records are available for this ticker.</p><% end %>
-  </section>
-</div>
+</section>
 
 <section class="mt-6 rounded-xl border border-tertiary bg-container overflow-hidden">
   <div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Options positions</h2><p class="mt-1 text-xs text-secondary">Read-only SnapTrade contract snapshot. Options are excluded from equity totals, stock cost basis, and Sure net-worth calculations.</p></div>
   <% if @option_positions.any? %><div class="overflow-x-auto"><table class="w-full min-w-[780px] text-sm"><thead class="border-b border-tertiary bg-surface"><tr class="text-left text-xs font-medium uppercase tracking-wide text-secondary"><th class="px-4 py-3">Account</th><th class="px-3 py-3">Contract</th><th class="px-3 py-3">Type</th><th class="px-3 py-3">Expiry</th><th class="px-3 py-3 text-right">Strike</th><th class="px-3 py-3 text-right">Contracts</th><th class="px-4 py-3 text-right">Mark / contract</th></tr></thead><tbody class="divide-y divide-tertiary"><% @option_positions.each do |option| %><tr><td class="px-4 py-3"><%= link_to option[:account].name, account_path(option[:account], tab: "holdings"), class: "font-medium text-link hover:underline" %></td><td class="px-3 py-3 font-mono text-xs text-primary"><%= option[:contract] %></td><td class="px-3 py-3 text-primary"><%= option[:type] %></td><td class="px-3 py-3 text-primary"><%= option[:expiration] ? l(option[:expiration], format: :long) : "Unavailable" %></td><td class="px-3 py-3 text-right privacy-sensitive text-primary"><%= option[:strike] ? format_money(Money.new(option[:strike], option[:currency])) : "Unavailable" %></td><td class="px-3 py-3 text-right text-primary"><%= option[:quantity] ? format_quantity(option[:quantity], exact: true) : "Unavailable" %></td><td class="px-4 py-3 text-right privacy-sensitive text-primary"><%= option[:mark] ? format_money(Money.new(option[:mark], option[:currency])) : "Unavailable" %></td></tr><% end %></tbody></table></div><% else %><p class="p-4 text-sm text-secondary">No broker-backed option contracts are currently available for <%= @ticker %>.</p><% end %>
 </section>
 
-<div class="mt-6 grid gap-6 @4xl:grid-cols-2">
-  <section class="min-w-0 rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Fundamentals & stock data</h2></div><%= render "holdings/stock_data", security: @security %></section>
-  <section class="min-w-0 rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Ticker research</h2></div><%= render "holdings/ticker_research", security: @security %></section>
-  <section class="min-w-0 rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">News</h2></div><%= render "holdings/ticker_news", security: @security %></section>
-  <section class="min-w-0 rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Headline analysis</h2></div><%= render "holdings/jev_headline_analysis", security: @security %></section>
-  <section class="min-w-0 rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Research notes</h2></div><%= render "holdings/ticker_research_notes", security: @security %></section>
+<% end %>
+
+<%# Two independent columns, not one grid: a card never stretches to the height
+    of its neighbour, and long lists scroll inside their own card. %>
+<div class="mt-6 grid items-start gap-6 @4xl:grid-cols-2">
+  <div class="min-w-0 space-y-6">
+    <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Fundamentals & stock data</h2></div><%= render "holdings/stock_data", security: @security %></section>
+    <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Headline analysis</h2></div><%= render "holdings/jev_headline_analysis", security: @security %></section>
+    <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Research notes</h2></div><div class="max-h-[28rem] overflow-y-auto"><%= render "holdings/ticker_research_notes", security: @security %></div></section>
+  </div>
+  <div class="min-w-0 space-y-6">
+    <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">Ticker research</h2></div><div class="max-h-[34rem] overflow-y-auto"><%= render "holdings/ticker_research", security: @security %></div></section>
+    <section class="rounded-xl border border-tertiary bg-container overflow-hidden"><div class="px-4 py-3 border-b border-tertiary"><h2 class="font-medium text-primary">News</h2></div><div class="max-h-[34rem] overflow-y-auto"><%= render "holdings/ticker_news", security: @security %></div></section>
+  </div>
 </div>
 </div>

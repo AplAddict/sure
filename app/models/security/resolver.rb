@@ -158,7 +158,7 @@ class Security::Resolver
     # back online so the MarketDataImporter picks it up again.
     def reactivate_if_provider_available!(security)
       return unless security.offline?
-      return unless security.offline_reason == "provider_disabled"
+      return unless %w[provider_disabled research_only].include?(security.offline_reason)
       return unless security.price_data_provider.present?
 
       security.update!(offline: false, offline_reason: nil, failed_fetch_count: 0, failed_fetch_at: nil)

@@ -17,6 +17,11 @@ class Security < ApplicationRecord
 
   KINDS = %w[standard cash].freeze
 
+  # Securities that exist only so a research page can be shown. They are never
+  # held, never priced, and never touched by the price importer or health
+  # checker (both skip offline rows).
+  RESEARCH_ONLY_REASON = "research_only".freeze
+
   # Known securities provider keys — derived from the registry so adding a new
   # provider to Registry#available_providers automatically allows it here.
   # Evaluated at runtime (not boot) so runtime-enabled providers are accepted.
@@ -101,6 +106,7 @@ class Security < ApplicationRecord
   validates :classification_source, inclusion: { in: CLASSIFICATION_SOURCES }, allow_nil: true
 
   scope :online, -> { where(offline: false) }
+  scope :research_only, -> { where(offline: true, offline_reason: RESEARCH_ONLY_REASON) }
   scope :standard, -> { where(kind: "standard") }
 
   # Parses the combobox ID format "SYMBOL|EXCHANGE|PROVIDER" into a hash.

@@ -4,6 +4,16 @@
 class Security::ResearchSnapshotImporter
   ROOT = Pathname.new(ENV.fetch("INVEST_RESEARCH_PATH", "/run/invest-research"))
   FILES = %w[quiver_research.json finviz_on_demand.json ticker_analysis.json ticker_reports.json news.json].freeze
+  UNIVERSE_FILE = "liquid_equity_universe_scan.json".freeze
+
+  # Only plain market facts from the scan are kept. Its scores, "starter" flags,
+  # reasons and portfolio/watchlist annotations are Invest-internal and never
+  # leave the artifact.
+  SCAN_FIELDS = %w[
+    name sector sourceIndexes isETF regularMarketPrice previousClose changePct
+    fiftyTwoWeekHigh fiftyTwoWeekLow distanceFrom52WeekHighPct distanceFrom52WeekLowPct
+    ma20 ma50 ma200 return20dPct return63dPct relativeStrength20dVsQQQ relativeStrength63dVsSPY
+  ].freeze
 
   Result = Data.define(:imported, :unavailable, :invalid)
 
@@ -57,7 +67,18 @@ class Security::ResearchSnapshotImporter
     raw = FILES.index_with { |name| JSON.parse(@root.join(name).read) }
     generated = [raw["quiver_research.json"].fetch("generatedAt", nil), File.mtime(@root.join("news.json"))]
                   .filter_map { |value| value.is_a?(Time) ? value : Time.zone.parse(value.to_s) rescue nil }.max
-    { quiver: raw["quiver_research.json"], finviz: raw["finviz_on_demand.json"], analysis: raw["ticker_analysis.json"], reports: raw["ticker_reports.json"], news: raw["news.json"], generated_at: generated || @now }
+    { quiver: raw["quiver_research.json"], finviz: raw["finviz_on_demand.json"], analysis: raw["ticker_analysis.json"], reports: raw["ticker_reports.json"], news: raw["news.json"], scan: load_scan, generated_at: generated || @now }
+  end
+
+  def load_scan
+    path = @root.join(UNIVERSE_FILE)
+    return {} unless path.file?
+
+    Array(JSON.parse(path.read)["tickers"]).each_with_object({}) do |row, index|
+      index[row["symbol"].to_s.upcase] = row.slice(*SCAN_FIELDS)
+    end
+  rescue JSON::ParserError
+    {}
   end
 
   def build_payload(symbol, artifacts)
@@ -67,7 +88,8 @@ class Security::ResearchSnapshotImporter
       "finviz" => artifacts[:finviz].dig("symbols", symbol),
       "analysis" => artifacts[:analysis][symbol],
       "reports" => artifacts[:reports][symbol],
-      "news" => articles
+      "news" => articles,
+      "scan" => artifacts[:scan][symbol]
     }.compact
   end
 

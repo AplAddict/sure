@@ -25,6 +25,12 @@ refresh_security_fundamentals:
   queue: "scheduled"
   description: "Caches stock data (valuation, analyst view, earnings date) for held securities"
 
+refresh_security_research_universe:
+  cron: "45 * * * 1-5" # hourly on weekdays; each run is capped and stops at the first rate limit
+  class: "SecurityResearchUniverseRefreshJob"
+  queue: "scheduled"
+  description: "Seeds research pages for every known ticker and caches their stock data, held or not"
+
 refresh_security_research:
   cron: "0 23 * * 1-5" # after the Invest research artifacts finish their daily refresh
   class: "SecurityResearchSnapshotsImportJob"

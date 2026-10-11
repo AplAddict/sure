@@ -7,6 +7,19 @@ class ResearchController < ApplicationController
     @securities = scoped_securities
     @securities = @securities.where("LOWER(securities.ticker) LIKE :q OR LOWER(securities.name) LIKE :q", q: "%#{@query.downcase}%") if @query.present?
     @securities = @securities.order(:ticker).limit(30)
+
+    # Every other ticker with a research page. Only searched, never listed in
+    # full, so the page stays short; securities are shared market reference data,
+    # not family data.
+    @other_securities = if @query.present?
+      Security.research_only.where.not(id: scoped_securities.select(:id))
+              .where("LOWER(securities.ticker) LIKE :q OR LOWER(securities.name) LIKE :q", q: "%#{@query.downcase}%")
+              .order(Arel.sql("CASE WHEN UPPER(securities.ticker) = #{Security.connection.quote(@query.upcase)} THEN 0 ELSE 1 END"), :ticker).limit(30)
+    else
+      Security.none
+    end
+    @lookup_ticker = @query.upcase if @query.match?(Security::FundamentalsRefresher::YAHOO_SYMBOL) &&
+                                      @securities.none? { |s| s.ticker.casecmp?(@query) } && @other_securities.none? { |s| s.ticker.casecmp?(@query) }
     @articles = article_rows.select { |article| @query.blank? || article[:title].downcase.include?(@query.downcase) || article[:source].downcase.include?(@query.downcase) || article[:tickers].any? { |ticker| ticker.downcase.include?(@query.downcase) } }.first(30)
   end
 
@@ -33,9 +46,10 @@ class ResearchController < ApplicationController
     @holdings = accessible_accounts.flat_map do |account|
       account.current_holdings.joins(:security).where(securities: { ticker: @ticker }).includes(:security).to_a
     end
-    raise ActiveRecord::RecordNotFound if @holdings.empty?
+    @security = @holdings.first&.security || find_research_security(@ticker)
+    return render_pending_ticker unless @security
 
-    @security = @holdings.first.security
+    @scan = @security.research_snapshot&.section("scan").presence
     @holding_currencies = @holdings.map(&:currency).uniq
     @aggregate_position = aggregate_ticker_position
     @purchase_entries = @holdings.flat_map(&:trades)
@@ -46,6 +60,24 @@ class ResearchController < ApplicationController
   end
 
   private
+    # Any known ticker has a page, held or not. A ticker we have never seen is
+    # looked up in the background and its page appears on refresh; one the market
+    # source says does not exist is a normal 404.
+    def find_research_security(ticker)
+      Security.where("UPPER(securities.ticker) = ?", ticker).order(:offline, :created_at).first
+    end
+
+    def render_pending_ticker
+      raise ActiveRecord::RecordNotFound unless @ticker.match?(Security::FundamentalsRefresher::YAHOO_SYMBOL)
+      raise ActiveRecord::RecordNotFound if Rails.cache.read(TickerResearchGenerateJob.missing_key(@ticker))
+
+      if Rails.cache.write("research_ticker_pending:#{@ticker}", true, unless_exist: true, expires_in: 2.minutes)
+        TickerResearchGenerateJob.perform_later(@ticker)
+      end
+
+      render :ticker_pending, status: :accepted
+    end
+
     def aggregate_ticker_position
       return { available: false } unless @holding_currencies.one?
 

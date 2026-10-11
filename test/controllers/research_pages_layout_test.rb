@@ -26,7 +26,7 @@ class ResearchPagesLayoutTest < ActionDispatch::IntegrationTest
     assert_select "form.grid.\\@md\\:grid-cols-2"
   end
 
-  test "ticker page grids lay out by container width and cards may shrink" do
+  test "ticker page grids lay out by container width without stretching cards" do
     ticker = users(:family_admin).accessible_accounts.flat_map { |a| a.current_holdings.map { |h| h.security.ticker } }.first
     skip "no held security in fixtures" unless ticker
 
@@ -35,6 +35,9 @@ class ResearchPagesLayoutTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".\\@container .\\@4xl\\:grid-cols-2"
     assert_select ".xl\\:grid-cols-2", count: 0
-    assert_select "section.min-w-0", minimum: 5
+    # Two independent columns that never stretch a card to its neighbour's height,
+    # with long lists scrolling inside their own bounded card.
+    assert_select ".\\@4xl\\:grid-cols-2.items-start > div.min-w-0", count: 2
+    assert_select ".max-h-\\[34rem\\].overflow-y-auto", minimum: 2
   end
 end

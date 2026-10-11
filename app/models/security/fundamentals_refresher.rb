@@ -4,6 +4,7 @@
 # cached before stays on screen (stale, with its own "as of" time).
 class Security::FundamentalsRefresher
   MAX_PER_RUN = 60
+  RESEARCH_PER_RUN = 120
   PAUSE_BETWEEN_REQUESTS = 1.5
   YAHOO_SYMBOL = /\A[A-Z]{1,5}(\.[A-Z]{1,3})?\z/
 
@@ -21,12 +22,18 @@ class Security::FundamentalsRefresher
             .select { |security| security.ticker.to_s.match?(YAHOO_SYMBOL) }
   end
 
-  def refresh_all
+  # Browsable tickers nobody holds. Refreshed on their own, slower schedule so
+  # the held securities above are always served first.
+  def self.research_securities
+    Security.research_only.where(kind: "standard").select { |security| security.ticker.to_s.match?(YAHOO_SYMBOL) }
+  end
+
+  def refresh_all(securities: self.class.held_securities, limit: MAX_PER_RUN)
     refreshed = 0
     failed = 0
     rate_limited = false
 
-    SecurityFundamental.refresh_candidates(self.class.held_securities).first(MAX_PER_RUN).each do |security|
+    SecurityFundamental.refresh_candidates(securities).first(limit).each do |security|
       case refresh(security)
       when :ok then refreshed += 1
       when :rate_limited
