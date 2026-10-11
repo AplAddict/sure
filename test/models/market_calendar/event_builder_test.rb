@@ -16,6 +16,17 @@ class MarketCalendar::EventBuilderTest < ActiveSupport::TestCase
     assert_equal Date.new(2026, 10, 15), builder.events.first.end_date
   end
 
+  test "uses only the accounts supplied by the signed-in user scope" do
+    owner_accounts = users(:family_admin).accessible_accounts
+    other_user_accounts = users(:empty).accessible_accounts
+
+    owner_tickers = MarketCalendar::EventBuilder.new(accounts: owner_accounts).send(:held_securities).map(&:ticker)
+    other_tickers = MarketCalendar::EventBuilder.new(accounts: other_user_accounts).send(:held_securities).map(&:ticker)
+
+    assert_includes owner_tickers, "AAPL"
+    assert_not_includes other_tickers, "AAPL"
+  end
+
   test "reports no wash-sale candidates when no matching recorded trade evidence exists" do
     SnaptradeAccount.stubs(:includes).returns([])
 
