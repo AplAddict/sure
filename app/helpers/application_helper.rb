@@ -99,7 +99,7 @@ module ApplicationHelper
       {
         name: t("layouts.application.nav.bills"),
         path: bills_path,
-        icon: "receipt",
+        icon: "calendar",
         icon_custom: false,
         active: page_active?(bills_path)
       }

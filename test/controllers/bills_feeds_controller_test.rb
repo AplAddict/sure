@@ -16,6 +16,9 @@ class BillsFeedsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match "BEGIN:VCALENDAR", response.body
     assert_match "Rent", response.body
+    assert_match "CATEGORIES:Bills", response.body
+    assert_match "BEGIN:VALARM", response.body
+    assert_match "X-WR-CALNAME:Events", response.body
   end
 
   test "an unknown token is not found" do

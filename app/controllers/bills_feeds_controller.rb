@@ -1,13 +1,7 @@
-# Read-only iCal feed of upcoming bill occurrences, so calendar apps can
-# subscribe (an entire third-party product exists to do this for a
-# competitor). Token-authenticated and sessionless, and deliberately
-# obligations only -- no balances, no accounts.
-#
-# The token is signed and names the MEMBER, not the family: sharing is per
-# account, so each member's feed carries only the bills they can reach in
-# the app. The signature binds a digest of the family's stored feed secret,
-# which is how resetting that secret still revokes every previously shared
-# URL in one stroke.
+# Read-only iCal feed for the signed-in member's Events calendar. It publishes
+# recurring bills/paydays plus the native, holdings-derived market projection.
+# It never imports an external calendar, exposes balances/accounts, writes to
+# brokerage providers, or shares another member's accessible-account data.
 class BillsFeedsController < ApplicationController
   skip_authentication
 
@@ -20,56 +14,127 @@ class BillsFeedsController < ApplicationController
     family = user&.family
     raise ActiveRecord::RecordNotFound unless family && stamp.present? && stamp == family.bills_feed_stamp
 
-    # Preview-gated like every other bills surface. Sessionless, so the gate
-    # reads the member the token names: opting out of preview features (or the
-    # family switching recurring off) kills retained URLs immediately, not
-    # only after a token reset.
+    # The token carries a member identity, rather than the family identity. A
+    # retained URL must also die when the member opts out or recurring is off.
     raise ActiveRecord::RecordNotFound unless user.preview_features_enabled? && !family.recurring_transactions_disabled?
 
-    occurrences = family.recurring_occurrences
-                        .open_status
-                        .joins(:recurring_transaction)
-                        .merge(RecurringTransaction.accessible_by(user))
-                        .where(recurring_transactions: { status: :active })
-                        .where("recurring_transactions.amount > 0")
-                        .where(due_on: Date.current..(Date.current + HORIZON_DAYS))
-                        .includes(:recurring_transaction)
-                        .order(:due_on)
-
     I18n.with_locale(family.locale.presence || I18n.default_locale) do
-      render plain: to_ical(occurrences), content_type: "text/calendar"
+      render plain: to_ical(user:, family:), content_type: "text/calendar"
     end
   rescue ActiveRecord::RecordNotFound
     head :not_found
   end
 
   private
-    def to_ical(occurrences)
-      events = occurrences.map do |occurrence|
-        series = occurrence.recurring_transaction
-        amount = Money.new(occurrence.resolved_expected_amount, occurrence.currency).format
-
-        <<~EVENT
-          BEGIN:VEVENT
-          UID:#{occurrence.id}@sure-bills
-          DTSTAMP:#{Time.current.utc.strftime("%Y%m%dT%H%M%SZ")}
-          DTSTART;VALUE=DATE:#{occurrence.effective_due_on.strftime("%Y%m%d")}
-          SUMMARY:#{escape_ical(series.display_name)} (#{escape_ical(amount)})
-          END:VEVENT
-        EVENT
-      end
+    def to_ical(user:, family:)
+      events = bill_events(user, family) + paycheck_events(user, family) + market_events(user)
 
       <<~ICAL
         BEGIN:VCALENDAR
         VERSION:2.0
-        PRODID:-//Sure//Bills//EN
-        X-WR-CALNAME:#{escape_ical(I18n.t("bills.feed.calendar_name"))}
-        #{events.join}
+        PRODID:-//Sure//Events//EN
+        X-WR-CALNAME:Events
+        X-WR-CALDESC:Sure bills\, paydays\, and private holdings-derived market events
+        #{events.sort_by { |event| [ event[:date], event[:summary] ] }.map { |event| event_to_ical(event) }.join}
         END:VCALENDAR
       ICAL
     end
 
+    def bill_events(user, family)
+      recurring_occurrences(user, family)
+        .where("recurring_transactions.amount > 0")
+        .map do |occurrence|
+          series = occurrence.recurring_transaction
+          amount = Money.new(occurrence.resolved_expected_amount, occurrence.currency).format
+          calendar_event(
+            uid: "bill-#{occurrence.id}@sure-events",
+            date: occurrence.effective_due_on,
+            summary: "#{series.display_name} (#{amount})",
+            categories: "Bills",
+            description: "Scheduled bill in Sure."
+          )
+        end
+    end
+
+    def paycheck_events(user, family)
+      recurring_occurrences(user, family)
+        .where(recurring_transactions: { bill_type: :income, manual: true })
+        .map do |occurrence|
+          series = occurrence.recurring_transaction
+          amount = Money.new(occurrence.resolved_expected_amount, occurrence.currency).format
+          calendar_event(
+            uid: "paycheck-#{occurrence.id}@sure-events",
+            date: occurrence.due_on,
+            summary: "Payday — #{series.display_name} (#{amount})",
+            categories: "Income",
+            description: "Expected paycheck in Sure."
+          )
+        end
+    end
+
+    def recurring_occurrences(user, family)
+      family.recurring_occurrences
+            .open_status
+            .joins(:recurring_transaction)
+            .merge(RecurringTransaction.accessible_by(user))
+            .where(recurring_transactions: { status: :active })
+            .where(due_on: Date.current..(Date.current + HORIZON_DAYS))
+            .includes(:recurring_transaction)
+            .order(:due_on)
+    end
+
+    def market_events(user)
+      MarketCalendar::EventBuilder.new(accounts: user.accessible_accounts).events.filter_map do |event|
+        # A wash-sale window opened before today is still useful if its end is
+        # upcoming. All other native events are upcoming only.
+        next if event.end_date < Date.current || event.date > Date.current + HORIZON_DAYS
+
+        calendar_event(
+          uid: "market-#{Digest::SHA256.hexdigest(event.key)}@sure-events",
+          date: [ event.date, Date.current ].max,
+          end_date: event.end_date,
+          summary: event.title,
+          categories: market_categories(event),
+          description: "#{event.details} Source: #{event.source}. Freshness: #{event.freshness}."
+        )
+      end
+    end
+
+    def market_categories(event)
+      {
+        "earnings" => "Earnings",
+        "ex_dividend" => "Dividends",
+        "options_expiration" => "Trading",
+        "wash_sale" => "Trading,Wash Sales"
+      }.fetch(event.event_type, "Market")
+    end
+
+    def calendar_event(uid:, date:, summary:, categories:, description:, end_date: date)
+      { uid:, date:, end_date:, summary:, categories:, description: }
+    end
+
+    def event_to_ical(event)
+      # DTEND is exclusive for all-day VEVENTs. A one-day event therefore ends
+      # tomorrow; a wash window visually includes its statutory final date.
+      <<~EVENT
+        BEGIN:VEVENT
+        UID:#{event[:uid]}
+        DTSTAMP:#{Time.current.utc.strftime("%Y%m%dT%H%M%SZ")}
+        DTSTART;VALUE=DATE:#{event[:date].strftime("%Y%m%d")}
+        DTEND;VALUE=DATE:#{(event[:end_date] + 1.day).strftime("%Y%m%d")}
+        SUMMARY:#{escape_ical(event[:summary])}
+        CATEGORIES:#{escape_ical(event[:categories])}
+        DESCRIPTION:#{escape_ical(event[:description])}
+        BEGIN:VALARM
+        TRIGGER:-PT1440M
+        ACTION:DISPLAY
+        DESCRIPTION:#{escape_ical(event[:summary])}
+        END:VALARM
+        END:VEVENT
+      EVENT
+    end
+
     def escape_ical(text)
-      text.to_s.gsub("\\", "\\\\\\\\").gsub(",", "\\,").gsub(";", "\\;").gsub("\n", " ")
+      text.to_s.gsub("\\", "\\\\").gsub(",", "\\,").gsub(";", "\\;").gsub("\n", "\\n")
     end
 end
