@@ -78,6 +78,78 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_equal Date.current - 20, pulse.as_of
   end
 
+  test "a section that raises degrades to unavailable instead of failing the page" do
+    InvestmentDecisionCenter.any_instance.stubs(:build_actions).raises(StandardError, "boom")
+    sign_in @owner
+    get root_path(view: "decision")
+
+    assert_response :success
+    assert_select "[data-testid=idc-actions-unavailable]"
+    assert_select "[data-testid=idc-pulse-unavailable]", count: 0
+    assert_select "h2", text: /Nothing needs a decision/i, count: 0
+  end
+
+  test "a failed action list is nil, never an empty list that reads as nothing to do" do
+    InvestmentDecisionCenter.any_instance.stubs(:build_actions).raises(StandardError, "boom")
+    center = InvestmentDecisionCenter.new(user: @owner)
+
+    assert_nil center.actions
+    assert center.failed?(:actions)
+  end
+
+  test "a failed pulse leaves the other sections working" do
+    InvestmentStatement.any_instance.stubs(:portfolio_value_money).raises(StandardError, "boom")
+    sign_in @owner
+    get root_path(view: "decision")
+
+    assert_response :success
+    assert_select "[data-testid=idc-pulse-unavailable]"
+    assert_select "[data-testid=idc-actions-unavailable]", count: 0
+    assert_select "[data-testid=holding-row], td a", text: "DCLOSS"
+  end
+
+  test "if the statement itself breaks the homepage still loads as the normal overview" do
+    InvestmentDecisionCenter.any_instance.stubs(:statement).raises(StandardError, "boom")
+    sign_in @owner
+    get root_path(view: "decision")
+
+    assert_response :success
+    assert_not InvestmentDecisionCenter.new(user: @owner).available?
+  end
+
+  test "actions are cached per member and survive a round trip with their values intact" do
+    original_cache = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    first = InvestmentDecisionCenter.new(user: @owner).actions
+    TaxLossHarvest.expects(:new).never
+    second = InvestmentDecisionCenter.new(user: @owner).actions
+
+    assert_equal first.map { |a| [ a.kind, a.count, a.priority ] }, second.map { |a| [ a.kind, a.count, a.priority ] }
+    harvest = second.find { |a| a.kind == :harvest }
+    assert_equal BigDecimal("300"), harvest.detail.amount
+    assert_equal "USD", harvest.detail.currency.iso_code
+  ensure
+    Rails.cache = original_cache
+  end
+
+  test "one member's cached actions are never served to another" do
+    original_cache = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    InvestmentDecisionCenter.new(user: @owner).actions
+    other = InvestmentDecisionCenter.new(user: users(:family_member))
+
+    assert_not_equal InvestmentDecisionCenter.new(user: @owner).send(:actions_cache_key), other.send(:actions_cache_key)
+  ensure
+    Rails.cache = original_cache
+  end
+
+  test "the decision center links to the full holdings page" do
+    sign_in @owner
+    get root_path(view: "decision")
+
+    assert_select "a[href=?]", portfolio_holdings_path
+  end
+
   test "another member sees nothing of the owner's holdings" do
     center = InvestmentDecisionCenter.new(user: @member)
 

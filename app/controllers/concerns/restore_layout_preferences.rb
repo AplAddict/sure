@@ -13,7 +13,7 @@ module RestoreLayoutPreferences
     end
 
     def valid_account_group_tabs
-      %w[asset liability all]
+      %w[asset liability all holdings]
     end
 
     def account_group_tab_param

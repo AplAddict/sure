@@ -18,23 +18,36 @@ class InvestmentDecisionCenter
   EVENT_HORIZON_DAYS = 7
   CONCENTRATION_WEIGHT = 25
   STALE_AFTER_DAYS = 3
+  ACTIONS_CACHE_TTL = 15.minutes
 
   attr_reader :user
 
   def initialize(user:, today: Date.current)
     @user = user
     @today = today
+    @failed_sections = []
   end
+
+  # Sections that raised while loading. The page shows these as unavailable
+  # instead of failing as a whole, and never as "nothing to do".
+  attr_reader :failed_sections
+
+  def failed?(section) = failed_sections.include?(section)
 
   def family = user.family
 
   # False when the member has no investment accounts of their own to show.
   def available?
-    statement.investment_accounts.any?
+    # If even this cannot be answered the view switch is hidden and the normal
+    # overview shows, rather than the whole homepage failing.
+    guarded(:available) { statement.investment_accounts.any? } || false
   end
 
+  # nil when it could not be computed (see failed?(:pulse)).
   def pulse
-    @pulse ||= begin
+    return @pulse if defined?(@pulse)
+
+    @pulse = guarded(:pulse) do
       # The OLDEST per-account snapshot decides freshness: one up-to-date
       # account must not make a stale one look current.
       as_of = statement.current_holdings.to_a.group_by(&:account_id).values.map { |rows| rows.map(&:date).max }.min
@@ -50,12 +63,19 @@ class InvestmentDecisionCenter
     end
   end
 
-  # Things worth a decision, most urgent first. Empty means nothing is pending
-  # on the evidence Sure has, which is different from "no data".
+  # Things worth a decision, most urgent first. An empty list means nothing is
+  # pending on the evidence Sure has; nil means the list could not be built,
+  # which is different from "nothing pending" and is never shown as it.
+  #
+  # Building it walks every position and trade, so the result is cached per
+  # member until the family's data next syncs (or a quarter hour passes).
   def actions
-    @actions ||= [ harvest_action, wash_sale_action, events_action, cost_basis_action ]
-      .compact
-      .sort_by { |action| [ -action.priority, action.kind.to_s ] }
+    return @actions if defined?(@actions)
+
+    @actions = guarded(:actions) do
+      rows = Rails.cache.fetch(actions_cache_key, expires_in: ACTIONS_CACHE_TTL) { build_actions.map { |action| dump_action(action) } }
+      rows.map { |row| load_action(row) }
+    end
   end
 
   def harvest
@@ -63,7 +83,9 @@ class InvestmentDecisionCenter
   end
 
   def top_holdings
-    @top_holdings ||= statement.allocation.first(5)
+    return @top_holdings if defined?(@top_holdings)
+
+    @top_holdings = guarded(:top_holdings) { statement.allocation.first(5) }
   end
 
   def concentrated?(holding)
@@ -85,6 +107,40 @@ class InvestmentDecisionCenter
   end
 
   private
+    def guarded(section)
+      yield
+    rescue StandardError => e
+      @failed_sections << section
+      Rails.logger.error("[InvestmentDecisionCenter] #{section} failed for user #{user.id}: #{e.class}: #{e.message.truncate(200)}")
+      Sentry.capture_exception(e) { |scope| scope.set_tags(decision_center_section: section) } if defined?(Sentry)
+      nil
+    end
+
+    def build_actions
+      [ harvest_action, wash_sale_action, events_action, cost_basis_action ]
+        .compact
+        .sort_by { |action| [ -action.priority, action.kind.to_s ] }
+    end
+
+    # Keyed to the member (their accounts decide what they see) and the day, and
+    # to the family's last completed sync so fresh data is never hidden behind it.
+    def actions_cache_key
+      [ family.build_cache_key("decision_center_actions_v1", invalidate_on_data_updates: true), user.id, @today.iso8601 ]
+    end
+
+    # Cached as plain values: a Money inside a Data object is not worth betting a
+    # page load on surviving serialization.
+    def dump_action(action)
+      detail = action.detail.is_a?(Money) ? { "money" => [ action.detail.amount.to_s, action.detail.currency.iso_code ] } : action.detail
+      { "kind" => action.kind.to_s, "count" => action.count, "detail" => detail, "priority" => action.priority }
+    end
+
+    def load_action(row)
+      detail = row["detail"]
+      detail = Money.new(BigDecimal(detail["money"].first), detail["money"].last) if detail.is_a?(Hash) && detail["money"]
+      Action.new(kind: row["kind"].to_sym, count: row["count"], detail: detail, priority: row["priority"])
+    end
+
     def statement
       @statement ||= InvestmentStatement.new(family, user: user)
     end

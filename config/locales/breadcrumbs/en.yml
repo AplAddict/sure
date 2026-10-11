@@ -86,6 +86,7 @@ en:
     system_health: System Health
     tags: Tags
     tax_loss_harvests: Tax loss harvest
+    portfolio_holdings: Holdings
     trades: Trades
     transactions: Transactions
     transfer_matches: Transfer matches

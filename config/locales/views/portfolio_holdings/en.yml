@@ -1,0 +1,40 @@
+en:
+  portfolio_holdings:
+    title: Holdings
+    subtitle: Every position in the investment accounts you can access, by account. Sort any column; open a quantity to see its tax lots where your broker reports them.
+    account_scope: Account
+    all_accounts: All accounts
+    apply: Apply
+    unavailable: Unavailable. The source did not provide this figure.
+    empty_title: No holdings to show
+    empty_description: None of your investment accounts has a recorded position yet.
+    position_count:
+      one: "%{count} position"
+      other: "%{count} positions"
+    lot_count:
+      one: "%{count} tax lot"
+      other: "%{count} tax lots"
+    market_value: Market value
+    unrealized: Unrealized gain / loss
+    cash: Cash
+    basis_incomplete: Some positions have no known cost basis. Their gain is shown as unavailable and left out of this account's total, never counted as zero.
+    allocation: Allocation
+    allocation_aria: "Allocation of %{account} by position"
+    other:
+      one: "%{count} other position"
+      other: "%{count} other positions"
+    lots_hint: Lots come straight from your broker.
+    expand_lots: Expand all lots
+    collapse_lots: Collapse all lots
+    toggle_lots: "Show or hide the %{count} tax lots of %{ticker}"
+    date_unavailable: Date unavailable
+    footnote: Weights are each position's share of its own account's holdings. Tax lots are shown only when the broker's lots add up to the position held; otherwise they are left out rather than estimated.
+    columns:
+      symbol: Symbol
+      quantity: Quantity
+      price: Price
+      avg_cost: Avg cost
+      cost_basis: Cost basis
+      market_value: Market value
+      gain: Gain / loss
+      weight: Weight

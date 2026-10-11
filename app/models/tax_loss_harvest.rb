@@ -144,6 +144,9 @@ class TaxLossHarvest
       accounts.each do |account|
         account.current_holdings.includes(:security).each do |holding|
           next unless holding.security
+
+          # Each holding would otherwise re-query its own account, twice per row
+          holding.association(:account).target = account
           row_or_reason = evaluate(account, holding)
           case row_or_reason
           when Row then @rows << row_or_reason

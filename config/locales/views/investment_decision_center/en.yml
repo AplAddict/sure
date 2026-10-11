@@ -4,6 +4,7 @@ en:
     breadcrumb: Investment decision center
     title: Investment decision center
     subtitle: Where your portfolio stands, what needs a decision, and what to keep an eye on. Based only on accounts you can access.
+    section_unavailable: This section could not be loaded just now. Nothing here has been changed. Try again in a moment.
     switch:
       aria_label: Homepage view
       overview: Overview
@@ -53,6 +54,7 @@ en:
     links:
       heading: Go deeper
       harvest: Tax loss harvest
+      holdings: All holdings
       events: Market events
       research: Ticker research
       insights: Insights

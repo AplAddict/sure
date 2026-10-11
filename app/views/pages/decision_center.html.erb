@@ -1,5 +1,7 @@
 <% center = @decision_center %>
 <% pulse = center.pulse %>
+<% actions = center.actions %>
+<% top_holdings = center.top_holdings %>
 <% content_for :page_title, t("investment_decision_center.title") %>
 
 <% content_for :page_header do %>
@@ -16,6 +18,10 @@
 
 <div class="space-y-5 pb-6 lg:pb-12">
   <section class="rounded-xl bg-container shadow-border-xs p-4 space-y-4" aria-labelledby="idc-pulse">
+    <% if pulse.nil? %>
+      <h2 id="idc-pulse" class="text-base font-medium text-primary"><%= t("investment_decision_center.pulse.heading") %></h2>
+      <p class="text-sm text-secondary" data-testid="idc-pulse-unavailable"><%= t("investment_decision_center.section_unavailable") %></p>
+    <% else %>
     <div class="flex flex-wrap items-baseline justify-between gap-2">
       <h2 id="idc-pulse" class="text-base font-medium text-primary"><%= t("investment_decision_center.pulse.heading") %></h2>
       <% if pulse.as_of %>
@@ -58,6 +64,7 @@
         <% end %>
       </div>
     </div>
+    <% end %>
   </section>
 
   <section class="rounded-xl bg-container shadow-border-xs" aria-labelledby="idc-actions">
@@ -65,7 +72,9 @@
       <h2 id="idc-actions" class="text-base font-medium text-primary"><%= t("investment_decision_center.actions.heading") %></h2>
     </div>
 
-    <% if center.actions.empty? %>
+    <% if actions.nil? %>
+      <p class="px-4 py-6 text-sm text-secondary" data-testid="idc-actions-unavailable"><%= t("investment_decision_center.section_unavailable") %></p>
+    <% elsif actions.empty? %>
       <%= render DS::EmptyState.new(
         icon: "circle-check",
         title: t("investment_decision_center.actions.none_title"),
@@ -73,7 +82,7 @@
       ) %>
     <% else %>
       <ul class="divide-y divide-tertiary">
-        <% center.actions.each do |action| %>
+        <% actions.each do |action| %>
           <% href = case action.kind
                     when :harvest, :cost_basis then tax_loss_harvest_path
                     when :wash_sale then market_events_path(type: "wash_sale")
@@ -108,7 +117,9 @@
       <h2 id="idc-monitor" class="text-base font-medium text-primary"><%= t("investment_decision_center.monitor.heading") %></h2>
     </div>
 
-    <% if center.top_holdings.empty? %>
+    <% if top_holdings.nil? %>
+      <p class="px-4 py-6 text-sm text-secondary" data-testid="idc-monitor-unavailable"><%= t("investment_decision_center.section_unavailable") %></p>
+    <% elsif top_holdings.empty? %>
       <p class="px-4 py-6 text-sm text-secondary"><%= t("investment_decision_center.monitor.empty") %></p>
     <% else %>
       <div class="overflow-x-auto">
@@ -122,7 +133,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-tertiary">
-            <% center.top_holdings.each do |holding| %>
+            <% top_holdings.each do |holding| %>
               <tr>
                 <td class="px-4 py-3">
                   <div class="flex flex-wrap items-center gap-2">
@@ -156,6 +167,7 @@
     <div class="flex flex-wrap gap-2">
       <%= render DS::Link.new(text: t("investment_decision_center.links.harvest"), href: tax_loss_harvest_path, variant: "outline", size: "sm") %>
       <%= render DS::Link.new(text: t("investment_decision_center.links.events"), href: market_events_path, variant: "outline", size: "sm") %>
+      <%= render DS::Link.new(text: t("investment_decision_center.links.holdings"), href: portfolio_holdings_path, variant: "outline", size: "sm") %>
       <%= render DS::Link.new(text: t("investment_decision_center.links.research"), href: research_search_path, variant: "outline", size: "sm") %>
       <%= render DS::Link.new(text: t("investment_decision_center.links.reports"), href: reports_path, variant: "outline", size: "sm") %>
       <% if preview_features_enabled? %>

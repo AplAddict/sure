@@ -4,7 +4,7 @@
     ERB dependency tracker mis-parses as a bogus "Ds/D" template dependency
     and then logs "Couldn't find template for digesting: Ds/D" on every cache
     miss. The cache key is already manually versioned via
-    account_sidebar_tabs_cache_key ("account_sidebar_tabs_v3",
+    account_sidebar_tabs_cache_key ("account_sidebar_tabs_v4",
     invalidate_on_data_updates: true), so we opt out of automatic template
     digesting. Bump that version suffix when changing this template or its
     sidebar dependencies. %>
@@ -19,11 +19,17 @@
     </div>
   <% end %>
 
+  <%# Outside the tabs blocks: block-local variables are not visible to the panels below %>
+  <% sidebar_holdings = Current.user ? PortfolioHoldings.new(user: Current.user).sidebar_accounts : [] %>
+
   <%= render DS::Tabs.new(active_tab: active_tab, session_key: "account_sidebar_tab", testid: "account-sidebar-tabs") do |tabs| %>
     <% tabs.with_nav do |nav| %>
       <% nav.with_btn(id: "all", label: t("accounts.sidebar.tabs.all")) %>
       <% nav.with_btn(id: "asset", label: t("accounts.sidebar.tabs.assets")) %>
       <% nav.with_btn(id: "liability", label: t("accounts.sidebar.tabs.debts")) %>
+      <% if sidebar_holdings.any? %>
+        <% nav.with_btn(id: "holdings", label: t("accounts.sidebar.tabs.holdings")) %>
+      <% end %>
     <% end %>
 
     <% tabs.with_panel(tab_id: "asset") do %>
@@ -80,6 +86,65 @@
           <% end %>
         </div>
       </div>
+    <% end %>
+
+    <% if sidebar_holdings.any? %>
+      <% tabs.with_panel(tab_id: "holdings") do %>
+        <div class="space-y-2" data-testid="sidebar-holdings">
+          <div class="flex items-center gap-2">
+            <%= render DS::Link.new(
+              text: t("accounts.sidebar.all_holdings"),
+              variant: "ghost",
+              href: portfolio_holdings_path,
+              icon: "table",
+              class: "flex-1 justify-start"
+            ) %>
+
+            <%= render DS::ExpandToggle.new(
+              expand_label: t("accounts.sidebar.expand_all"),
+              collapse_label: t("accounts.sidebar.collapse_all"),
+              data: { account_sidebar_expand_all: true },
+              class_name: "shrink-0"
+            ) %>
+          </div>
+
+          <div>
+            <% sidebar_holdings.each do |entry| %>
+              <% account = entry.account %>
+              <%= render DS::Disclosure.new(align: :left, open: page_active?(account_path(account))) do |disclosure| %>
+                <% disclosure.with_summary_content do %>
+                  <div class="flex items-center gap-3 min-w-0">
+                    <%= icon "chevron-right", class: "group-open:transform group-open:rotate-90 shrink-0" %>
+                    <span class="truncate text-sm text-primary font-medium" title="<%= account.name %>"><%= account.name %></span>
+                  </div>
+                  <div class="ml-auto text-right grow">
+                    <p class="text-sm font-medium text-primary privacy-sensitive whitespace-nowrap"><%= format_money(Money.new(entry.market_value, account.currency)) %></p>
+                    <p class="text-xs text-secondary"><%= t("accounts.sidebar.position_count", count: entry.positions.size) %></p>
+                  </div>
+                <% end %>
+
+                <div class="space-y-0.5 pb-2">
+                  <% entry.positions.first(15).each do |position| %>
+                    <%= link_to research_ticker_path(position.ticker), class: "flex items-center justify-between gap-2 rounded-lg px-3 py-1.5 hover:bg-surface-hover", title: position.name do %>
+                      <span class="min-w-0">
+                        <span class="block text-sm font-medium text-primary"><%= position.ticker %></span>
+                        <span class="block truncate text-xs text-secondary"><%= position.name %></span>
+                      </span>
+                      <span class="text-right shrink-0">
+                        <span class="block text-sm text-primary privacy-sensitive"><%= format_money(Money.new(position.market_value, position.currency)) %></span>
+                        <span class="block text-xs text-secondary"><%= position.weight ? number_to_percentage(position.weight, precision: 1) : "—" %></span>
+                      </span>
+                    <% end %>
+                  <% end %>
+                  <%= link_to portfolio_holdings_path(account: account.id), class: "block px-3 py-1.5 text-xs font-medium text-link hover:underline" do %>
+                    <%= entry.positions.size > 15 ? t("accounts.sidebar.view_all_positions", count: entry.positions.size) : t("accounts.sidebar.view_with_lots") %>
+                  <% end %>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
     <% end %>
 
     <% tabs.with_panel(tab_id: "all") do %>
