@@ -2377,6 +2377,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
     t.index ["security_id"], name: "index_security_fundamentals_on_security_id", unique: true
   end
 
+  create_table "security_headline_analyses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "analyzed_at"
+    t.datetime "created_at", null: false
+    t.string "last_error"
+    t.jsonb "payload", default: {}, null: false
+    t.string "provider_model"
+    t.uuid "security_id", null: false
+    t.string "source_digest", null: false
+    t.datetime "source_generated_at"
+    t.string "status", default: "unavailable", null: false
+    t.datetime "updated_at", null: false
+    t.index ["security_id"], name: "index_security_headline_analyses_on_security_id", unique: true
+  end
+
   create_table "security_research_snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "generated_at"
@@ -3149,6 +3163,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
   add_foreign_key "rule_runs", "rules"
   add_foreign_key "rules", "families"
   add_foreign_key "security_fundamentals", "securities"
+  add_foreign_key "security_headline_analyses", "securities"
   add_foreign_key "security_research_snapshots", "securities"
   add_foreign_key "security_prices", "securities"
   add_foreign_key "sessions", "impersonation_sessions", column: "active_impersonator_session_id", on_delete: :nullify

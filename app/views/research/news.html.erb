@@ -5,8 +5,9 @@
   </div>
 <% end %>
 
-<%= form_with url: research_news_path, method: :get, class: "rounded-xl border border-tertiary bg-container p-4 grid gap-3 md:grid-cols-3 mb-5" do |f| %>
-  <div class="md:col-span-3"><%= f.search_field :q, value: @query, placeholder: "Search headlines, descriptions, tickers, or sources", class: "form-field__input", aria: { label: "Search news" } %></div>
+<div class="@container mb-5">
+<%= form_with url: research_news_path, method: :get, class: "rounded-xl border border-tertiary bg-container p-4 grid gap-3 @md:grid-cols-2 @3xl:grid-cols-3" do |f| %>
+  <div class="@md:col-span-2 @3xl:col-span-3"><%= f.search_field :q, value: @query, placeholder: "Search headlines, descriptions, tickers, or sources", class: "form-field__input", aria: { label: "Search news" } %></div>
   <%= f.select :scope, [["Held securities", "portfolio"], ["All cached news", "all"]], { selected: @scope }, class: "form-field__input", aria: { label: "News scope" } %>
   <%= f.select :source, [["All sources", ""]] + @sources.map { |source| [source, source] }, { selected: @source }, class: "form-field__input", aria: { label: "Source" } %>
   <%= f.select :category, [["All topics", ""]] + @categories.map { |category| [category.to_s.humanize, category] }, { selected: @category }, class: "form-field__input", aria: { label: "Topic" } %>
@@ -15,6 +16,7 @@
   <%= f.select :sort, [["Newest first", "latest"], ["Headline A–Z", "title"]], { selected: @sort }, class: "form-field__input", aria: { label: "Sort articles" } %>
   <%= f.submit "Apply filters", class: "px-4 py-2 rounded-lg text-sm font-medium button-bg-primary text-inverse" %>
 <% end %>
+</div>
 
 <p class="text-sm text-secondary mb-3"><%= @total %> matching articles · page <%= @page %></p>
 <section class="space-y-3" aria-label="News articles">
