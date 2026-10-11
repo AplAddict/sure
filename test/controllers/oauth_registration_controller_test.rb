@@ -29,7 +29,7 @@ class OauthRegistrationControllerTest < ActionDispatch::IntegrationTest
     app = Doorkeeper::Application.find_by(uid: json["client_id"])
     assert app.present?, "Application should be persisted"
     assert_not app.confidential?, "Application must be non-confidential (public client)"
-    assert_equal "read_write", app.scopes.to_s
+    assert_equal "mcp_read", app.scopes.to_s
   end
 
   test "returns error for invalid JSON body" do
@@ -287,6 +287,7 @@ class OauthRegistrationControllerTest < ActionDispatch::IntegrationTest
       client_id: app.uid,
       redirect_uri: "cursor://anysphere.cursor-mcp/oauth/callback",
       response_type: "code",
+      scope: "mcp_read",
       code_challenge: challenge,
       code_challenge_method: "S256"
     }
@@ -319,7 +320,9 @@ class OauthRegistrationControllerTest < ActionDispatch::IntegrationTest
     assert_includes doc, "vscode://"
     assert_includes doc, "POST /register"
     assert_includes doc, "PKCE"
-    assert_includes doc, "MCP_API_TOKEN"
+    assert_includes doc, "mcp_read"
+    assert_includes doc, "OAuth"
+    assert_includes doc, "Static `MCP_API_TOKEN` / `MCP_USER_EMAIL` configuration is deliberately unsupported"
   end
 
   test "registers each redirect uri documented for native MCP clients" do

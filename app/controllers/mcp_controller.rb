@@ -4,6 +4,7 @@ class McpController < ApplicationController
   PROTOCOL_VERSION = "2025-06-18"
   SUPPORTED_PROTOCOL_VERSIONS = [ "2025-03-26", PROTOCOL_VERSION ].freeze
   MCP_SESSION_TTL = 1.day
+  MCP_READ_SCOPE = "mcp_read"
 
   # Skip session-based auth and CSRF — this is a token-authenticated API
   skip_authentication
@@ -80,7 +81,7 @@ class McpController < ApplicationController
     end
 
     def handle_tools_list
-      tools = Assistant.function_classes(mcp_user).map do |fn_class|
+      tools = Assistant.mcp_read_function_classes(mcp_user).map do |fn_class|
         fn_instance = fn_class.new(mcp_user)
         {
           name: fn_instance.name,
@@ -99,7 +100,7 @@ class McpController < ApplicationController
       # Scoped to the authenticated user so a tool hidden from tools/list is not
       # callable by guessing its name — a non-preview caller gets the same
       # "Unknown tool" response as for a name that does not exist.
-      fn_class = Assistant.function_classes(mcp_user).find { |fc| fc.name == name }
+      fn_class = Assistant.mcp_read_function_classes(mcp_user).find { |fc| fc.name == name }
 
       unless fn_class
         render_jsonrpc_error(request_id, -32602, "Unknown tool: #{name}")
@@ -125,7 +126,6 @@ class McpController < ApplicationController
       token = auth_header[/\ABearer\s+(.+)\z/i, 1]&.strip&.presence # pipelock:ignore
 
       return if token.present? && authenticate_via_doorkeeper(token)
-      return if token.present? && authenticate_via_env_token(token)
 
       render_mcp_unauthorized
     end
@@ -133,7 +133,7 @@ class McpController < ApplicationController
     def authenticate_via_doorkeeper(token)
       access_token = Doorkeeper::AccessToken.by_token(token)
       return false unless access_token&.accessible?
-      return false unless access_token.scopes.include?("read_write")
+      return false unless access_token.scopes.include?(MCP_READ_SCOPE)
 
       user = User.find_by(id: access_token.resource_owner_id)
       return false unless user&.active?
@@ -142,24 +142,6 @@ class McpController < ApplicationController
       true
     end
 
-    def authenticate_via_env_token(token)
-      expected = ENV["MCP_API_TOKEN"]
-      return false unless expected.present?
-      return false unless ActiveSupport::SecurityUtils.secure_compare(
-        OpenSSL::Digest::SHA256.hexdigest(token),
-        OpenSSL::Digest::SHA256.hexdigest(expected)
-      )
-
-      user = User.find_by(email: ENV["MCP_USER_EMAIL"])
-
-      unless user
-        Rails.logger.warn "[MCP] MCP_USER_EMAIL does not match any user — check environment configuration"
-        return false
-      end
-
-      setup_mcp_session(user)
-      true
-    end
 
     def setup_mcp_session(user)
       @mcp_user = user

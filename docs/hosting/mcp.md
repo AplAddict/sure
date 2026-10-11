@@ -11,66 +11,13 @@ This is useful when:
 - You prefer to keep your LLM provider separate from Sure
 - You're building custom AI agents that need access to financial tools
 
-## Authentication Modes
+## Authentication
 
-Sure supports two ways to authenticate MCP clients:
+MCP accepts **OAuth 2.0 authorization-code tokens only**. Each person signs into Sure and authorizes the MCP client; the resulting token is bound to that individual Sure user and carries the `mcp_read` scope.
 
-### 1. OAuth 2.0 / dynamic client registration (recommended)
+Static `MCP_API_TOKEN` / `MCP_USER_EMAIL` configuration is deliberately unsupported because a fixed user identity can disclose one family’s data to another user of a shared agent.
 
-This is the best option for Claude.ai and other MCP clients that support OAuth. Sure exposes:
-
-- `/.well-known/oauth-protected-resource`
-- `/.well-known/oauth-authorization-server`
-- `POST /register` for dynamic client registration
-
-These endpoints let compatible MCP clients register a public OAuth client, redirect you back to Sure for sign-in, and receive a bearer token with the `read_write` scope.
-
-### 2. Static bearer token via environment variables
-
-This is the simpler fallback for custom agents, scripts, and deployments where you want to pin the MCP server to a specific Sure user.
-
-Set these environment variables:
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `MCP_API_TOKEN` | Bearer token for authentication | `your-secret-token-here` |
-| `MCP_USER_EMAIL` | Email of the Sure user whose data the assistant can access | `user@example.com` |
-
-Both variables are required for the legacy token flow. OAuth clients using the
-MCP discovery and dynamic registration endpoints do not need these variables.
-
-### Generating a secure token
-
-Generate a random token for `MCP_API_TOKEN`:
-
-```bash
-# macOS/Linux
-openssl rand -base64 32
-
-# Or use any secure password generator
-```
-
-### Choosing the user for static-token auth
-
-The `MCP_USER_EMAIL` must match an existing Sure user's email address. The AI assistant will have access to all financial data for that user's family.
-
-> [!CAUTION]
-> The AI assistant can call the MCP tools available to the specified user. This includes reading financial data and write-capable tools such as statement import, goal/category/tag changes, transaction updates, and budget updates. Only set this for users you trust with your AI provider.
-
-## Configuration
-
-### Docker Compose
-
-Add the environment variables to your `compose.yml`:
-
-```yaml
-x-rails-env: &rails_env
-  MCP_API_TOKEN: your-secret-token-here
-  MCP_USER_EMAIL: user@example.com
-```
-
-Both `web` and `worker` services inherit this configuration.
-
+MCP is read-only. Its tool list is a dedicated allowlist and excludes transaction, budget, category, tag, statement, file, and other write-capable tools.
 ### Kubernetes (Helm)
 
 Add the variables to your `values.yaml` or set them via Secrets:

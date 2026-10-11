@@ -35,6 +35,19 @@ module Assistant
     Function::RecordBillPayment
   ].freeze
 
+  MCP_READ_FUNCTION_CLASSES = [
+    Function::GetTransactions,
+    Function::GetRecurringTransactions,
+    Function::GetAccounts,
+    Function::GetHoldings,
+    Function::GetBalanceSheet,
+    Function::GetIncomeStatement,
+    Function::GetBudget,
+    Function::GetTags,
+    Function::GetCategories,
+    Function::GetMerchants
+  ].freeze
+
   class << self
     def for_chat(chat)
       implementation_for(chat).for_chat(chat)
@@ -49,10 +62,14 @@ module Assistant
       REGISTRY.keys
     end
 
-    # The single registry behind both the builtin chat and the /mcp endpoint's
-    # tools/list — a function class added here is immediately callable by an
-    # external agent, so pass the user to keep preview tools out of the default
-    # surface.
+    # External MCP clients are intentionally read-only. Keep this registry
+    # separate from builtin chat tools so a new write tool cannot become
+    # remotely callable merely by being added to the assistant.
+    def mcp_read_function_classes(_user = nil)
+      MCP_READ_FUNCTION_CLASSES
+    end
+
+    # The builtin assistant has a broader, in-app tool surface.
     def function_classes(user = nil)
       classes = [
         Function::GetTransactions,

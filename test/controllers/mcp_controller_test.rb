@@ -28,7 +28,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     assert response.headers["WWW-Authenticate"].present?
   end
 
-  test "authenticates via Doorkeeper bearer token" do
+  test "authenticates via Doorkeeper bearer token with mcp_read scope" do
     app = Doorkeeper::Application.create!(
       name: "Test MCP Client #{SecureRandom.hex(4)}",
       redirect_uri: "https://claude.ai/callback",
@@ -37,7 +37,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     token = Doorkeeper::AccessToken.create!( # pipelock:ignore
       application: app,
       resource_owner_id: @user.id,
-      scopes: "read_write",
+      scopes: "mcp_read",
       expires_in: 1.year
     )
 
@@ -62,7 +62,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     app = Doorkeeper::Application.find_by!(uid: JSON.parse(response.body)["client_id"])
-    assert_equal "read_write", app.scopes.to_s
+    assert_equal "mcp_read", app.scopes.to_s
 
     sign_in(@user)
     verifier = SecureRandom.urlsafe_base64(64)
@@ -72,6 +72,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
       client_id: app.uid,
       redirect_uri: app.redirect_uri,
       response_type: "code",
+      scope: "mcp_read",
       code_challenge: challenge,
       code_challenge_method: "S256"
     }
@@ -90,7 +91,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     token_response = JSON.parse(response.body)
-    assert_equal "read_write", token_response["scope"]
+    assert_equal "mcp_read", token_response["scope"]
 
     post "/mcp", params: jsonrpc_request("initialize").to_json,
          headers: mcp_headers(token_response["access_token"])
@@ -160,19 +161,16 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     inactive_user&.update!(active: true)
   end
 
-  test "env-var token still works as fallback" do
-    with_mcp_env do
-      post "/mcp", params: jsonrpc_request("initialize").to_json,
-           headers: mcp_headers(@token)
+  test "accepts only a per-user mcp_read OAuth token" do
+    post "/mcp", params: jsonrpc_request("initialize").to_json,
+         headers: mcp_headers(mcp_oauth_token_for(@user))
 
-      assert_response :ok
-    end
+    assert_response :ok
+    assert_mcp_initialize_response(JSON.parse(response.body)["result"])
   end
 
-  test "returns 401 and warns when env-var token matches but MCP_USER_EMAIL finds no user" do
-    with_env_overrides("MCP_API_TOKEN" => @token, "MCP_USER_EMAIL" => "nonexistent@example.com") do # pipelock:ignore
-      Rails.logger.expects(:warn).with(regexp_matches(/MCP_USER_EMAIL/)).once
-
+  test "rejects the retired static MCP credential path" do
+    with_env_overrides("MCP_API_TOKEN" => @token, "MCP_USER_EMAIL" => @user.email) do # pipelock:ignore
       post "/mcp", params: jsonrpc_request("initialize").to_json,
            headers: mcp_headers(@token)
 
@@ -298,7 +296,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
 
   # -- tools/list --
 
-  test "tools/list returns all assistant function tools" do
+  test "tools/list exposes only the read-only MCP tool allowlist" do
     with_mcp_env do
       post "/mcp", params: jsonrpc_request("tools/list").to_json,
            headers: mcp_headers(@token)
@@ -308,7 +306,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
       tools = body["result"]["tools"]
 
       assert_kind_of Array, tools
-      assert_equal Assistant.function_classes(@user).size, tools.size
+      assert_equal Assistant.mcp_read_function_classes(@user).size, tools.size
 
       tool_names = tools.map { |t| t["name"] }
       assert_includes tool_names, "get_transactions"
@@ -316,8 +314,10 @@ class McpControllerTest < ActionDispatch::IntegrationTest
       assert_includes tool_names, "get_holdings"
       assert_includes tool_names, "get_balance_sheet"
       assert_includes tool_names, "get_income_statement"
-      assert_includes tool_names, "update_transaction"
-      assert_includes tool_names, "update_budget"
+      assert_not_includes tool_names, "update_transaction"
+      assert_not_includes tool_names, "update_budget"
+      assert_not_includes tool_names, "create_transaction"
+      assert_not_includes tool_names, "delete_transaction"
 
       # Each tool has required fields
       tools.each do |tool|
@@ -399,7 +399,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "tools/list includes preview tools for an opted-in user" do
+  test "tools/list excludes preview tools even for an opted-in user" do
     @user.update!(preferences: (@user.preferences || {}).merge("preview_features_enabled" => true))
 
     with_mcp_env do
@@ -410,7 +410,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
       tool_names = JSON.parse(response.body)["result"]["tools"].map { |t| t["name"] }
 
       Assistant::PREVIEW_FUNCTION_CLASSES.each do |fn_class|
-        assert_includes tool_names, fn_class.name
+        assert_not_includes tool_names, fn_class.name
       end
     end
   end
@@ -428,6 +428,18 @@ class McpControllerTest < ActionDispatch::IntegrationTest
       body = JSON.parse(response.body)
       assert_equal(-32602, body["error"]["code"])
       assert_includes body["error"]["message"], "list_account_statements"
+    end
+  end
+
+  test "tools/call rejects a write tool even when its name is guessed" do
+    with_mcp_env do
+      post "/mcp", params: jsonrpc_request("tools/call", { name: "update_transaction", arguments: {} }, id: 44).to_json,
+           headers: mcp_headers(@token)
+
+      assert_response :ok
+      body = JSON.parse(response.body)
+      assert_equal(-32602, body.dig("error", "code"))
+      assert_equal "Unknown tool: update_transaction", body.dig("error", "message")
     end
   end
 
@@ -465,17 +477,28 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # A vault payload is richer than the other tools' output — nested account hashes,
-  # BigDecimal balances, dates, a `.compact`ed hash — so these exercise a real
-  # record all the way out through tools/call's JSON envelope, rather than
-  # trusting that the unit-tested return value serializes cleanly.
-  test "tools/call round-trips a real vault payload through list_account_statements" do
-    @user.update!(preferences: (@user.preferences || {}).merge("preview_features_enabled" => true))
-    statement = AccountStatement.create_from_upload!(
-      family: @user.family,
-      account: accounts(:depository),
-      file: uploaded_file(filename: "statement.csv", content_type: "text/csv", content: "date,amount\n2024-01-01,1\n")
+  test "tools/call returns only the OAuth token owner's accessible accounts" do
+    other_user = users(:empty)
+    own_account = Account.create!(
+      family: other_user.family,
+      owner: other_user,
+      accountable: Depository.new,
+      name: "Other Family Checking",
+      currency: "USD",
+      balance: 25
     )
+
+    post "/mcp", params: jsonrpc_request("tools/call", { name: "get_accounts", arguments: {} }).to_json,
+         headers: mcp_headers(mcp_oauth_token_for(other_user))
+
+    assert_response :ok
+    account_ids = JSON.parse(JSON.parse(response.body).dig("result", "content", 0, "text")).fetch("accounts").map { |account| account.fetch("id") }
+    assert_includes account_ids, own_account.id
+    assert_empty account_ids & @user.accessible_accounts.pluck(:id)
+  end
+
+  test "tools/call rejects a sensitive file tool even for an opted-in user" do
+    @user.update!(preferences: (@user.preferences || {}).merge("preview_features_enabled" => true))
 
     with_mcp_env do
       post "/mcp", params: jsonrpc_request("tools/call", {
@@ -484,88 +507,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
       }).to_json, headers: mcp_headers(@token)
 
       assert_response :ok
-      result = JSON.parse(response.body)["result"]
-      assert_not result["isError"], "vault payload should not surface as a tool error"
-
-      inner = JSON.parse(result["content"][0]["text"])
-      assert inner["success"]
-
-      payload = inner["statements"].find { |s| s["id"] == statement.id }
-      assert_not_nil payload, "expected the created statement in the response"
-      assert_equal statement.content_sha256, payload["content_sha256"]
-      assert_equal accounts(:depository).id, payload.dig("account", "id")
-    end
-  end
-
-  test "tools/call round-trips an upload through upload_account_statement" do
-    @user.update!(preferences: (@user.preferences || {}).merge("preview_features_enabled" => true))
-    content = "date,amount\n2024-02-01,7\n"
-
-    with_mcp_env do
-      assert_difference "AccountStatement.count", 1 do
-        post "/mcp", params: jsonrpc_request("tools/call", {
-          name: "upload_account_statement",
-          arguments: { filename: "uploaded.csv", content_base64: Base64.strict_encode64(content) }
-        }).to_json, headers: mcp_headers(@token)
-      end
-
-      assert_response :ok
-      result = JSON.parse(response.body)["result"]
-      assert_not result["isError"]
-
-      inner = JSON.parse(result["content"][0]["text"])
-      assert inner["success"]
-      assert_not inner["duplicate"]
-      assert_equal Digest::SHA256.hexdigest(content), inner.dig("statement", "content_sha256")
-    end
-  end
-
-  test "tools/call executes update_transaction" do
-    with_mcp_env do
-      transaction = transactions(:one)
-      category = categories(:subcategory)
-
-      post "/mcp", params: jsonrpc_request("tools/call", {
-        name: "update_transaction",
-        arguments: {
-          id: transaction.id,
-          category_id: category.id,
-          notes: "Updated through MCP"
-        }
-      }).to_json, headers: mcp_headers(@token)
-
-      assert_response :ok
-      body = JSON.parse(response.body)
-      result = body["result"]
-      inner = JSON.parse(result["content"][0]["text"])
-
-      assert_equal true, inner["success"]
-      assert_equal category.id, transaction.reload.category_id
-      assert_equal "Updated through MCP", transaction.entry.notes
-    end
-  end
-
-  test "tools/call executes update_budget" do
-    with_mcp_env do
-      budget = budgets(:one)
-
-      post "/mcp", params: jsonrpc_request("tools/call", {
-        name: "update_budget",
-        arguments: {
-          budgeted_spending: 6200,
-          expected_income: 8800
-        }
-      }).to_json, headers: mcp_headers(@token)
-
-      assert_response :ok
-      body = JSON.parse(response.body)
-      result = body["result"]
-      inner = JSON.parse(result["content"][0]["text"])
-
-      assert_equal true, inner["success"]
-      budget.reload
-      assert_equal 6200, budget.budgeted_spending
-      assert_equal 8800, budget.expected_income
+      assert_equal(-32602, JSON.parse(response.body).dig("error", "code"))
     end
   end
 
@@ -635,8 +577,24 @@ class McpControllerTest < ActionDispatch::IntegrationTest
 
   private
 
-    def with_mcp_env(&block)
-      with_env_overrides("MCP_API_TOKEN" => @token, "MCP_USER_EMAIL" => @user.email, &block) # pipelock:ignore
+    def with_mcp_env
+      @token = mcp_oauth_token_for(@user)
+      yield
+    end
+
+    def mcp_oauth_token_for(user)
+      app = Doorkeeper::Application.create!(
+        name: "MCP Read Client #{SecureRandom.hex(4)}",
+        redirect_uri: "https://mcp.example.test/callback",
+        confidential: false,
+        scopes: "mcp_read"
+      )
+      Doorkeeper::AccessToken.create!( # pipelock:ignore
+        application: app,
+        resource_owner_id: user.id,
+        scopes: "mcp_read",
+        expires_in: 1.year
+      ).token
     end
 
     def with_mcp_cache
