@@ -19,6 +19,15 @@ en:
       mention_accounts: Accounts
       mention_categories: Categories
       mention_merchants: Merchants
+      mention_groups:
+        depository: Cash & bank accounts
+        credit_card: Credit cards
+        loan: Loans
+        investment: Investments
+        crypto: Crypto
+        property: Property
+        vehicle: Vehicles
+        other: Other
       ranges:
         this_month: this month
         last_month: last month

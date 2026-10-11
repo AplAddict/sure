@@ -144,27 +144,55 @@ export default class extends Controller {
     if (!this.options) return;
     const query = this.hasFilterTarget ? this.filterTarget.value.trim().toLowerCase() : "";
     const list = this.mentionListTarget;
+    const data = list.dataset;
     list.replaceChildren();
 
+    const match = (names) => (names || []).filter((name) => !query || name.toLowerCase().includes(query));
+
+    // Each section: a titled block with its own divider and a count; accounts split by type.
+    const sections = [];
+    const groups = this.options.account_groups || {};
+    const groupKeys = Object.keys(groups);
+    if (groupKeys.length > 0) {
+      for (const key of groupKeys) {
+        sections.push({ title: data[`label${this.#camel(key)}`] || key, group: data.accountsLabel, names: match(groups[key]) });
+      }
+    } else {
+      sections.push({ title: data.accountsLabel, group: data.accountsLabel, names: match(this.options.accounts) });
+    }
+    sections.push({ title: data.categoriesLabel, group: data.categoriesLabel, names: match(this.options.categories) });
+    sections.push({ title: data.merchantsLabel, group: data.merchantsLabel, names: match(this.options.merchants) });
+
     let shown = 0;
-    for (const [kind, label] of [
-      ["accounts", this.mentionListTarget.dataset.accountsLabel],
-      ["categories", this.mentionListTarget.dataset.categoriesLabel],
-      ["merchants", this.mentionListTarget.dataset.merchantsLabel],
-    ]) {
-      const names = (this.options[kind] || []).filter((name) => !query || name.toLowerCase().includes(query)).slice(0, 25);
-      if (names.length === 0) continue;
+    let lastGroup = null;
+    for (const section of sections) {
+      if (section.names.length === 0) continue;
 
-      const heading = document.createElement("p");
-      heading.className = "px-3 pt-2 pb-1 text-xs font-medium text-secondary";
-      heading.textContent = label;
-      list.appendChild(heading);
+      // A top-level heading when the family of sections changes (Accounts / Categories / Merchants).
+      if (section.group !== lastGroup) {
+        const top = document.createElement("p");
+        top.className = `${lastGroup ? "mt-2 border-t border-secondary pt-2 " : ""}px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-primary`;
+        top.textContent = section.group;
+        top.setAttribute("role", "presentation");
+        list.appendChild(top);
+        lastGroup = section.group;
+      }
 
-      for (const name of names) {
+      if (section.title !== section.group) {
+        const sub = document.createElement("p");
+        sub.className = "px-3 pt-1 pb-0.5 text-xs font-medium text-secondary";
+        sub.textContent = `${section.title} (${section.names.length})`;
+        sub.setAttribute("role", "presentation");
+        list.appendChild(sub);
+      }
+
+      for (const name of section.names) {
         const button = document.createElement("button");
         button.type = "button";
+        button.setAttribute("role", "option");
         button.className = "block w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-hover rounded-md truncate";
         button.textContent = name; // textContent: names are data, never markup
+        button.title = name;
         button.addEventListener("click", () => {
           this.#addChip("mention", name);
           this.#closeAll();
@@ -175,5 +203,9 @@ export default class extends Controller {
     }
 
     this.mentionStatusTarget.textContent = shown === 0 ? this.mentionStatusTarget.dataset.empty : "";
+  }
+
+  #camel(key) {
+    return key.replace(/(^|_)([a-z])/g, (_m, _s, c) => c.toUpperCase());
   }
 }

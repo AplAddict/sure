@@ -37,7 +37,7 @@
         } %>
 
         <div class="relative">
-          <%= icon("plus", as_button: true, title: t(".add_timeframe"), "aria-label": t(".add_timeframe"),
+          <%= icon("clock", as_button: true, title: t(".add_timeframe"), "aria-label": t(".add_timeframe"),
                    "aria-haspopup": "true", "aria-expanded": "false",
                    data: { action: "click->chat-composer#toggle", chat_composer_menu_param: "range" }) %>
           <div class="hidden absolute bottom-full left-0 mb-2 w-52 bg-container rounded-lg shadow-border-lg p-1 z-20" role="menu" data-chat-composer-target="menu" data-menu="range">
@@ -70,14 +70,15 @@
           <%= icon("at-sign", as_button: true, title: t(".mention"), "aria-label": t(".mention"),
                    "aria-haspopup": "true", "aria-expanded": "false",
                    data: { action: "click->chat-composer#toggle", chat_composer_menu_param: "mentions" }) %>
-          <div class="hidden absolute bottom-full left-0 mb-2 w-72 bg-container rounded-lg shadow-border-lg p-1 z-20" data-chat-composer-target="menu" data-menu="mentions">
+          <div class="hidden absolute bottom-full left-0 mb-2 w-80 bg-container rounded-lg shadow-border-lg p-1 z-20" data-chat-composer-target="menu" data-menu="mentions">
             <input type="search" autocomplete="off" placeholder="<%= t(".mention_search") %>" aria-label="<%= t(".mention_search") %>"
                    class="w-full border-0 focus:ring-0 text-sm px-3 py-2 bg-transparent"
                    data-chat-composer-target="filter" data-action="input->chat-composer#filterMentions">
             <p class="px-3 py-1 text-xs text-secondary empty:hidden" data-chat-composer-target="mentionStatus"
                data-loading="<%= t(".mention_loading") %>" data-failed="<%= t(".mention_failed") %>" data-empty="<%= t(".mention_empty") %>"></p>
-            <div class="max-h-64 overflow-y-auto" data-chat-composer-target="mentionList"
-                 data-accounts-label="<%= t(".mention_accounts") %>" data-categories-label="<%= t(".mention_categories") %>" data-merchants-label="<%= t(".mention_merchants") %>"></div>
+            <div class="max-h-80 overflow-y-auto" role="listbox" aria-label="<%= t(".mention") %>" data-chat-composer-target="mentionList"
+                 data-accounts-label="<%= t(".mention_accounts") %>" data-categories-label="<%= t(".mention_categories") %>" data-merchants-label="<%= t(".mention_merchants") %>"
+                 data-label-depository="<%= t(".mention_groups.depository") %>" data-label-credit-card="<%= t(".mention_groups.credit_card") %>" data-label-loan="<%= t(".mention_groups.loan") %>" data-label-investment="<%= t(".mention_groups.investment") %>" data-label-crypto="<%= t(".mention_groups.crypto") %>" data-label-property="<%= t(".mention_groups.property") %>" data-label-vehicle="<%= t(".mention_groups.vehicle") %>" data-label-other="<%= t(".mention_groups.other") %>"></div>
           </div>
         </div>
       </div>

@@ -19,6 +19,15 @@ de:
       mention_accounts: Konten
       mention_categories: Kategorien
       mention_merchants: Händler
+      mention_groups:
+        depository: Bank- & Girokonten
+        credit_card: Kreditkarten
+        loan: Kredite
+        investment: Geldanlagen
+        crypto: Krypto
+        property: Immobilien
+        vehicle: Fahrzeuge
+        other: Sonstiges
       ranges:
         this_month: diesen Monat
         last_month: letzten Monat
