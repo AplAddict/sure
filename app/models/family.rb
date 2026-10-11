@@ -454,7 +454,11 @@ class Family < ApplicationRecord
   end
 
   def auto_categorize_transactions(transaction_ids)
-    bayes_result = Family::BayesCategorizer.new(self).classify_and_apply(transaction_ids)
+    bayes_result = if bayes_pre_pass?
+      Family::BayesCategorizer.new(self).classify_and_apply(transaction_ids)
+    else
+      Family::BayesCategorizer::Result.new(categorized_ids: [], modified_count: 0)
+    end
     remaining_ids = Array(transaction_ids) - bayes_result.categorized_ids
 
     # Bayes handled everything with sufficient confidence — skip the LLM
@@ -477,6 +481,16 @@ class Family < ApplicationRecord
 
     llm_modified_count = AutoCategorizer.new(self, transaction_ids: remaining_ids).auto_categorize
     bayes_result.modified_count + llm_modified_count
+  end
+
+  # The Bayesian pre-pass trains on whatever labels already exist, so it repeats
+  # their mistakes at high confidence (a mislabelled merchant becomes the
+  # "known" answer for every later one) and, because it runs first, overrides
+  # the provider the family chose. A family that selected Jev picked a
+  # classifier with calibrated per-answer confidence and a threshold it can set,
+  # so every answer comes from Jev. Families on the LLM path keep the pre-pass.
+  def bayes_pre_pass?
+    !(effective_categorization_provider == "jev" && resolved_categorization_provider.is_a?(Provider::Jev))
   end
 
   def auto_detect_transaction_merchants_later(transactions, rule_run_id: nil)

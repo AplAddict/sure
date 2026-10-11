@@ -95,6 +95,47 @@ class Family::AutoCategorizeTransactionsTest < ActiveSupport::TestCase
     assert_ai_categorization_log(transaction_ids: [ llm_txn.id ])
   end
 
+  test "a family that chose Jev skips bayes so Jev answers every transaction" do
+    train_two_categories
+    @family.update!(categorization_provider: "jev")
+    jev = Provider::Jev.new("test-key")
+    @family.stubs(:resolved_categorization_provider).returns(jev)
+
+    # Bayes would label this "Coffee" at high confidence; Jev must decide instead.
+    txn = create_transaction(account: @account, name: "Starbucks Coffee").transaction
+    jev_category = @family.categories.create!(name: "Jev choice")
+
+    jev.expects(:auto_categorize).returns(provider_success_response([
+      Provider::ClassificationConcept::CategoryDecision.new(
+        transaction_id: txn.id, category_name: jev_category.name, confidence: 0.9, probabilities: {}, usage: nil
+      )
+    ])).once
+
+    assert_equal 1, @family.auto_categorize_transactions([ txn.id ])
+    assert_equal jev_category, txn.reload.category
+    assert_equal [ "ai" ], txn.data_enrichments.where(attribute_name: "category_id").pluck(:source)
+  end
+
+  test "a family on the LLM provider still gets the bayes pre-pass" do
+    train_two_categories
+    @family.update!(categorization_provider: "llm")
+    assert @family.bayes_pre_pass?
+    Provider::Registry.expects(:preferred_llm_provider).never
+
+    txn = create_transaction(account: @account, name: "Starbucks Coffee").transaction
+
+    assert_equal 1, @family.auto_categorize_transactions([ txn.id ])
+    assert_equal "bayes", txn.data_enrichments.find_by(attribute_name: "category_id").source
+  end
+
+  test "a Jev family whose provider cannot be built falls back to bayes as before" do
+    train_two_categories
+    @family.update!(categorization_provider: "jev")
+    @family.stubs(:resolved_categorization_provider).returns(@llm_provider)
+
+    assert @family.bayes_pre_pass?
+  end
+
   private
     def assert_ai_categorization_log(transaction_ids:, categorized_transaction_ids: transaction_ids)
       log_entry = DebugLogEntry.order(:created_at).last
