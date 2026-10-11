@@ -25,6 +25,15 @@ class CashFlowPreviewTest < ActionDispatch::IntegrationTest
     assert_equal legacy, css_select("[data-controller='sankey-chart']").map { |chart| chart["data-sankey-chart-data-value"] }
   end
 
+  test "cash flow feedback is explicitly configured as a modeless prompt" do
+    @user.update!(preferences: @user.preferences.merge("preview_features_enabled" => true))
+
+    get root_path
+
+    assert_response :success
+    assert_select "#cashflow-preview[data-sankey-preview-feedback-mode-value='modeless']"
+  end
+
   test "a family member's preview opt-in does not expose the preview to this user" do
     @user.update!(preferences: @user.preferences.merge("preview_features_enabled" => false))
     @user.family.users.where.not(id: @user.id).first.update!(preferences: { "preview_features_enabled" => true })

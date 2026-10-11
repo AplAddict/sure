@@ -26,6 +26,7 @@ export default class extends Controller {
     selfHosted: Boolean,
     feedbackKey: String,
     feedbackHost: String,
+    feedbackMode: String,
   };
 
   connect() {
@@ -156,7 +157,10 @@ export default class extends Controller {
     this.formTarget.reset();
     this.formTarget.hidden = true;
     this.statusTarget.textContent = this.statusTarget.dataset.loading;
-    this.feedbackDialogTarget.showModal();
+    // Feedback should never block account navigation. Keep the survey available
+    // after an explicit rating click, but render it as a modeless dialog.
+    if (this.feedbackModeValue === "modeless") this.feedbackDialogTarget.show();
+    else this.feedbackDialogTarget.showModal();
     const posthog = this.posthog;
     if (
       !this.hasSurveyIdValue ||
