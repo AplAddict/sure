@@ -172,8 +172,17 @@ class Assistant::Responder
     # chat path. Anthropic uses chat_message_records instead.
     def openai_messages_payload
       messages = []
-      complete_chat_messages.each do |chat_message|
-        if chat_message.tool_calls.any?
+      records = complete_chat_messages
+      last_user_index = records.rindex { |record| record.role == "user" }
+
+      records.each_with_index do |chat_message, index|
+        # Tool calls and their (often very large) results only matter inside the turn that
+        # produced them. For earlier turns the assistant's own text already carries the
+        # outcome, so keeping just the text preserves the thread of the conversation without
+        # one big tool result crowding every older message out of the history budget.
+        past_turn = last_user_index && index < last_user_index
+
+        if chat_message.tool_calls.any? && !past_turn
           messages << {
             role: chat_message.role,
             content: chat_message.content || "",

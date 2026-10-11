@@ -664,6 +664,43 @@ class AssistantTest < ActiveSupport::TestCase
     assert_not tool_result_entry.key?(:name), "tool messages must not carry the deprecated `name` field"
   end
 
+  test "earlier turns keep their text but drop old tool results so follow-ups keep context" do
+    Message.where(chat: @chat).delete_all
+    first_user = @chat.messages.create!(type: "UserMessage", content: "How much is in checking?", ai_model: "gpt-4.1")
+    first_reply = AssistantMessage.create!(chat: @chat, content: "Checking holds $5,000 right now.", ai_model: "gpt-4.1", status: "complete")
+    ToolCall::Function.create!(
+      message: first_reply, provider_id: "call_old", provider_call_id: "call_old", function_name: "get_accounts",
+      function_arguments: {}, function_result: { huge: "x" * 5_000 }
+    )
+    follow_up = @chat.messages.create!(type: "UserMessage", content: "And what about last month?", ai_model: "gpt-4.1")
+
+    payload = Assistant::Responder.new(message: follow_up, instructions: nil, function_tool_caller: nil, llm: nil)
+      .send(:openai_messages_payload)
+
+    assert_equal %w[user assistant user], payload.map { |m| m[:role] }
+    assert_equal "Checking holds $5,000 right now.", payload[1][:content]
+    assert_not payload.any? { |m| m[:role] == "tool" || m[:tool_calls].present? }, "old tool results must not be replayed"
+    assert_operator payload.to_json.bytesize, :<, 1_000
+    assert first_user.persisted?
+  end
+
+  test "tool calls after the latest user message are still replayed" do
+    Message.where(chat: @chat).delete_all
+    @chat.messages.create!(type: "UserMessage", content: "Look it up", ai_model: "gpt-4.1")
+    reply = AssistantMessage.create!(chat: @chat, content: "Looking that up", ai_model: "gpt-4.1", status: "complete")
+    ToolCall::Function.create!(
+      message: reply, provider_id: "call_now", provider_call_id: "call_now", function_name: "get_accounts",
+      function_arguments: {}, function_result: { ok: true }
+    )
+    latest = @chat.messages.where(type: "UserMessage").order(:created_at).last
+
+    payload = Assistant::Responder.new(message: latest, instructions: nil, function_tool_caller: nil, llm: nil)
+      .send(:openai_messages_payload)
+
+    assert payload.any? { |m| m[:role] == "assistant" && m[:tool_calls].present? }
+    assert payload.any? { |m| m[:role] == "tool" && m[:tool_call_id] == "call_now" }
+  end
+
   private
 
     def mock_external_sse_response(sse_body)
