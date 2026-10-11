@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus";
 // Composer menus for the AI chat: quick prompts (⌘), @mentions, and time ranges (+).
 // Everything inserted is plain text the user can edit; nothing is sent until they submit.
 export default class extends Controller {
-  static targets = ["input", "menu", "filter", "mentionList", "mentionStatus", "chips", "chipTemplate"];
+  static targets = ["input", "menu", "filter", "mentionList", "mentionStatus", "chips", "chipTemplate", "filePicker", "fileStatus"];
   static values = { url: String, removeLabel: { type: String, default: "Remove" } };
 
   connect() {
@@ -58,12 +58,59 @@ export default class extends Controller {
     const chips = this.#chips();
     if (chips.length === 0) return;
 
-    const byKind = (kind) => chips.filter((c) => c.dataset.kind === kind).map((c) => c.dataset.text);
+    const textChips = chips.filter((c) => c.dataset.kind !== "file");
+    if (textChips.length === 0) return;
+
+    const byKind = (kind) => textChips.filter((c) => c.dataset.kind === kind).map((c) => c.dataset.text);
     const typed = this.inputTarget.value.trim();
     const parts = [...byKind("prompt"), typed, ...byKind("mention"), ...byKind("range")].filter(Boolean);
 
     this.inputTarget.value = parts.join(" ");
-    this.chipsTarget.replaceChildren();
+    textChips.forEach((chip) => chip.remove());
+  }
+
+  pickFile(event) {
+    event.preventDefault();
+    this.#closeAll();
+    if (this.hasFilePickerTarget) this.filePickerTarget.click();
+  }
+
+  // The chosen <input> itself moves into its bubble (and a fresh picker takes its place), so a
+  // bubble always owns exactly one file and removing it removes the file from the upload.
+  fileChosen(event) {
+    const picker = event.currentTarget;
+    const file = picker.files && picker.files[0];
+    if (!file) return;
+
+    const data = picker.dataset;
+    const maxFiles = Number(data.maxFiles || 3);
+    const maxBytes = Number(data.maxBytes || 10 * 1024 * 1024);
+    const attached = this.#chips().filter((c) => c.dataset.kind === "file").length;
+
+    const reject = (message) => {
+      this.#setFileStatus(message);
+      picker.value = "";
+    };
+
+    if (!/\.(pdf|csv|txt)$/i.test(file.name)) return reject(data.errorUnsupported);
+    if (attached >= maxFiles) return reject(data.errorTooMany);
+    if (file.size > maxBytes) return reject(data.errorTooLarge);
+
+    this.#setFileStatus("");
+    const fresh = picker.cloneNode(false);
+    fresh.value = "";
+    picker.after(fresh);
+
+    const chip = this.#addChip("file", file.name, { unique: false });
+    if (chip) {
+      picker.removeAttribute("data-chat-composer-target");
+      picker.removeAttribute("data-action");
+      chip.appendChild(picker);
+    }
+  }
+
+  #setFileStatus(message) {
+    if (this.hasFileStatusTarget) this.fileStatusTarget.textContent = message || "";
   }
 
   // Backspace in an empty box removes the last bubble, like a tag input.
@@ -95,14 +142,14 @@ export default class extends Controller {
     return this.hasChipsTarget ? Array.from(this.chipsTarget.querySelectorAll("[data-composer-chip]")) : [];
   }
 
-  #addChip(kind, text) {
-    if (this.#chips().some((c) => c.dataset.kind === kind && c.dataset.text === text)) {
+  #addChip(kind, text, { unique = true } = {}) {
+    if (unique && this.#chips().some((c) => c.dataset.kind === kind && c.dataset.text === text)) {
       this.inputTarget.focus();
-      return;
+      return null;
     }
 
     const template = this.chipTemplateTargets.find((t) => t.dataset.kind === kind);
-    if (!template) return;
+    if (!template) return null;
 
     const chip = template.content.firstElementChild.cloneNode(true);
     chip.dataset.kind = kind;
@@ -115,6 +162,7 @@ export default class extends Controller {
 
     this.#chipsChanged();
     this.inputTarget.focus();
+    return chip;
   }
 
   #chipsChanged() {

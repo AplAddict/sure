@@ -3,7 +3,7 @@
 <div id="chat-form" class="space-y-2">
   <% model = chat && chat.persisted? ? [chat, Message.new] : Chat.new %>
 
-  <%= form_with model: model,
+  <%= form_with model: model, multipart: true,
                 class: "flex lg:flex-col gap-2 bg-container px-2 py-1.5 rounded-full lg:rounded-lg shadow-border-xs",
                 data: { chat_target: "form", controller: "chat-composer", chat_composer_url_value: chat_composer_options_path, action: "keydown->chat-composer#escape submit->chat-composer#serialize", chat_composer_remove_label_value: t(".chip_remove") } do |f| %>
 
@@ -13,11 +13,16 @@
     <%# Selected items from the buttons below render as removable bubbles; they are joined into the message on send. %>
     <div class="flex flex-wrap gap-1.5 empty:hidden" role="list" aria-label="<%= t(".chips_label") %>" data-chat-composer-target="chips"></div>
 
+    <p class="text-xs text-destructive empty:hidden" role="alert" data-chat-composer-target="fileStatus"></p>
+
     <template data-chat-composer-target="chipTemplate" data-kind="mention">
       <%= render "messages/composer_chip", icon_name: "at-sign" %>
     </template>
     <template data-chat-composer-target="chipTemplate" data-kind="range">
       <%= render "messages/composer_chip", icon_name: "calendar" %>
+    </template>
+    <template data-chat-composer-target="chipTemplate" data-kind="file">
+      <%= render "messages/composer_chip", icon_name: "paperclip" %>
     </template>
     <template data-chat-composer-target="chipTemplate" data-kind="prompt">
       <%= render "messages/composer_chip", icon_name: "sparkles" %>
@@ -80,6 +85,17 @@
                  data-accounts-label="<%= t(".mention_accounts") %>" data-categories-label="<%= t(".mention_categories") %>" data-merchants-label="<%= t(".mention_merchants") %>"
                  data-label-depository="<%= t(".mention_groups.depository") %>" data-label-credit-card="<%= t(".mention_groups.credit_card") %>" data-label-loan="<%= t(".mention_groups.loan") %>" data-label-investment="<%= t(".mention_groups.investment") %>" data-label-crypto="<%= t(".mention_groups.crypto") %>" data-label-property="<%= t(".mention_groups.property") %>" data-label-vehicle="<%= t(".mention_groups.vehicle") %>" data-label-other="<%= t(".mention_groups.other") %>"></div>
           </div>
+        </div>
+
+        <div class="relative">
+          <%= icon("paperclip", as_button: true, title: t(".attach_document"), "aria-label": t(".attach_document"),
+                   data: { action: "click->chat-composer#pickFile" }) %>
+          <%# One input per attached file: a chosen input moves into its bubble, so removing the bubble removes the file. %>
+          <%= file_field_tag "#{f.object_name}[documents][]", accept: ".pdf,.csv,.txt", class: "hidden", id: nil, tabindex: -1,
+                data: { chat_composer_target: "filePicker", action: "change->chat-composer#fileChosen",
+                        max_files: ChatDocument::MAX_FILES_PER_MESSAGE, max_bytes: ChatDocument::MAX_FILE_SIZE,
+                        error_too_many: t(".upload_errors.too_many"), error_too_large: t(".upload_errors.too_large"),
+                        error_unsupported: t(".upload_errors.unsupported_type") } %>
         </div>
       </div>
 

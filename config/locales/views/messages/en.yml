@@ -28,6 +28,14 @@ en:
         property: Property
         vehicle: Vehicles
         other: Other
+      attach_document: Attach a PDF, CSV or text file
+      default_document_prompt: Please read the attached document and summarize it.
+      upload_errors:
+        unsupported_type: Only PDF, CSV or text files can be attached.
+        too_large: That file is larger than 10 MB.
+        too_many: You can attach up to 3 files per message.
+        empty: That file is empty.
+        generic: The file could not be attached.
       ranges:
         this_month: this month
         last_month: last month

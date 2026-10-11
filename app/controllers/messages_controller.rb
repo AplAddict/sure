@@ -4,13 +4,17 @@ class MessagesController < ApplicationController
   before_action :set_chat
 
   def create
+    files = params.dig(:message, :documents) || params[:documents]
+    typed = message_params[:content].presence
+    typed ||= t("messages.chat_form.default_document_prompt") if Array(files).reject(&:blank?).any?
+
     @message = UserMessage.new(
       chat: @chat,
-      content: message_params[:content],
+      content: typed,
       ai_model: message_params[:ai_model].presence || Chat.default_model
     )
 
-    if @message.save
+    if save_with_documents(@message)
       redirect_to chat_path(@chat, thinking: true)
     else
       redirect_to chat_path(@chat), alert: @message.errors.full_messages.to_sentence
@@ -39,6 +43,24 @@ class MessagesController < ApplicationController
   end
 
   private
+    # The message and its documents are one unit: validate the files first, then commit
+    # both together, so the assistant job never runs against a half-attached message.
+    def save_with_documents(message)
+      files = params.dig(:message, :documents) || params[:documents]
+      saved = false
+
+      Message.transaction do
+        saved = message.save
+        raise ActiveRecord::Rollback unless saved
+
+        ChatDocument.attach_all!(chat: @chat, message: message, files: files)
+      end
+      saved
+    rescue ChatDocument::InvalidUpload => e
+      message.errors.add(:base, t("messages.chat_form.upload_errors.#{e.code}", default: t("messages.chat_form.upload_errors.generic")))
+      false
+    end
+
     def set_chat
       @chat = Current.user.chats.find(params[:chat_id])
     end

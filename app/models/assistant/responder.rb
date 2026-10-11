@@ -98,7 +98,7 @@ class Assistant::Responder
 
     def get_llm_response(streamer:, function_results: [], previous_response_id: nil, tool_choice: nil)
       response = llm.chat_response(
-        message.content,
+        message.respond_to?(:llm_content) ? message.llm_content : message.content,
         model: message.ai_model,
         instructions: instructions,
         functions: function_tool_caller.function_definitions,
@@ -152,7 +152,7 @@ class Assistant::Responder
         if chat&.messages
           chat.messages
               .where(type: [ "UserMessage", "AssistantMessage" ], status: "complete")
-              .includes(:tool_calls)
+              .includes(:tool_calls, :chat_documents)
               .ordered
               .to_a
         else
@@ -199,7 +199,8 @@ class Assistant::Responder
           end
 
         elsif !chat_message.content.blank?
-          messages << { role: chat_message.role, content: chat_message.content || "" }
+          text = chat_message.respond_to?(:llm_content) ? chat_message.llm_content : chat_message.content
+          messages << { role: chat_message.role, content: text || "" }
         end
       end
       messages

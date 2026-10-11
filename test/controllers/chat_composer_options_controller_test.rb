@@ -94,11 +94,11 @@ class ChatComposerOptionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     # One bubble template per kind, each with a remove control and no preset text.
-    %w[mention range prompt].each do |kind|
+    %w[mention range prompt file].each do |kind|
       assert_select "template[data-chat-composer-target='chipTemplate'][data-kind='#{kind}']", count: 1
     end
     assert_select "[data-chat-composer-target='chips']", count: 1
-    assert_select "template [data-chip-remove]", count: 3
+    assert_select "template [data-chip-remove]", count: 4
 
     # Items insert as bubbles (kind param), never with the old direct-to-textarea mode.
     assert_select "[data-chat-composer-kind-param='range']"

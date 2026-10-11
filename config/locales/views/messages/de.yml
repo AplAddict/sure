@@ -28,6 +28,14 @@ de:
         property: Immobilien
         vehicle: Fahrzeuge
         other: Sonstiges
+      attach_document: PDF-, CSV- oder Textdatei anhängen
+      default_document_prompt: Bitte lies das angehängte Dokument und fasse es zusammen.
+      upload_errors:
+        unsupported_type: Es können nur PDF-, CSV- oder Textdateien angehängt werden.
+        too_large: Diese Datei ist größer als 10 MB.
+        too_many: Du kannst bis zu 3 Dateien pro Nachricht anhängen.
+        empty: Diese Datei ist leer.
+        generic: Die Datei konnte nicht angehängt werden.
       ranges:
         this_month: diesen Monat
         last_month: letzten Monat

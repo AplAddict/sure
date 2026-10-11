@@ -1,5 +1,6 @@
 class Message < ApplicationRecord
   belongs_to :chat
+  has_many :chat_documents, dependent: :destroy
   has_many :tool_calls, dependent: :destroy
 
   enum :status, {
