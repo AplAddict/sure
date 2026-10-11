@@ -48,6 +48,17 @@ class HoldingsControllerTest < ActionDispatch::IntegrationTest
     assert_select "##{dom_id(holding)} p", text: "0.000000000000000148 shares"
   end
 
+  test "account holdings supports an advanced table and selected right-side metric" do
+    get holdings_url(account_id: @account.id, view: "advanced", metric: "day_gain")
+
+    assert_response :success
+    assert_select "[data-testid=account-holdings-advanced]"
+    assert_select "[data-testid=account-holdings-advanced] table"
+
+    get holdings_url(account_id: @account.id, view: "compact", metric: "day_gain")
+    assert_select "select[name=metric] option[selected][value=day_gain]"
+  end
+
   test "destroys holding and associated entries" do
     assert_difference -> { Holding.count } => -1,
                       -> { Entry.count } => -1 do

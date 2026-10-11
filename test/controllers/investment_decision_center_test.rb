@@ -78,6 +78,19 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_equal Date.current - 20, pulse.as_of
   end
 
+  test "source health reports snapshot freshness and known-basis coverage without treating missing data as zero" do
+    center = InvestmentDecisionCenter.new(user: @owner)
+    sources = center.source_health
+
+    assert_equal "current", sources.find { |source| source.key == :holdings }.status
+    assert_equal "current", sources.find { |source| source.key == :basis }.status
+
+    sign_in @owner
+    get root_path(view: "decision")
+    assert_select "[data-testid=idc-source-health]", text: /Holdings snapshot/
+    assert_select "[data-testid=idc-source-health]", text: /Cost basis coverage/
+  end
+
   test "a section that raises degrades to unavailable instead of failing the page" do
     InvestmentDecisionCenter.any_instance.stubs(:build_actions).raises(StandardError, "boom")
     sign_in @owner

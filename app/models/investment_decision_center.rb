@@ -14,6 +14,7 @@ class InvestmentDecisionCenter
     :portfolio_value, :holdings_value, :cash_balance, :day_change,
     :unrealized, :as_of, :stale
   )
+  SourceHealth = Data.define(:key, :label, :status, :detail)
 
   EVENT_HORIZON_DAYS = 7
   CONCENTRATION_WEIGHT = 25
@@ -90,6 +91,31 @@ class InvestmentDecisionCenter
 
   def concentrated?(holding)
     holding.weight >= CONCENTRATION_WEIGHT
+  end
+
+  # Trust rail: availability and freshness of the evidence already used by this
+  # member's center. It does not add a competing action queue or imply advice.
+  def source_health
+    return @source_health if defined?(@source_health)
+
+    @source_health = guarded(:source_health) do
+      snapshot = pulse
+      holdings = if snapshot.nil? || snapshot.as_of.nil?
+        SourceHealth.new(key: :holdings, label: "Holdings snapshot", status: "unavailable", detail: "No dated holdings snapshot is available")
+      elsif snapshot.stale
+        SourceHealth.new(key: :holdings, label: "Holdings snapshot", status: "stale", detail: "As of #{snapshot.as_of}")
+      else
+        SourceHealth.new(key: :holdings, label: "Holdings snapshot", status: "current", detail: "As of #{snapshot.as_of}")
+      end
+
+      gaps = harvest.unavailable.select { |item| item.reason == :cost_basis_unknown }
+      basis = if gaps.any?
+        SourceHealth.new(key: :basis, label: "Cost basis coverage", status: "unavailable", detail: "#{gaps.size} position#{'s' if gaps.size != 1} without known basis")
+      else
+        SourceHealth.new(key: :basis, label: "Cost basis coverage", status: "current", detail: "Known for the positions used in this view")
+      end
+      [ holdings, basis ]
+    end
   end
 
   def upcoming_events

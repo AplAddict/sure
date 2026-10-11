@@ -122,8 +122,15 @@
                 <% key = "#{account.id}-#{position.security.id}" %>
                 <tr class="hover:bg-container-inset/60" data-testid="holding-row">
                   <th scope="row" class="px-3 @3xl:px-4 py-3 text-left font-normal">
-                    <%= link_to position.ticker, research_ticker_path(position.ticker), class: "font-semibold text-link hover:underline" %>
-                    <p class="max-w-[7.5rem] @3xl:max-w-[16rem] truncate text-xs text-secondary"><%= position.name %></p>
+                    <div class="flex min-w-0 items-center gap-2">
+                      <% if (logo = position.security.display_logo_url).present? %>
+                        <%= image_tag logo, alt: position.ticker, class: "h-6 w-6 shrink-0 rounded-full", loading: "lazy", data: { testid: "holding-logo" } %>
+                      <% else %>
+                        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-container-inset text-[9px] font-semibold text-secondary" aria-hidden="true"><%= position.ticker.first(2) %></span>
+                      <% end %>
+                      <div class="min-w-0"><%= link_to position.ticker, research_ticker_path(position.ticker), class: "font-semibold text-link hover:underline" %>
+                        <p class="max-w-[7.5rem] @3xl:max-w-[16rem] truncate text-xs text-secondary"><%= position.name %></p></div>
+                    </div>
                   </th>
                   <td class="px-3 py-3 text-right font-mono">
                     <% if position.lots? %>

@@ -4,9 +4,15 @@ class HoldingsController < ApplicationController
   before_action :set_holding, only: %i[show update destroy unlock_cost_basis remap_security reset_security sync_prices]
   before_action :require_holding_write_permission!, only: %i[update destroy unlock_cost_basis remap_security reset_security sync_prices]
 
+  HOLDING_VIEWS = %w[compact advanced].freeze
+  DISPLAY_METRICS = %w[share_price total_value day_gain total_gain day_gain_pct total_gain_pct].freeze
+
   def index
     @account = accessible_accounts.find(params[:account_id])
-    @current_holdings = @account.current_holdings
+    @holdings_view = params[:view].presence_in(HOLDING_VIEWS) || "compact"
+    @display_metric = params[:metric].presence_in(DISPLAY_METRICS) || "total_gain"
+    @current_holdings = @account.current_holdings.includes(:security)
+    @advanced_portfolio = PortfolioHoldings.new(user: Current.user, account_id: @account.id, sort: params[:sort], direction: params[:dir]) if @holdings_view == "advanced"
     @trade_republic_categories = trade_republic_categories_for(@account)
   end
 

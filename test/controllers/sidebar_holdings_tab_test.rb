@@ -58,6 +58,19 @@ class SidebarHoldingsTabTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "sidebar holdings disclosure renders every accessible position, not a 15-position preview" do
+    16.times do |index|
+      security = Security.create!(ticker: "SB#{index.to_s.rjust(3, '0')}", exchange_mic: "XNAS", name: "Sidebar #{index}")
+      @private.holdings.create!(security: security, date: Date.current, qty: 1, price: index + 1, amount: index + 1, currency: "USD")
+    end
+
+    sign_in @owner
+    get root_path(account_sidebar_tab: "holdings")
+
+    assert_response :success
+    assert_select "[data-testid=sidebar-holding-position]", minimum: 17
+  end
+
   test "sidebar summary lists positions largest first with weights that sum to 100" do
     other = Security.create!(ticker: "SBSML", exchange_mic: "XNAS", name: "Small")
     @private.holdings.create!(security: other, date: Date.current, qty: 1, price: 100, amount: 100, currency: "USD")

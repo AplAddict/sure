@@ -16,7 +16,7 @@ class TickerResearchGenerateJob < ApplicationJob
 
     provider = Provider::YahooFinance.new
     search = provider.search_securities(ticker)
-    match = search.success? ? search.data.find { |candidate| candidate.ticker.to_s.upcase == ticker } : nil
+    match = search.success? ? search.data.find { |candidate| candidate.symbol.to_s.upcase == ticker } : nil
 
     unless match
       # A real "no such ticker" answer is remembered. A failed lookup is not, so

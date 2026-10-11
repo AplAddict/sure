@@ -2,6 +2,7 @@
 <% pulse = center.pulse %>
 <% actions = center.actions %>
 <% top_holdings = center.top_holdings %>
+<% source_health = center.source_health %>
 <% content_for :page_title, t("investment_decision_center.title") %>
 
 <% content_for :page_header do %>
@@ -64,6 +65,15 @@
         <% end %>
       </div>
     </div>
+    <% end %>
+  </section>
+
+  <section class="rounded-xl bg-container shadow-border-xs" aria-labelledby="idc-source-health" data-testid="idc-source-health">
+    <div class="px-4 py-3 border-b border-tertiary"><h2 id="idc-source-health" class="text-base font-medium text-primary">Data health</h2><p class="text-xs text-secondary">Freshness and availability for the evidence already shown above.</p></div>
+    <% if source_health.nil? %>
+      <p class="px-4 py-4 text-sm text-secondary"><%= t("investment_decision_center.section_unavailable") %></p>
+    <% else %>
+      <ul class="divide-y divide-tertiary"><% source_health.each do |source| %><li class="flex items-center justify-between gap-3 px-4 py-3"><div><p class="text-sm font-medium text-primary"><%= source.label %></p><p class="text-xs text-secondary"><%= source.detail %></p></div><span class="rounded-full px-2 py-1 text-xs font-medium <%= source.status == "current" ? "bg-success-subtle text-success" : source.status == "stale" ? "bg-warning-subtle text-warning" : "bg-destructive-subtle text-destructive" %>"><%= source.status.humanize %></span></li><% end %></ul>
     <% end %>
   </section>
 

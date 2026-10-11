@@ -124,11 +124,12 @@
                 <% end %>
 
                 <div class="space-y-0.5 pb-2">
-                  <% entry.positions.first(15).each do |position| %>
-                    <%= link_to research_ticker_path(position.ticker), class: "flex items-center justify-between gap-2 rounded-lg px-3 py-1.5 hover:bg-surface-hover", title: position.name do %>
-                      <span class="min-w-0">
-                        <span class="block text-sm font-medium text-primary"><%= position.ticker %></span>
-                        <span class="block truncate text-xs text-secondary"><%= position.name %></span>
+                  <% entry.positions.each do |position| %>
+                    <%= link_to research_ticker_path(position.ticker), class: "flex items-center justify-between gap-2 rounded-lg px-3 py-1.5 hover:bg-surface-hover", title: position.name, data: { testid: "sidebar-holding-position" } do %>
+                      <span class="flex min-w-0 items-center gap-2">
+                        <% if position.logo_url.present? %><%= image_tag position.logo_url, alt: "", class: "h-5 w-5 shrink-0 rounded-full", loading: "lazy" %><% end %>
+                        <span class="min-w-0"><span class="block text-sm font-medium text-primary"><%= position.ticker %></span>
+                        <span class="block truncate text-xs text-secondary"><%= position.name %></span></span>
                       </span>
                       <span class="text-right shrink-0">
                         <span class="block text-sm text-primary privacy-sensitive"><%= format_money(Money.new(position.market_value, position.currency)) %></span>
@@ -137,7 +138,7 @@
                     <% end %>
                   <% end %>
                   <%= link_to portfolio_holdings_path(account: account.id), class: "block px-3 py-1.5 text-xs font-medium text-link hover:underline" do %>
-                    <%= entry.positions.size > 15 ? t("accounts.sidebar.view_all_positions", count: entry.positions.size) : t("accounts.sidebar.view_with_lots") %>
+                    <%= t("accounts.sidebar.view_with_lots") %>
                   <% end %>
                 </div>
               <% end %>

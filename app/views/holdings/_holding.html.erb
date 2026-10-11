@@ -1,4 +1,4 @@
-<%# locals: (holding:, crypto:) %>
+<%# locals: (holding:, crypto:, metric: "total_gain") %>
 
 <%= turbo_frame_tag dom_id(holding) do %>
   <div class="grid grid-cols-12 items-center text-primary text-sm font-medium p-4">
@@ -42,15 +42,16 @@
       <%= tag.p t(".shares", qty: format_quantity(holding.qty, exact: crypto)), class: "font-normal text-secondary privacy-sensitive" %>
     </div>
 
-    <div class="col-span-2 text-right">
-      <%# Show Total Return (unrealized G/L) when cost basis exists (from trades or manual) %>
-      <% if holding.trend %>
-        <%= tag.p format_money(holding.trend.value), class: "privacy-sensitive", style: "color: #{holding.trend.color};" %>
-        <%= tag.p "(#{holding.trend.percent_formatted})", class: "privacy-sensitive", style: "color: #{holding.trend.color};" %>
-      <% else %>
-        <%= tag.p "--", class: "text-secondary" %>
-        <%= tag.p t(".no_cost_basis"), class: "text-xs text-secondary" %>
-      <% end %>
+    <% metric_trend = metric.start_with?("day_") ? holding.day_change : holding.trend
+       metric_value, metric_label, metric_color = case metric
+       when "share_price" then [format_money(Money.new(holding.price, holding.currency)), "Share price", nil]
+       when "total_value" then [holding.amount_money ? format_money(holding.amount_money) : "—", "Total value", nil]
+       when "day_gain", "total_gain" then [metric_trend ? format_money(metric_trend.value) : "—", metric == "day_gain" ? "Day gain" : "Total gain", metric_trend&.color]
+       else [metric_trend ? metric_trend.percent_formatted : "—", metric == "day_gain_pct" ? "Day gain %" : "Total gain %", metric_trend&.color]
+       end %>
+    <div class="col-span-2 text-right" data-testid="holding-metric">
+      <%= tag.p metric_value, class: "privacy-sensitive #{metric_color ? "" : "text-primary"}", style: metric_color ? "color: #{metric_color};" : nil %>
+      <%= tag.p(metric_value == "—" ? "Unavailable" : metric_label, class: "text-xs text-secondary") %>
     </div>
   </div>
 <% end %>

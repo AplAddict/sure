@@ -17,7 +17,7 @@ class TickerResearchGenerateJobTest < ActiveJob::TestCase
   teardown { Rails.cache = @original_cache }
 
   test "creates an offline research-only security when the market source knows the ticker" do
-    match = Security.new(ticker: "ZZJA", name: "Job Test Corp", exchange_operating_mic: "XNAS", country_code: "US")
+    match = Provider::SecurityConcept::Security.new(symbol: "ZZJA", name: "Job Test Corp", logo_url: nil, exchange_operating_mic: "XNAS", country_code: "US")
     @provider.expects(:search_securities).with("ZZJA").returns(Result.new([ match ], true))
 
     assert_difference "Security.count", 1 do

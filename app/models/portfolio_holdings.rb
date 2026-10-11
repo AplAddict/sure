@@ -77,7 +77,7 @@ class PortfolioHoldings
     end
   end
 
-  SidebarPosition = Data.define(:ticker, :name, :market_value, :currency, :weight)
+  SidebarPosition = Data.define(:ticker, :name, :logo_url, :market_value, :currency, :weight)
   SidebarAccount = Data.define(:account, :positions, :market_value)
 
   # Just ticker, value and weight per account, for the sidebar. It deliberately
@@ -97,6 +97,7 @@ class PortfolioHoldings
           SidebarPosition.new(
             ticker: holding.security.ticker,
             name: holding.security.name.presence || holding.security.ticker,
+            logo_url: holding.security.display_logo_url,
             market_value: holding.amount.to_d,
             currency: holding.currency,
             weight: total.positive? ? holding.amount.to_d / total * 100 : nil

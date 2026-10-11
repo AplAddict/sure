@@ -156,6 +156,15 @@ class PortfolioHoldingsTest < ActionDispatch::IntegrationTest
     assert_select "table[data-testid=positions-table] tbody th[scope=row]", text: /PHBIG/
   end
 
+  test "positions render a security logo next to their ticker when one is available" do
+    @big.update!(logo_url: "https://cdn.example.test/phbig.png")
+    sign_in @owner
+    get portfolio_holdings_path(account: @account.id)
+
+    assert_response :success
+    assert_select "img[data-testid=holding-logo][alt='PHBIG']", count: 1
+  end
+
   test "a position with lots gets a toggle and hidden lot rows" do
     with_lots("PHBIG", units: 10, lots: [ lot("2025-01-01T05:00:00Z", "6", "500", "1200"), lot("2025-06-01T04:00:00Z", "4", "500", "800") ])
     sign_in @owner
