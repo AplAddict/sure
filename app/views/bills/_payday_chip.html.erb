@@ -1,0 +1,4 @@
+<%# locals: (occurrence:) %>
+<%= link_to recurring_occurrence_path(occurrence), data: { turbo_frame: :drawer }, class: "block rounded bg-success/10 px-1.5 py-0.5 text-xs text-success truncate hover:opacity-80", title: occurrence.recurring_transaction.display_name do %>
+  Payday · <%= occurrence.recurring_transaction.display_name %>
+<% end %>

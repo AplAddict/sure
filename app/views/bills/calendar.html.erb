@@ -1,7 +1,13 @@
-<%= content_for :page_title, t("bills.index.title") %>
+<%= content_for :page_title, "Events" %>
 
 <div class="space-y-4 pb-6 lg:pb-12">
-  <%= render "bills/view_switcher", active: "calendar" %>
+  <%= render "bills/view_switcher", active: "events" %>
+
+  <div class="flex flex-wrap gap-2" aria-label="Filter events">
+    <% { "all" => "All", "bills" => "Bills", "paychecks" => "Paychecks", "earnings" => "Earnings", "ex_dividend" => "Dividends", "options_expiration" => "Options", "wash_sale" => "Wash sales" }.each do |key, label| %>
+      <%= link_to label, bills_path(view: "events", month: @month.strftime("%Y-%m"), event_filter: key), class: "rounded-full px-3 py-1 text-xs font-medium #{@event_filter == key ? "bg-primary text-inverse" : "bg-container-inset text-secondary hover:text-primary"}" %>
+    <% end %>
+  </div>
 
   <%# The nav group and a totals line carrying two money values do not share
       375px, and neither had anywhere to wrap. %>
@@ -10,20 +16,20 @@
       <%= render DS::Link.new(
             icon: "chevron-left",
             variant: "ghost",
-            href: bills_path(view: "calendar", month: (@month - 1.month).strftime("%Y-%m")),
+            href: bills_path(view: "events", month: (@month - 1.month).strftime("%Y-%m")),
             "aria-label": t(".previous_month")
           ) %>
       <% unless @at_forward_limit %>
         <%= render DS::Link.new(
               icon: "chevron-right",
               variant: "ghost",
-              href: bills_path(view: "calendar", month: (@month + 1.month).strftime("%Y-%m")),
+              href: bills_path(view: "events", month: (@month + 1.month).strftime("%Y-%m")),
               "aria-label": t(".next_month")
             ) %>
       <% end %>
       <h2 class="text-lg font-medium text-primary ml-2 truncate"><%= l(@month, format: "%B %Y") %></h2>
       <% unless @month == Date.current.beginning_of_month %>
-        <%= render DS::Link.new(text: t(".today"), variant: "ghost", href: bills_path(view: "calendar")) %>
+        <%= render DS::Link.new(text: t(".today"), variant: "ghost", href: bills_path(view: "events")) %>
       <% end %>
     </div>
     <div class="text-right text-sm">
@@ -55,6 +61,12 @@
           <% (@by_day[day] || []).sort_by { |occurrence| -occurrence.resolved_expected_amount }.each do |occurrence| %>
             <%= render "bills/calendar_chip", occurrence: occurrence %>
           <% end %>
+          <% (@paydays_by_day[day] || []).each do |occurrence| %>
+            <%= render "bills/payday_chip", occurrence: occurrence %>
+          <% end %>
+          <% (@market_events_by_day[day] || []).each do |event| %>
+            <%= render "bills/market_event_chip", event: event %>
+          <% end %>
         </div>
       <% end %>
     </div>
@@ -75,7 +87,7 @@
   <%# Mobile: an agenda list of the month's days that actually have bills,
       not a shrunken grid. %>
   <div class="md:hidden space-y-1 rounded-xl bg-container-inset p-1">
-    <% month_days = (@month..@month.end_of_month).select { |day| @by_day[day].present? } %>
+    <% month_days = ((@by_day.keys + @paydays_by_day.keys + @market_events_by_day.keys).uniq & (@month..@month.end_of_month).to_a).sort %>
     <% if month_days.empty? %>
       <div class="bg-container rounded-lg p-4">
         <p class="text-sm text-secondary"><%= t(".empty_month") %></p>
@@ -86,8 +98,14 @@
           <p class="text-xs font-medium <%= day == Date.current ? "text-link" : "text-secondary" %> uppercase">
             <%= l(day, format: :long) %>
           </p>
-          <% @by_day[day].sort_by { |occurrence| -occurrence.resolved_expected_amount }.each do |occurrence| %>
+          <% (@by_day[day] || []).sort_by { |occurrence| -occurrence.resolved_expected_amount }.each do |occurrence| %>
             <%= render "bills/calendar_chip", occurrence: occurrence %>
+          <% end %>
+          <% (@paydays_by_day[day] || []).each do |occurrence| %>
+            <%= render "bills/payday_chip", occurrence: occurrence %>
+          <% end %>
+          <% (@market_events_by_day[day] || []).each do |event| %>
+            <%= render "bills/market_event_chip", event: event %>
           <% end %>
         </div>
       <% end %>

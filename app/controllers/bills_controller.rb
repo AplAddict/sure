@@ -24,7 +24,7 @@ class BillsController < ApplicationController
       return
     end
 
-    @view = %w[all calendar paycheck].include?(params[:view]) ? params[:view] : "overview"
+    @view = %w[all calendar events paycheck].include?(params[:view]) ? params[:view] : "overview"
 
     # An upgraded instance can arrive with series but no occurrence rows,
     # because nothing under the old build ever materialized them. One inline,
@@ -42,7 +42,7 @@ class BillsController < ApplicationController
       load_all_series
       render :all
       return
-    when "calendar"
+    when "calendar", "events"
       load_calendar
       render :calendar
       return
@@ -409,14 +409,43 @@ class BillsController < ApplicationController
 
       materialize_for_calendar(@grid_end) if @grid_end > today + 89
 
-      occurrences = Current.family.recurring_occurrences
-                           .where(recurring_transaction_id: payable_series_ids)
-                           .due_between(@grid_start, @grid_end)
-                           .includes(recurring_transaction: :merchant)
-                           .to_a
-      preload_allocation_sums(occurrences)
+      @event_filter = %w[all bills paychecks earnings ex_dividend options_expiration wash_sale].include?(params[:event_filter]) ? params[:event_filter] : "all"
+      show_bills = %w[all bills].include?(@event_filter)
+      show_paychecks = %w[all paychecks].include?(@event_filter)
+      market_type = { "earnings" => "earnings", "ex_dividend" => "ex_dividend", "options_expiration" => "options_expiration", "wash_sale" => "wash_sale" }[@event_filter]
+
+      occurrences = if show_bills
+        Current.family.recurring_occurrences
+          .where(recurring_transaction_id: payable_series_ids)
+          .due_between(@grid_start, @grid_end)
+          .includes(recurring_transaction: :merchant)
+          .to_a
+      else
+        []
+      end
+      preload_allocation_sums(occurrences) if occurrences.any?
 
       @by_day = occurrences.group_by(&:due_on)
+      @paydays_by_day = if show_paychecks
+        Current.family.recurring_occurrences
+          .open_status
+          .joins(:recurring_transaction)
+          .where(recurring_transactions: { status: :active, bill_type: :income, manual: true })
+          .merge(RecurringTransaction.accessible_by(Current.user))
+          .where(due_on: @grid_start..@grid_end)
+          .includes(:recurring_transaction)
+          .to_a.group_by(&:due_on)
+      else
+        {}
+      end
+
+      market_builder = MarketCalendar::EventBuilder.new(accounts: Current.user.accessible_accounts)
+      market_events = market_builder.events
+      market_events = market_events.select { |event| event.date.between?(@grid_start, @grid_end) }
+      market_events = market_events.select { |event| event.event_type == market_type } if market_type
+      @market_events_by_day = market_events.group_by(&:date)
+      @wash_sale_status = market_builder.wash_sale_status
+
       month_occurrences = occurrences.select { |occurrence| occurrence.due_on.between?(@month, @month.end_of_month) }
       @month_expected, @month_unconvertible = total_of(month_occurrences) { |occurrence| occurrence.resolved_expected_amount_money }
       @month_paid, _ = total_of(month_occurrences) { |occurrence| occurrence.confirmed_allocated_money }

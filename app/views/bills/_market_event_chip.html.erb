@@ -1,0 +1,4 @@
+<%# locals: (event:) %>
+<%= link_to research_ticker_path(event.ticker), class: "block rounded bg-info/10 px-1.5 py-0.5 text-xs text-info truncate hover:opacity-80", title: event.details do %>
+  <%= event.ticker %> · <%= event.event_type.humanize %>
+<% end %>
