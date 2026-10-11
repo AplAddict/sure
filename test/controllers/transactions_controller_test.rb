@@ -1745,7 +1745,11 @@ end
     # loads — ActiveRecord nested preloads also use single-value IN when only
     # one associated record is needed (e.g. one counterparty account).
     def single_record_lookups(normalized_queries, table:, column:)
+      # Anchored to the start of the statement: only a query that SELECTs from the
+      # table itself is a record lookup. The same text inside a subselect of some
+      # other query (e.g. holdings filtered by its account's currency) is not.
       pattern = /
+        \Aselect\s+[\w."*]+\s+
         from\s+#{Regexp.escape(table)}\s+
         where\s+#{Regexp.escape(table)}\.#{Regexp.escape(column)}\s*=
       /x
