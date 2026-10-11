@@ -145,6 +145,17 @@ class PortfolioHoldingsTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=holding-row]", count: 3
   end
 
+  test "each portfolio uses a statement-style summary and labeled positions table" do
+    sign_in @owner
+    get portfolio_holdings_path(account: @account.id)
+
+    assert_response :success
+    assert_select "[data-testid=holdings-summary-grid]", count: 1
+    assert_select "table[data-testid=positions-table]", count: 1
+    assert_select "table[data-testid=positions-table] caption", text: /positions/i
+    assert_select "table[data-testid=positions-table] tbody th[scope=row]", text: /PHBIG/
+  end
+
   test "a position with lots gets a toggle and hidden lot rows" do
     with_lots("PHBIG", units: 10, lots: [ lot("2025-01-01T05:00:00Z", "6", "500", "1200"), lot("2025-06-01T04:00:00Z", "4", "500", "800") ])
     sign_in @owner

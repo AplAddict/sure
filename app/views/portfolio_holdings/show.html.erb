@@ -65,10 +65,10 @@
             <h2 id="ph-<%= account.id %>" class="text-base font-medium text-primary truncate"><%= link_to account.name, account_path(account), class: "hover:underline" %></h2>
             <p class="text-xs text-secondary"><%= t("portfolio_holdings.position_count", count: block.positions.size) %><% if block.lot_count.positive? %> · <%= t("portfolio_holdings.lot_count", count: block.lot_count) %><% end %></p>
           </div>
-          <dl class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            <div><dt class="text-xs text-secondary"><%= t("portfolio_holdings.market_value") %></dt><dd class="font-medium text-primary"><%= money.call(block.market_value, currency) %></dd></div>
-            <div><dt class="text-xs text-secondary"><%= t("portfolio_holdings.unrealized") %></dt><dd class="font-medium"><%= gain_cell.call(block.gain, (block.cost_basis&.positive? && block.gain ? block.gain / block.cost_basis * 100 : nil), currency) %></dd></div>
-            <div><dt class="text-xs text-secondary"><%= t("portfolio_holdings.cash") %></dt><dd class="font-medium text-primary"><%= money.call(block.cash, currency) %></dd></div>
+          <dl class="grid min-w-[17rem] grid-cols-3 divide-x divide-tertiary rounded-lg border border-tertiary bg-container-inset text-sm" data-testid="holdings-summary-grid">
+            <div class="min-w-0 px-3 py-2"><dt class="truncate text-[10px] font-medium uppercase tracking-wide text-secondary"><%= t("portfolio_holdings.market_value") %></dt><dd class="mt-0.5 truncate font-mono font-semibold text-primary"><%= money.call(block.market_value, currency) %></dd></div>
+            <div class="min-w-0 px-3 py-2"><dt class="truncate text-[10px] font-medium uppercase tracking-wide text-secondary"><%= t("portfolio_holdings.unrealized") %></dt><dd class="mt-0.5 truncate font-mono font-semibold"><%= gain_cell.call(block.gain, (block.cost_basis&.positive? && block.gain ? block.gain / block.cost_basis * 100 : nil), currency) %></dd></div>
+            <div class="min-w-0 px-3 py-2"><dt class="truncate text-[10px] font-medium uppercase tracking-wide text-secondary"><%= t("portfolio_holdings.cash") %></dt><dd class="mt-0.5 truncate font-mono font-semibold text-primary"><%= money.call(block.cash, currency) %></dd></div>
           </dl>
         </div>
 
@@ -95,11 +95,19 @@
           </ul>
         </div>
 
-        <div class="@container mt-3"><div class="overflow-x-auto">
-          <table class="w-full min-w-[480px] @3xl:min-w-[820px] text-sm">
+        <div class="mt-5 flex items-center justify-between gap-3 px-4">
+          <div>
+            <h3 class="text-sm font-medium text-primary">Positions</h3>
+            <p class="text-xs text-secondary">Current holdings in this account</p>
+          </div>
+          <span class="rounded-md bg-container-inset px-2 py-1 text-xs tabular-nums text-secondary"><%= t("portfolio_holdings.position_count", count: block.positions.size) %></span>
+        </div>
+        <div class="@container mt-2 border-y border-tertiary"><div class="overflow-x-auto">
+          <table class="w-full min-w-[480px] @3xl:min-w-[820px] text-sm" data-testid="positions-table">
+            <caption class="sr-only">Positions for <%= account.name %></caption>
             <thead class="bg-container-inset text-xs uppercase text-secondary">
               <tr>
-                <th scope="col" class="px-3 @3xl:px-4 py-2 text-left font-medium"><%= sort_link.call(t("portfolio_holdings.columns.symbol"), "symbol", align: "left") %></th>
+                <th scope="col" class="px-3 @3xl:px-4 py-2.5 text-left font-medium"><%= sort_link.call(t("portfolio_holdings.columns.symbol"), "symbol", align: "left") %></th>
                 <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.quantity"), "quantity") %></th>
                 <th scope="col" class="hidden @3xl:table-cell px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.price"), "price") %></th>
                 <th scope="col" class="hidden @3xl:table-cell px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.avg_cost"), "avg_cost") %></th>
@@ -112,11 +120,11 @@
             <tbody class="divide-y divide-tertiary">
               <% block.positions.each do |position| %>
                 <% key = "#{account.id}-#{position.security.id}" %>
-                <tr data-testid="holding-row">
-                  <td class="px-3 @3xl:px-4 py-3">
+                <tr class="hover:bg-container-inset/60" data-testid="holding-row">
+                  <th scope="row" class="px-3 @3xl:px-4 py-3 text-left font-normal">
                     <%= link_to position.ticker, research_ticker_path(position.ticker), class: "font-semibold text-link hover:underline" %>
                     <p class="max-w-[7.5rem] @3xl:max-w-[16rem] truncate text-xs text-secondary"><%= position.name %></p>
-                  </td>
+                  </th>
                   <td class="px-3 py-3 text-right font-mono">
                     <% if position.lots? %>
                       <button type="button" class="inline-flex items-center gap-1 text-primary hover:underline" data-holding-lots-target="toggle" data-lots-key="<%= key %>" data-action="holding-lots#toggle" aria-expanded="false" aria-label="<%= t("portfolio_holdings.toggle_lots", ticker: position.ticker, count: position.lots.size) %>">
