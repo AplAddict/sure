@@ -11,6 +11,15 @@ class Settings::McpControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "shows per-user OAuth and read-only MCP safety instructions" do
+    get settings_mcp_path
+
+    assert_response :success
+    assert_select "body", text: /OAuth authorization is tied to the Sure user who signs in/
+    assert_select "body", text: /read-only/
+    assert_select "body", text: /only that user's accessible accounts/
+  end
+
   test "shows connected tokens" do
     app = Doorkeeper::Application.create!(
       name: "Claude",

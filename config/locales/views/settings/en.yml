@@ -328,14 +328,14 @@ en:
       show:
         page_title: MCP Server
         connect_title: Connect an AI assistant
-        connect_subtitle: Paste this URL into Claude.ai (or any MCP-compatible client) to connect it to your Sure account.
+        connect_subtitle: Paste this shared URL into an MCP-compatible AI client. OAuth authorization is tied to the Sure user who signs in, not to the URL itself.
         copy_url: Copy
         copied: Copied!
         how_to_connect_title: How to connect Claude
         step_1: "Open Claude.ai and go to Settings → Customize → Connectors."
         step_2: Click "Add connector" and paste the MCP server URL above.
-        step_3: Click Connect — you'll be redirected to Sure to sign in and authorize access.
-        step_4: Once authorized, Claude can read your accounts, transactions, and balance data.
+        step_3: Click Connect — sign in to the correct Sure account and approve the read-only MCP connection.
+        step_4: The AI can read only that user's accessible accounts, transactions, holdings, budgets, and balance data. It cannot make changes.
         connected_title: Connected clients
         connected_subtitle: These apps currently have access to your Sure data. Revoke any you no longer use.
         unknown_client: Unknown client
