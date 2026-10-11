@@ -108,7 +108,7 @@ class ResearchUnheldTickersTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "search finds unheld tickers by symbol or name and offers a lookup for unknown ones" do
+  test "search finds unheld tickers by symbol or name and opens unknown uppercase tickers directly" do
     research_only!("ZZUE", name: "Zeta Unheld Energy")
 
     get research_search_path(q: "zeta")
@@ -116,7 +116,7 @@ class ResearchUnheldTickersTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=other-tickers] a", text: "ZZUE"
 
     get research_search_path(q: "QQZY")
-    assert_select "[data-testid=lookup-ticker] a", text: "Open QQZY"
+    assert_redirected_to research_ticker_path("QQZY")
   end
 
   test "a placeholder for a ticker you hold is not listed again under other tickers" do
@@ -149,16 +149,20 @@ class ResearchUnheldTickersTest < ActionDispatch::IntegrationTest
     assert_enqueued_with(job: TickerResearchGenerateJob, args: [ "QQZX" ]) { get research_ticker_path("QQZX") }
   end
 
-  test "a bare word that is not a known ticker still shows results, not a redirect" do
+  test "a bare valid ticker opens its workspace and queues an unknown symbol without a second click" do
+    get research_search_path(q: "QQZW")
+
+    assert_redirected_to research_ticker_path("QQZW")
+    assert_enqueued_with(job: TickerResearchGenerateJob, args: [ "QQZW" ]) { get research_ticker_path("QQZW") }
+  end
+
+  test "a company-name search with spaces remains a results search" do
     research_only!("ZZUH", name: "Quokka Industries")
 
-    get research_search_path(q: "quokka")
+    get research_search_path(q: "quokka industries")
+
     assert_response :success
     assert_select "[data-testid=other-tickers] a", text: "ZZUH"
-
-    get research_search_path(q: "qqzw")
-    assert_response :success
-    assert_select "[data-testid=lookup-ticker] a", text: "Open QQZW"
   end
 
   test "search lists no unheld tickers without a query" do

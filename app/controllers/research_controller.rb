@@ -66,15 +66,22 @@ class ResearchController < ApplicationController
   end
 
   private
-    # A query that is exactly a ticker opens its page instead of a results list.
-    # "$XYZ" is an explicit ticker even if we have not seen it yet (the ticker page
-    # queues the lookup); a bare word only jumps when it is a ticker we know, so
-    # searching a company name still shows results.
+    # A query that is exactly a ticker opens its dynamic workspace immediately.
+    # Unknown symbols queue the on-demand lookup from that page. Company searches
+    # containing whitespace remain result searches, so we do not reinterpret a
+    # company name as a market symbol.
     def direct_ticker_target
       explicit = @query.start_with?("$")
-      symbol = @query.delete_prefix("$").strip.upcase
+      raw = @query.delete_prefix("$").strip
+      return if raw.match?(/\s/)
+
+      symbol = raw.upcase
       return unless symbol.match?(Security::FundamentalsRefresher::YAHOO_SYMBOL)
-      symbol if explicit || Security.where("UPPER(securities.ticker) = ?", symbol).exists?
+
+      # Known symbols are direct regardless of case. For a symbol not in the
+      # local universe, uppercase is the unambiguous bare-ticker form; `$foo`
+      # remains available when a user intentionally wants an ambiguous symbol.
+      symbol if explicit || raw == symbol || Security.where("UPPER(securities.ticker) = ?", symbol).exists?
     end
 
     # Any known ticker has a page, held or not. A ticker we have never seen is
