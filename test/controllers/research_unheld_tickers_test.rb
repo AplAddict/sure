@@ -119,6 +119,18 @@ class ResearchUnheldTickersTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=lookup-ticker] a", text: "Open QQZY"
   end
 
+  test "a placeholder for a ticker you hold is not listed again under other tickers" do
+    held = @user.accessible_accounts.flat_map { |a| a.current_holdings.to_a }.first
+    skip "no held security in fixtures" unless held
+
+    Security.create!(ticker: held.security.ticker, exchange_operating_mic: "XZZZ", offline: true, offline_reason: Security::RESEARCH_ONLY_REASON)
+
+    get research_search_path(q: held.security.ticker)
+
+    assert_response :success
+    assert_select "[data-testid=other-tickers] a", text: held.security.ticker, count: 0
+  end
+
   test "search lists no unheld tickers without a query" do
     research_only!("ZZUF")
 

@@ -13,6 +13,7 @@ class ResearchController < ApplicationController
     # not family data.
     @other_securities = if @query.present?
       Security.research_only.where.not(id: scoped_securities.select(:id))
+              .where.not("UPPER(securities.ticker) IN (?)", scoped_securities.pluck(:ticker).map(&:upcase).presence || [ "" ])
               .where("LOWER(securities.ticker) LIKE :q OR LOWER(securities.name) LIKE :q", q: "%#{@query.downcase}%")
               .order(Arel.sql("CASE WHEN UPPER(securities.ticker) = #{Security.connection.quote(@query.upcase)} THEN 0 ELSE 1 END"), :ticker).limit(30)
     else

@@ -26,7 +26,7 @@ refresh_security_fundamentals:
   description: "Caches stock data (valuation, analyst view, earnings date) for held securities"
 
 refresh_security_research_universe:
-  cron: "45 * * * 1-5" # hourly on weekdays; each run is capped and stops at the first rate limit
+  cron: "45 1-20 * * 1-5" # hourly on weekdays, clear of the 22:30-23:10 held-securities jobs; each run is capped and stops at the first rate limit
   class: "SecurityResearchUniverseRefreshJob"
   queue: "scheduled"
   description: "Seeds research pages for every known ticker and caches their stock data, held or not"
