@@ -116,7 +116,7 @@ expire_research_watchlist:
   description: "Removes AI-assistant-added research watchlist entries past their expiry"
 
 discover_investment_watchlist_candidates:
-  cron: "15 21 * * 1-5" # after the final weekday research-universe refresh
+  cron: "30 23 * * 1-5" # after the nightly fundamentals (22:30), research import (23:00) and headline analysis (23:10), so it only ever sees that day's data
   class: "InvestmentWatchlistDiscoveryJob"
   queue: "scheduled"
   description: "Queues at most one fresh, evidence-gated research candidate daily for members who opted in"
