@@ -1,6 +1,6 @@
 <%# locals: (pagy:) %>
 
-<nav class="flex w-full items-center justify-between">
+<nav class="flex w-full items-center justify-between" aria-label="<%= t("shared.pagination.label") %>">
   <%# min-w-0 so the series pill can actually shrink below its content width;
       without it the flex item keeps its intrinsic size and overflows the nav. %>
   <div class="flex min-w-0 items-center gap-1 mr-3">
@@ -8,11 +8,12 @@
       <% if pagy.prev %>
         <%= link_to pagy_url_for(pagy, pagy.prev),
               data: { turbo_frame: :_top },
-              class: "inline-flex items-center p-2 text-sm font-medium text-secondary hover:border-secondary hover:text-secondary" do %>
+              aria: { label: t("shared.pagination.previous") },
+              class: "inline-flex items-center p-2 rounded-md text-sm font-medium text-secondary hover:border-secondary hover:text-primary focus-ring" do %>
           <%= icon("chevron-left") %>
         <% end %>
       <% else %>
-        <div class="inline-flex items-center p-2 text-sm font-medium hover:border-secondary">
+        <div class="inline-flex items-center p-2 text-sm font-medium text-subdued" aria-disabled="true" aria-label="<%= t("shared.pagination.previous") %>">
           <%= icon("chevron-left") %>
         </div>
       <% end %>
@@ -35,17 +36,19 @@
         <% if series_item.is_a?(Integer) %>
           <%= link_to pagy_url_for(pagy, series_item),
                 data: { turbo_frame: :_top },
-                class: class_names("rounded-md px-2 py-1 shrink-0 items-center text-sm font-medium text-secondary hover:border-secondary hover:text-secondary", mobile_state == :visible ? "inline-flex" : "hidden sm:inline-flex") do %>
+                class: class_names("rounded-md px-2 py-1 shrink-0 items-center text-sm font-medium text-secondary hover:border-secondary hover:text-primary focus-ring", mobile_state == :visible ? "inline-flex" : "hidden sm:inline-flex") do %>
             <%= series_item %>
           <% end %>
         <% elsif series_item.is_a?(String) %>
+          <%# pagy marks the current page as a String %>
           <%= link_to pagy_url_for(pagy, series_item),
                 data: { turbo_frame: :_top },
-                class: "rounded-md px-2 py-1 bg-container border border-secondary shadow-xs inline-flex shrink-0 items-center text-sm font-medium text-primary" do %>
+                aria: { current: "page" },
+                class: "rounded-md px-2 py-1 bg-container border border-secondary shadow-xs inline-flex shrink-0 items-center text-sm font-medium text-primary focus-ring" do %>
             <%= series_item %>
           <% end %>
         <% elsif series_item == :gap %>
-          <span class="inline-flex shrink-0 items-center px-2 py-1 text-sm font-medium text-secondary">...</span>
+          <span class="inline-flex shrink-0 items-center px-2 py-1 text-sm font-medium text-secondary" aria-hidden="true">...</span>
         <% end %>
       <% end %>
     </div>
@@ -53,17 +56,19 @@
       <% if pagy.next %>
         <%= link_to pagy_url_for(pagy, pagy.next),
               data: { turbo_frame: :_top },
-              class: "inline-flex items-center p-2 text-sm font-medium text-secondary hover:border-secondary hover:text-secondary" do %>
+              aria: { label: t("shared.pagination.next") },
+              class: "inline-flex items-center p-2 rounded-md text-sm font-medium text-secondary hover:border-secondary hover:text-primary focus-ring" do %>
           <%= icon("chevron-right") %>
         <% end %>
       <% else %>
-        <div class="inline-flex items-center p-2 text-sm font-medium hover:border-secondary">
+        <div class="inline-flex items-center p-2 text-sm font-medium text-subdued" aria-disabled="true" aria-label="<%= t("shared.pagination.next") %>">
           <%= icon("chevron-right") %>
         </div>
       <% end %>
     </div>
   </div>
-  <div class="flex items-center gap-4">
+  <div class="flex items-center gap-2">
+    <%= label_tag :per_page, t("shared.pagination.per_page"), class: "sr-only sm:not-sr-only text-xs text-secondary" %>
     <%= select_tag :per_page,
                    options_for_select(["10", "20", "30", "50", "100"], pagy.limit),
                    data: { controller: "selectable-link" },

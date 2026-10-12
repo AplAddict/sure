@@ -679,6 +679,34 @@ end
     assert_equal 20, css_select("turbo-frame[id^='entry_']").count
   end
 
+  test "pagination is navigable by assistive technology" do
+    family = families(:empty)
+    user = users(:empty)
+    sign_in user
+
+    family.accounts.each { |account| account.entries.delete_all }
+    account = family.accounts.create! name: "Test", balance: 0, currency: "USD", accountable: Depository.new
+    25.times do |i|
+      create_transaction(account: account, name: "Transaction #{i + 1}", amount: 100 + i, date: Date.current - i.days)
+    end
+
+    get transactions_url(per_page: 10, page: 2)
+    assert_response :success
+
+    assert_select "nav[aria-label=?]", I18n.t("shared.pagination.label") do
+      assert_select "a[aria-label=?]", I18n.t("shared.pagination.previous"), count: 1
+      assert_select "a[aria-label=?]", I18n.t("shared.pagination.next"), count: 1
+      assert_select "a[aria-current=page]", text: "2", count: 1
+      assert_select "label[for=per_page]", text: I18n.t("shared.pagination.per_page")
+      assert_select "select#per_page[name=per_page]"
+    end
+
+    # On the last page the next arrow is a disabled placeholder, not a link.
+    get transactions_url(per_page: 10, page: 3)
+    assert_select "a[aria-label=?]", I18n.t("shared.pagination.next"), count: 0
+    assert_select "[aria-disabled=true][aria-label=?]", I18n.t("shared.pagination.next"), count: 1
+  end
+
   test "pagination does not duplicate or skip transactions with same date and timestamp" do
     family = families(:empty)
     user = users(:empty)
