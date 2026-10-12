@@ -1,0 +1,126 @@
+require "test_helper"
+
+# Day gain is the change from the previous trading day's close to the latest
+# price, on the shares held at that close. It must not come from comparing
+# calendar-day snapshots, which carry Friday's price through the weekend and
+# lag a stale feed.
+class Holding::DayChangeTest < ActiveSupport::TestCase
+  MON = Date.new(2026, 10, 12)
+  FRI = Date.new(2026, 10, 9)
+  THU = Date.new(2026, 10, 8)
+
+  setup do
+    @account = families(:empty).accounts.create!(name: "Day #{SecureRandom.hex(3)}", balance: 100, cash_balance: 0, currency: "USD", accountable: Investment.new)
+    @security = Security.create!(ticker: "DAY#{SecureRandom.hex(2).upcase}", name: "Day")
+    travel_to Time.zone.local(2026, 10, 12, 11, 0)
+  end
+
+  teardown { travel_back }
+
+  test "trading day: latest price against the previous weekday's close" do
+    close(THU, 100)
+    close(FRI, 110)
+    holding = snap(MON, qty: 2, price: 112)
+    snap(FRI, qty: 2, price: 110)
+
+    change = Holding::DayChange.for([ holding ])[holding.id]
+
+    assert_equal 4, change.value.amount
+    assert_equal 224, change.current.amount
+    assert_equal 220, change.previous.amount
+  end
+
+  test "weekend: shows Friday's move, not a flat zero from carried-forward snapshots" do
+    travel_to Time.zone.local(2026, 10, 11, 12, 0)
+    close(THU, 100)
+    close(FRI, 110)
+    close(Date.new(2026, 10, 10), 110)
+    close(Date.new(2026, 10, 11), 110)
+    snap(THU, qty: 3, price: 100)
+    snap(FRI, qty: 3, price: 110)
+    holding = snap(Date.new(2026, 10, 11), qty: 3, price: 110)
+
+    change = Holding::DayChange.for([ holding ])[holding.id]
+
+    assert_equal 30, change.value.amount
+  end
+
+  test "a position whose price was not refreshed this session is unavailable, not flat" do
+    close(THU, 100)
+    close(FRI, 110)
+    holding = snap(Date.new(2026, 10, 10), qty: 2, price: 110)
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
+  test "a quantity change since the reference close is unavailable (a trade is not a market gain)" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 5, price: 112)
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
+  test "a position opened after the reference close is unavailable" do
+    close(FRI, 110)
+    holding = snap(MON, qty: 2, price: 112)
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
+  test "no price history for the security is unavailable" do
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 2, price: 112)
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
+  test "a price in another currency than the holding is unavailable" do
+    Security::Price.create!(security: @security, date: FRI, price: 110, currency: "EUR")
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 2, price: 112)
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
+  test "a measured zero move is a zero, not unavailable" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 2, price: 110)
+
+    assert_equal 0, Holding::DayChange.for([ holding ])[holding.id].value.amount
+  end
+
+  test "Holding#day_change uses the same calculation" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 2, price: 115)
+
+    assert_equal 10, holding.day_change.value.amount
+    assert_in_delta 4.545, holding.day_change.percent, 0.1
+  end
+
+  test "batch lookup stays a fixed number of queries" do
+    holdings = 5.times.map do |i|
+      security = Security.create!(ticker: "DQ#{i}#{SecureRandom.hex(2).upcase}", name: "x")
+      Security::Price.create!(security: security, date: FRI, price: 10, currency: "USD")
+      @account.holdings.create!(security: security, date: FRI, qty: 1, price: 10, amount: 10, currency: "USD")
+      @account.holdings.create!(security: security, date: MON, qty: 1, price: 11, amount: 11, currency: "USD")
+    end
+
+    count = 0
+    counter = ->(*, payload) { count += 1 unless payload[:name] == "SCHEMA" }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { Holding::DayChange.for(holdings) }
+
+    assert_operator count, :<=, 3
+  end
+
+  private
+    def close(date, price)
+      Security::Price.create!(security: @security, date: date, price: price, currency: "USD")
+    end
+
+    def snap(date, qty:, price:)
+      @account.holdings.create!(security: @security, date: date, qty: qty, price: price, amount: qty * price, currency: "USD")
+    end
+end

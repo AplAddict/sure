@@ -260,8 +260,10 @@ class InvestmentStatement
 
   # Day change across portfolio, summed in family currency
   def day_change
-    changes = current_holdings.to_a.filter_map do |h|
-      t = h.day_change
+    all = current_holdings.to_a
+    batched = Holding::DayChange.for(all)
+    changes = all.filter_map do |h|
+      t = batched[h.id]
       next nil unless t
       curr = t.current.is_a?(Money) ? t.current.amount : t.current
       prev = t.previous.is_a?(Money) ? t.previous.amount : t.previous

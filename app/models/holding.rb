@@ -64,23 +64,19 @@ class Holding < ApplicationRecord
     @trend ||= calculate_trend
   end
 
-  # Day change based on previous holding snapshot (same account/security/currency)
-  # Returns a Trend struct similar to other trend usages or nil if no prior snapshot.
+  # Change from the previous trading day's close to the latest price, on the
+  # shares held at that close, or nil when it cannot be known (see
+  # Holding::DayChange). Callers rendering many holdings should use
+  # Holding::DayChange.for(holdings) once instead of one query set per row.
   def day_change
-    # Memoize even when nil to avoid repeated queries during a request lifecycle
     return @day_change if instance_variable_defined?(:@day_change)
 
-    return (@day_change = nil) unless amount_money
+    @day_change = Holding::DayChange.for([ self ])[id]
+  end
 
-    prev = account.holdings
-                 .where(security_id: security_id, currency: currency)
-                 .where("date < ?", date)
-                 .order(date: :desc)
-                 .first
-
-    # A changed quantity means a trade (or sync correction) is mixed into the
-    # value change, so it is not a market gain. Report it as unavailable.
-    @day_change = prev&.amount_money && prev.qty == qty ? Trend.new(current: amount_money, previous: prev.amount_money) : nil
+  # Lets a list renderer batch the calculation and hand each holding its answer.
+  def preloaded_day_change=(trend)
+    @day_change = trend
   end
 
   def trades

@@ -60,7 +60,10 @@ class PortfolioHoldings
       scoped = selected_account ? [ selected_account ] : accounts
       scoped = [] unless scope_valid?
       lots_by_account = provider_lots(scoped)
-      holdings = Holding::CurrentForInvestmentAccounts.new(scoped.map(&:id)).relation.includes(:security).to_a.reject { |holding| holding.qty.to_d.zero? }.group_by(&:account_id)
+      holdings = Holding::CurrentForInvestmentAccounts.new(scoped.map(&:id)).relation.includes(:security).to_a.reject { |holding| holding.qty.to_d.zero? }
+      day_changes = Holding::DayChange.for(holdings)
+      holdings.each { |holding| holding.preloaded_day_change = day_changes[holding.id] }
+      holdings = holdings.group_by(&:account_id)
 
       scoped.filter_map do |account|
         rows = holdings.fetch(account.id, [])
@@ -90,7 +93,7 @@ class PortfolioHoldings
       current_rows = Holding::CurrentForInvestmentAccounts.new(accounts.map(&:id)).relation.includes(:security).to_a
         .reject { |holding| holding.qty.to_d.zero? || holding.security.nil? }
       holdings = current_rows.group_by(&:account_id)
-      previous_rows = sidebar_previous_holdings(current_rows)
+      day_changes = Holding::DayChange.for(current_rows)
 
       accounts.filter_map do |account|
         rows = holdings[account.id]
@@ -98,8 +101,7 @@ class PortfolioHoldings
 
         total = rows.sum(BigDecimal("0")) { |holding| holding.amount.to_d }
         positions = rows.sort_by { |holding| -holding.amount.to_d }.map do |holding|
-          prior = previous_rows[sidebar_position_key(holding)]&.reverse_each&.find { |candidate| candidate.date < holding.date }
-          day_change = prior&.amount_money && prior.qty == holding.qty ? Trend.new(current: holding.amount_money, previous: prior.amount_money) : nil
+          day_change = day_changes[holding.id]
           basis_per_share = holding.cost_basis
           known_basis = basis_per_share && (holding.cost_basis_locked? || basis_per_share.positive?)
           cost_basis = known_basis ? holding.qty.to_d * basis_per_share.to_d : nil
@@ -129,31 +131,6 @@ class PortfolioHoldings
   end
 
   private
-    # Fetch prior snapshots for every displayed holding in one query. Rendering
-    # the sidebar on unrelated pages must not issue one query per position.
-    def sidebar_previous_holdings(current_rows)
-      return {} if current_rows.empty?
-
-      account_ids = current_rows.map(&:account_id).uniq
-      security_ids = current_rows.map(&:security_id).uniq
-      newest = current_rows.map(&:date).max
-      current_ids = current_rows.map(&:id)
-
-      # One bounded query: only the single most recent snapshot before today's
-      # per account/security/currency, never the full history. The sidebar
-      # renders on nearly every page, so this must stay positions-sized.
-      Holding.where(id: Holding.where(account_id: account_ids, security_id: security_ids)
-                               .where("date < ?", newest).where.not(id: current_ids)
-                               .select("DISTINCT ON (account_id, security_id, currency) id")
-                               .order("account_id, security_id, currency, date DESC"))
-             .select(:id, :account_id, :security_id, :currency, :date, :amount, :qty)
-             .order(:date).to_a.group_by { |holding| sidebar_position_key(holding) }
-    end
-
-    def sidebar_position_key(holding)
-      [ holding.account_id, holding.security_id, holding.currency ]
-    end
-
     def default_direction = %w[symbol].include?(@sort) ? "asc" : "desc"
 
     def build_block(account, rows, lots_by_security)

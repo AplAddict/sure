@@ -12,7 +12,9 @@ class HoldingsController < ApplicationController
     @holdings_view = params[:view].presence_in(HOLDING_VIEWS) || Current.user.holdings_view
     @display_metric = params[:metric].presence_in(DISPLAY_METRICS) || Current.user.holdings_metric
     remember_holdings_display(@holdings_view, @display_metric)
-    @current_holdings = @account.current_holdings.includes(:security)
+    @current_holdings = @account.current_holdings.includes(:security).to_a
+    batched = Holding::DayChange.for(@current_holdings)
+    @current_holdings.each { |holding| holding.preloaded_day_change = batched[holding.id] }
     @advanced_portfolio = PortfolioHoldings.new(user: Current.user, account_id: @account.id, sort: params[:sort], direction: params[:dir]) if @holdings_view == "advanced"
     @trade_republic_categories = trade_republic_categories_for(@account)
   end
