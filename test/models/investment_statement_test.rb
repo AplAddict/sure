@@ -480,11 +480,11 @@ class InvestmentStatementTest < ActiveSupport::TestCase
     totals = nil
     queries = capture_sql_queries { totals = statement.totals(period: period) }
 
-    assert_equal Money.new(120, "USD"), totals.contributions
-    assert_equal Money.new(40, "USD"), totals.withdrawals
+    assert_equal Money.new(0, "USD"), totals.contributions
+    assert_equal Money.new(0, "USD"), totals.withdrawals
     assert_equal 2, totals.trades_count
 
-    aggregate_queries = queries.grep(/SUM\(CASE WHEN trades\.qty > 0/)
+    aggregate_queries = queries.grep(/SUM\(CASE WHEN trades\.investment_activity_label = 'Dividend'/)
     assert_equal 1, aggregate_queries.size
     assert_includes aggregate_queries.first, "FROM entries JOIN trades"
     assert_includes aggregate_queries.first, "entries.entryable_type = 'Trade'"
@@ -494,6 +494,37 @@ class InvestmentStatementTest < ActiveSupport::TestCase
     # account_ids is pre-scoped to the family's visible accounts, so the
     # aggregate trusts that input and no longer joins back to accounts.
     assert_no_match(/JOIN accounts/, aggregate_queries.first)
+  end
+
+  test "totals separately aggregate explicitly labeled dividend and interest income" do
+    period = Period.custom(start_date: Date.current.beginning_of_month, end_date: Date.current.end_of_month)
+    account = create_investment_account(balance: 500)
+    security = Security.create!(ticker: "INCOME#{SecureRandom.hex(3)}", name: "Income Test")
+
+    [ [ "Dividend", 30 ], [ "Interest", 5 ] ].each do |label, amount|
+      account.entries.create!(name: label, amount: -amount, date: period.start_date, currency: "USD",
+        entryable: Trade.new(security: security, qty: 0, price: 0, currency: "USD", investment_activity_label: label))
+    end
+
+    totals = InvestmentStatement.new(@family).totals(period: period)
+
+    assert_equal Money.new(30, "USD"), totals.dividends
+    assert_equal Money.new(5, "USD"), totals.interest
+  end
+
+  test "totals use explicit flow labels instead of inferring cash flows from buys and sells" do
+    period = Period.custom(start_date: Date.current.beginning_of_month, end_date: Date.current.end_of_month)
+    account = create_investment_account(balance: 500)
+    create_trade(account: account, qty: 2, amount: 120, date: period.start_date)
+    account.entries.create!(name: "Contribution", amount: -50, date: period.start_date, currency: "USD",
+      entryable: Transaction.new(investment_activity_label: "Contribution"))
+    account.entries.create!(name: "Withdrawal", amount: 20, date: period.start_date, currency: "USD",
+      entryable: Transaction.new(investment_activity_label: "Withdrawal"))
+
+    totals = InvestmentStatement.new(@family).totals(period: period)
+
+    assert_equal Money.new(50, "USD"), totals.contributions
+    assert_equal Money.new(20, "USD"), totals.withdrawals
   end
 
   test "current_holdings memoizes so repeated dashboard-style calls issue a single query" do

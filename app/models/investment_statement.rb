@@ -16,14 +16,15 @@ class InvestmentStatement
   def totals(period: Period.current_month)
     account_ids = investment_account_ids
 
-    result = totals_query(account_ids: account_ids, date_range: period.date_range)
+    trade_totals = totals_query(account_ids: account_ids, date_range: period.date_range)
+    flow_totals = InvestmentFlowStatement.new(family, user: user).period_totals(period: period)
 
     PeriodTotals.new(
-      contributions: Money.new(result[:contributions], family.currency),
-      withdrawals: Money.new(result[:withdrawals], family.currency),
-      dividends: Money.new(result[:dividends], family.currency),
-      interest: Money.new(result[:interest], family.currency),
-      trades_count: result[:trades_count],
+      contributions: flow_totals.contributions,
+      withdrawals: flow_totals.withdrawals,
+      dividends: Money.new(trade_totals[:dividends], family.currency),
+      interest: Money.new(trade_totals[:interest], family.currency),
+      trades_count: trade_totals[:trades_count],
       currency: family.currency
     )
   end

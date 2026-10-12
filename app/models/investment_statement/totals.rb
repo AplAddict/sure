@@ -13,8 +13,8 @@ class InvestmentStatement::Totals
     {
       contributions: result["contributions"]&.to_d || 0,
       withdrawals: result["withdrawals"]&.to_d || 0,
-      dividends: 0, # Dividends come through as transactions, not trades
-      interest: 0,  # Interest comes through as transactions, not trades
+      dividends: result["dividends"]&.to_d || 0,
+      interest: result["interest"]&.to_d || 0,
       trades_count: result["trades_count"]&.to_i || 0
     }
   end
@@ -48,8 +48,8 @@ class InvestmentStatement::Totals
     def aggregation_sql
       <<~SQL
         SELECT
-          COALESCE(SUM(CASE WHEN trades.qty > 0 THEN ABS(entries.amount * COALESCE(er.rate, 1)) ELSE 0 END), 0) as contributions,
-          COALESCE(SUM(CASE WHEN trades.qty < 0 THEN ABS(entries.amount * COALESCE(er.rate, 1)) ELSE 0 END), 0) as withdrawals,
+          COALESCE(SUM(CASE WHEN trades.investment_activity_label = 'Dividend' THEN ABS(entries.amount * COALESCE(er.rate, 1)) ELSE 0 END), 0) as dividends,
+          COALESCE(SUM(CASE WHEN trades.investment_activity_label = 'Interest' THEN ABS(entries.amount * COALESCE(er.rate, 1)) ELSE 0 END), 0) as interest,
           COUNT(trades.id) as trades_count
         FROM entries
         JOIN trades ON trades.id = entries.entryable_id AND entries.entryable_type = 'Trade'
