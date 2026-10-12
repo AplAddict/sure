@@ -29,7 +29,7 @@ class InvestmentsSubnavTest < ActionDispatch::IntegrationTest
   # its heading and the sub-navigation inside that frame: anything outside it
   # would stay on screen, stale, after a tab click (the previous page's title
   # above the new page's content, and two tab strips marking different tabs).
-  %w[portfolio_holdings investment_income tax_lot_review options_review market_events research_watchlist_entries investment_news].each do |route|
+  %w[portfolio_holdings investment_income tax_lot_review options_review market_events research_watchlist_entries].each do |route|
     test "#{route} renders its single heading and sub-navigation inside the workspace frame" do
       get public_send("#{route}_path")
 

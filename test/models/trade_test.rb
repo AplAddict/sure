@@ -293,7 +293,9 @@ class TradeTest < ActiveSupport::TestCase
       account, security = cross_currency_account
       date = Date.new(2026, 3, 10)
 
-      ExchangeRate.create!(from_currency: "EUR", to_currency: "USD", date: rate_date, rate: rate)
+      # Legacy/corrupt rows still exist in old data; insert past the model
+      # validation that now rejects new zero or negative rates.
+      ExchangeRate.insert!({ from_currency: "EUR", to_currency: "USD", date: rate_date, rate: rate })
       account.holdings.create!(security: security, date: date, qty: 5, price: 150,
                                amount: BigDecimal(750), currency: "USD", cost_basis: 100)
 
