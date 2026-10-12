@@ -120,3 +120,9 @@ discover_investment_watchlist_candidates:
   class: "InvestmentWatchlistDiscoveryJob"
   queue: "scheduled"
   description: "Queues at most one fresh, evidence-gated research candidate daily for members who opted in"
+
+refresh_security_intraday_prices:
+  cron: "*/20 13-20 * * 1-5" # every 20 minutes UTC through the US session (9:30-16:15 ET); the job itself checks the clock
+  class: "SecurityIntradayPricesRefreshJob"
+  queue: "scheduled"
+  description: "Refreshes today's provisional price of held securities during market hours so day gain is live"

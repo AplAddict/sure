@@ -143,6 +143,49 @@ class Holding::DayChangeTest < ActiveSupport::TestCase
     assert_equal Date.new(2026, 10, 9), Holding::DayChange.new([], now: Time.utc(2026, 10, 11, 15, 0)).session_date
   end
 
+  test "uses a live price refreshed after the open when the broker snapshot predates it" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 2, price: 110)
+    holding.update_columns(updated_at: Time.utc(2026, 10, 12, 3, 17))
+    Security::Price.create!(security: @security, date: MON, price: 115, currency: "USD", provisional: true)
+
+    change = Holding::DayChange.for([ holding ])[holding.id]
+
+    assert_equal 10, change.value.amount
+    assert_equal 230, change.current.amount
+  end
+
+  test "ignores a Monday price row that was written before the open" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 2, price: 110)
+    holding.update_columns(updated_at: Time.utc(2026, 10, 12, 3, 17))
+    row = Security::Price.create!(security: @security, date: MON, price: 110, currency: "USD", provisional: true)
+    row.update_columns(updated_at: Time.utc(2026, 10, 12, 7, 31))
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
+  test "ignores a live price in another currency" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 2, price: 110)
+    holding.update_columns(updated_at: Time.utc(2026, 10, 12, 3, 17))
+    Security::Price.create!(security: @security, date: MON, price: 115, currency: "EUR", provisional: true)
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
+  test "a stale position snapshot stays unavailable even with a live price" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(Date.new(2026, 10, 10), qty: 2, price: 110)
+    Security::Price.create!(security: @security, date: MON, price: 115, currency: "USD", provisional: true)
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
   private
     def close(date, price)
       Security::Price.create!(security: @security, date: date, price: price, currency: "USD")

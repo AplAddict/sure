@@ -63,7 +63,9 @@ class Holding::DayChange
     def trend_for(holding)
       return nil if holding.qty.to_d.zero? || holding.price.nil?
       return nil if holding.date < session_date
-      return nil if holding.updated_at.nil? || holding.updated_at < session_open
+
+      price = current_price(holding)
+      return nil if price.nil?
 
       close = closes[holding.security_id]
       return nil if close.nil? || close.currency != holding.currency
@@ -73,9 +75,26 @@ class Holding::DayChange
 
       qty = holding.qty.to_d
       Trend.new(
-        current: Money.new(qty * holding.price.to_d, holding.currency),
+        current: Money.new(qty * price, holding.currency),
         previous: Money.new(qty * close.price.to_d, holding.currency)
       )
+    end
+
+    # The latest price known to be from this session: a live quote written after
+    # the open (Security::IntradayPriceRefresher), else the broker snapshot's own
+    # price if that was itself written after the open. Anything older is the
+    # previous close carried forward and is not a price for today.
+    def current_price(holding)
+      live = live_prices[holding.security_id]
+      return live.price.to_d if live && live.currency == holding.currency
+
+      holding.updated_at && holding.updated_at >= session_open ? holding.price.to_d : nil
+    end
+
+    def live_prices
+      @live_prices ||= Security::Price.where(security_id: @holdings.map(&:security_id).uniq, date: session_date)
+                                      .where("updated_at >= ?", session_open).where("price > 0")
+                                      .index_by(&:security_id)
     end
 
     # Close on the reference date, or the latest earlier weekday that has one
