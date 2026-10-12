@@ -114,7 +114,8 @@ class InvestmentDecisionCenter
       else
         SourceHealth.new(key: :basis, label: "Cost basis coverage", status: "current", detail: "Known for the positions used in this view")
       end
-      [ holdings, basis ]
+      events = market_events_source_health
+      [ holdings, basis, events ]
     end
   end
 
@@ -169,6 +170,18 @@ class InvestmentDecisionCenter
 
     def statement
       @statement ||= InvestmentStatement.new(family, user: user)
+    end
+
+    def market_events_source_health
+      events = guarded(:events) { calendar_events }
+      return SourceHealth.new(key: :events, label: "Market events & wash-sale evidence", status: "unavailable", detail: "Calendar evidence could not be loaded") if events.nil?
+
+      stale = events.count { |event| event.freshness == "stale" }
+      if stale.positive?
+        SourceHealth.new(key: :events, label: "Market events & wash-sale evidence", status: "stale", detail: "#{stale} event#{'s' if stale != 1} use stale source data")
+      else
+        SourceHealth.new(key: :events, label: "Market events & wash-sale evidence", status: "current", detail: "#{events.size} sourced or calculated event#{'s' if events.size != 1} checked")
+      end
     end
 
     def calendar_events

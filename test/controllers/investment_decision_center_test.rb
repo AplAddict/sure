@@ -91,6 +91,24 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=idc-source-health]", text: /Cost basis coverage/
   end
 
+  test "source health exposes stale and unavailable market-event evidence" do
+    stale_event = MarketCalendar::EventBuilder::Event.new(
+      event_type: "earnings", ticker: "DCLOSS", title: "DCLOSS — Earnings", date: Date.current + 1,
+      end_date: Date.current + 1, details: "Decision Loser", source: "Cached market data", freshness: "stale"
+    )
+    MarketCalendar::EventBuilder.any_instance.stubs(:events).returns([ stale_event ])
+
+    source = InvestmentDecisionCenter.new(user: @owner).source_health.find { |item| item.key == :events }
+    assert_equal "stale", source.status
+
+    InvestmentDecisionCenter.any_instance.stubs(:calendar_events).raises(StandardError, "calendar unavailable")
+    unavailable_center = InvestmentDecisionCenter.new(user: @owner)
+    unavailable_sources = unavailable_center.source_health
+    assert unavailable_sources, "source health failed: #{unavailable_center.failed_sections.inspect}"
+    source = unavailable_sources.find { |item| item.key == :events }
+    assert_equal "unavailable", source.status
+  end
+
   test "a section that raises degrades to unavailable instead of failing the page" do
     InvestmentDecisionCenter.any_instance.stubs(:build_actions).raises(StandardError, "boom")
     sign_in @owner
