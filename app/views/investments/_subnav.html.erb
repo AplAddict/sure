@@ -1,5 +1,7 @@
 <%# locals: (current:) %>
-<%# One navigation strip shared by every investment page, so none of them is reachable only from the Decision Center. %>
+<%# One navigation strip shared by every investment page, so none of them is reachable only from the Decision Center.
+    Links swap the investment_workspace frame, so every page renders this strip and its heading INSIDE that frame;
+    anything left outside it would stay on screen, stale, after a tab click. %>
 <nav aria-label="<%= t("investments.subnav.label") %>" class="mb-4 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
   <% [
        [ :decision, t("investments.subnav.decision"), root_path(view: "decision") ],

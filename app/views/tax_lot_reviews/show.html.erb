@@ -1,6 +1,6 @@
 <% content_for :page_title, t(".title") %>
 
-<% content_for :page_header do %>
+<%= turbo_frame_tag "investment_workspace" do %>
   <div class="mb-6">
     <%= render "investments/subnav", current: :tax_lots %>
     <div class="space-y-1">
@@ -8,11 +8,7 @@
       <p class="max-w-3xl text-sm text-secondary"><%= t(".subtitle") %></p>
     </div>
   </div>
-<% end %>
-
-<%= turbo_frame_tag "investment_workspace" do %>
   <div class="space-y-6 pb-6 lg:pb-12">
-  <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :tax_lots, title: t(".title"), subtitle: t(".subtitle") %><% end %>
   <nav aria-label="<%= t(".tabs.label") %>" class="flex gap-1 overflow-x-auto border-b border-tertiary" data-testid="tax-workspace-tabs">
     <% [[ "lots", t(".tabs.lots") ], [ "harvest", t(".tabs.harvest") ]].each do |key, label| %>
       <%= link_to label, tax_lot_review_path(tab: key),

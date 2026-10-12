@@ -5,7 +5,7 @@
 <% source_health = center.source_health %>
 <% content_for :page_title, t("investment_decision_center.title") %>
 
-<% content_for :page_header do %>
+<%= turbo_frame_tag "investment_workspace" do %>
   <div class="space-y-1 mb-6 flex gap-4 justify-between items-center lg:items-start">
     <div class="space-y-1">
       <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t("investment_decision_center.title") %></h1>
@@ -15,9 +15,6 @@
       <%= render "pages/dashboard/view_switch", active: "decision" %>
     </div>
   </div>
-<% end %>
-
-<%= turbo_frame_tag "investment_workspace" do %>
   <div class="space-y-5 pb-6 lg:pb-12">
   <%= render "investments/subnav", current: :decision %>
   <section class="rounded-xl bg-container shadow-border-xs p-4 space-y-4" aria-labelledby="idc-pulse">

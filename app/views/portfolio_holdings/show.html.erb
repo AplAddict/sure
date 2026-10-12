@@ -39,14 +39,14 @@
      end
    end %>
 
-<% content_for :page_header do %>
+<%= turbo_frame_tag "investment_workspace" do %>
   <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
     <%= render "investments/subnav", current: :holdings %>
     <div class="space-y-1">
       <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t("portfolio_holdings.title") %></h1>
       <p class="text-sm text-secondary max-w-3xl"><%= t("portfolio_holdings.subtitle") %></p>
     </div>
-    <%= form_with url: portfolio_holdings_path, method: :get, class: "flex items-center gap-2", data: { controller: "auto-submit-form" } do |f| %>
+    <%= form_with url: portfolio_holdings_path, method: :get, class: "flex items-center gap-2", data: { controller: "auto-submit-form", turbo_action: "advance" } do |f| %>
       <%= f.hidden_field :sort, value: portfolio.sort %>
       <%= f.hidden_field :dir, value: portfolio.direction %>
       <%= f.label :account, t("portfolio_holdings.account_scope"), class: "text-sm text-secondary" %>
@@ -55,12 +55,8 @@
       <noscript><%= f.submit t("portfolio_holdings.apply"), class: "px-3 py-2 rounded-lg text-sm font-medium button-bg-primary text-inverse" %></noscript>
     <% end %>
   </div>
-<% end %>
-
-<%= turbo_frame_tag "investment_workspace" do %>
   <div class="space-y-6 pb-6 lg:pb-12" data-controller="holding-lots">
   <%= render "investments/sections", sections: @sections, namespace: "holdings", url: investment_section_preferences_path("holdings"), preference_key: "investments_holdings" %>
-  <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :holdings, title: t("portfolio_holdings.title"), subtitle: t("portfolio_holdings.subtitle") %><% end %>
   <% if blocks.empty? %>
     <%= render DS::EmptyState.new(icon: "briefcase", title: t("portfolio_holdings.empty_title"), description: t("portfolio_holdings.empty_description")) %>
   <% else %>

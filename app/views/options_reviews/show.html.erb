@@ -1,13 +1,5 @@
 <% content_for :page_title, t(".title") %>
 
-<% content_for :page_header do %>
-  <div class="mb-6 space-y-1">
-    <%= render "investments/subnav", current: :options %>
-    <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t(".title") %></h1>
-    <p class="max-w-3xl text-sm text-secondary"><%= t(".subtitle") %></p>
-  </div>
-<% end %>
-
 <% review = @review %>
 <% sort_link = lambda do |label, key, align: "left"|
      active = review.sort == key
@@ -21,8 +13,12 @@
    end %>
 
 <%= turbo_frame_tag "investment_workspace" do %>
+  <div class="mb-6 space-y-1">
+    <%= render "investments/subnav", current: :options %>
+    <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t(".title") %></h1>
+    <p class="max-w-3xl text-sm text-secondary"><%= t(".subtitle") %></p>
+  </div>
   <div class="space-y-4 pb-6 lg:pb-12">
-  <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :options, title: t(".title"), subtitle: t(".subtitle") %><% end %>
   <% if review.rows.empty? %>
     <%= render DS::EmptyState.new(icon: "chart-no-axes-combined", title: t(".empty_title"), description: t(".empty_description")) %>
   <% else %>
