@@ -47,4 +47,20 @@ class Category::DropdownsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-list-filter-target='recentSection']", false
   end
+
+  test "does not render another member's unshared transaction" do
+    private_transaction = Transaction.create!
+    accounts(:investment).entries.create!(
+      entryable: private_transaction,
+      name: "Private transaction",
+      date: Date.current,
+      amount: 25,
+      currency: "USD"
+    )
+    sign_in users(:family_member)
+
+    get category_dropdown_url(transaction_id: private_transaction.id)
+
+    assert_response :not_found
+  end
 end
