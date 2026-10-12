@@ -43,6 +43,27 @@ class InvestmentAllocation
     end
   end
 
+  OTHER = "Other".freeze
+  # Buckets that mean "no answer" rather than a category; never folded into Other.
+  FIXED_LABELS = [ UNCLASSIFIED, FUND_UNREPORTED ].freeze
+
+  # The segments as drawn: the largest `limit` categories, then the small ones
+  # folded into one Other bucket so the bar stays readable. The fixed buckets
+  # stay separate and last. Amounts and weights still add up to the total.
+  def display_segments(limit: 8)
+    real, fixed = segments.partition { |segment| FIXED_LABELS.exclude?(segment.label) }
+    return segments if real.size <= limit
+
+    head, tail = real.first(limit), real.drop(limit)
+    other = Segment.new(
+      label: OTHER,
+      amount: tail.sum(BigDecimal("0"), &:amount),
+      weight: tail.any? { |segment| segment.weight.nil? } ? nil : tail.sum(BigDecimal("0")) { |segment| segment.weight },
+      count: tail.sum(&:count)
+    )
+    head + [ other ] + fixed.sort_by { |segment| segment.label == UNCLASSIFIED ? 1 : 0 }
+  end
+
   def total
     @total ||= priced.sum(BigDecimal("0")) { |_, value| value }
   end

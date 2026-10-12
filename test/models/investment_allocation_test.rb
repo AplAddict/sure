@@ -119,4 +119,47 @@ class InvestmentAllocationTest < ActiveSupport::TestCase
 
     assert_nil InvestmentAllocation.new(user: users(:empty), by: "sector").segments.find { |s| s.label == "Energy" }
   end
+
+  test "display segments keep the top eight and fold the rest into Other, with weights still summing to 100" do
+    user = users(:family_admin)
+    account = user.family.accounts.create!(name: "Many", balance: 0, cash_balance: 0, currency: "USD", owner: user, status: "active", accountable: Investment.new)
+    12.times do |i|
+      sec = Security.create!(ticker: "MN#{(65 + i).chr}", exchange_mic: "XNAS", name: "Many #{i}")
+      account.holdings.create!(security: sec, date: Date.current, qty: 1, price: 100 + i, amount: 100 + i, currency: "USD")
+    end
+
+    allocation = InvestmentAllocation.new(user: user, by: "security")
+    shown = allocation.display_segments(limit: 8)
+
+    assert_equal "Other", shown.reject { |segment| InvestmentAllocation::FIXED_LABELS.include?(segment.label) }.last.label
+    assert_operator shown.size, :<, allocation.segments.size
+    folded = allocation.segments.reject { |segment| InvestmentAllocation::FIXED_LABELS.include?(segment.label) }.drop(8)
+    assert_operator folded.size, :>=, 4
+    assert_equal folded.sum(&:count), shown.find { |segment| segment.label == "Other" }.count
+    assert_in_delta 100, shown.sum { |segment| segment.weight.to_f }, 0.01
+    assert_in_delta allocation.total, shown.sum(&:amount), 0.01
+  end
+
+  test "the fixed buckets are never folded into Other and keep their place at the end" do
+    user = users(:family_admin)
+    account = user.family.accounts.create!(name: "Fixed", balance: 0, cash_balance: 0, currency: "USD", owner: user, status: "active", accountable: Investment.new)
+    10.times do |i|
+      sec = Security.create!(ticker: "FX#{(65 + i).chr}", exchange_mic: "XNAS", name: "Fixed #{i}", sector: "Sector #{i}")
+      account.holdings.create!(security: sec, date: Date.current, qty: 1, price: 100 + i, amount: 100 + i, currency: "USD")
+    end
+    nosector = Security.create!(ticker: "FXZ", exchange_mic: "XNAS", name: "No Sector")
+    account.holdings.create!(security: nosector, date: Date.current, qty: 1, price: 5, amount: 5, currency: "USD")
+
+    shown = InvestmentAllocation.new(user: user, by: "sector").display_segments(limit: 8)
+
+    assert_equal InvestmentAllocation::UNCLASSIFIED, shown.last.label
+    assert_equal "Other", shown[-2].label
+    assert_in_delta 100, shown.sum { |segment| segment.weight.to_f }, 0.01
+  end
+
+  test "nothing is folded when the segments already fit" do
+    user = users(:family_admin)
+    allocation = InvestmentAllocation.new(user: user, by: "currency")
+    assert_equal allocation.segments, allocation.display_segments(limit: 8)
+  end
 end

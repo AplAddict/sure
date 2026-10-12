@@ -1,5 +1,8 @@
 <%# locals: (allocation:, currency:) %>
-<% palette = %w[#2563eb #16a34a #d97706 #9333ea #dc2626 #0891b2 #be185d #65a30d #4f46e5 #ea580c #0d9488 #7c3aed] %>
+<% palette = %w[#2563eb #16a34a #d97706 #9333ea #dc2626 #0891b2 #be185d #65a30d] %>
+<% neutral = { InvestmentAllocation::UNCLASSIFIED => "#9ca3af", InvestmentAllocation::FUND_UNREPORTED => "#d1d5db", InvestmentAllocation::OTHER => "#6b7280" } %>
+<% shown = allocation.display_segments(limit: palette.size) %>
+<% color_for = ->(segment, index) { neutral[segment.label] || palette[index % palette.size] } %>
 <div class="space-y-3" data-testid="allocation-section">
   <nav class="flex flex-wrap gap-2" aria-label="<%= t("portfolio_holdings.group_by") %>">
     <% InvestmentAllocation::GROUPINGS.each do |grouping| %>
@@ -16,10 +19,15 @@
     <p class="text-sm text-secondary"><%= t("portfolio_holdings.allocation_empty") %></p>
   <% else %>
     <div class="flex h-3 w-full overflow-hidden rounded-full bg-tertiary" role="img" aria-label="<%= t("portfolio_holdings.allocation_aria_all") %>">
-      <% allocation.segments.each_with_index do |segment, index| %>
-        <span style="width: <%= segment.weight.to_f.round(2) %>%; background: <%= palette[index % palette.size] %>" title="<%= segment.label %> <%= number_to_percentage(segment.weight, precision: 1) %>"></span>
+      <% shown.each_with_index do |segment, index| %>
+        <span style="width: <%= segment.weight.to_f.round(2) %>%; background: <%= color_for.call(segment, index) %>" title="<%= segment.label %> <%= number_to_percentage(segment.weight, precision: 1) %>"></span>
       <% end %>
     </div>
+    <ul class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-secondary" data-testid="allocation-legend">
+      <% shown.each_with_index do |segment, index| %>
+        <li class="inline-flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full" style="background: <%= color_for.call(segment, index) %>"></span><span class="font-medium text-primary"><%= segment.label %></span><%= segment.weight ? number_to_percentage(segment.weight, precision: 1) : "—" %></li>
+      <% end %>
+    </ul>
     <div class="overflow-x-auto rounded-lg bg-container-inset p-1">
       <table class="w-full min-w-[24rem] text-sm">
         <thead><tr class="text-xs uppercase text-secondary">
@@ -29,8 +37,9 @@
         </tr></thead>
         <tbody class="bg-container">
           <% allocation.segments.each_with_index do |segment, index| %>
+            <% color = neutral[segment.label] || (index < palette.size ? palette[index] : neutral[InvestmentAllocation::OTHER]) %>
             <tr class="border-t border-tertiary">
-              <td class="px-4 py-2 text-primary"><span class="mr-2 inline-block h-2 w-2 rounded-full" style="background: <%= palette[index % palette.size] %>"></span><%= segment.label %> <span class="text-xs text-secondary">· <%= segment.count %></span></td>
+              <td class="px-4 py-2 text-primary"><span class="mr-2 inline-block h-2 w-2 rounded-full" style="background: <%= color %>"></span><%= segment.label %> <span class="text-xs text-secondary" title="<%= t("portfolio_holdings.segment_count_hint") %>">· <%= t("portfolio_holdings.segment_count", count: segment.count) %></span></td>
               <td class="px-4 py-2 text-right"><%= investment_money(segment.amount, currency) %></td>
               <td class="px-4 py-2 text-right"><%= segment.weight ? number_to_percentage(segment.weight, precision: 1) : "—" %></td>
             </tr>
@@ -38,6 +47,14 @@
         </tbody>
       </table>
     </div>
-    <p class="text-xs text-secondary"><%= t("portfolio_holdings.allocation_note") %></p>
+    <div class="space-y-1 text-xs text-secondary" data-testid="allocation-explainer">
+      <p><%= t("portfolio_holdings.allocation_note") %></p>
+      <% if allocation.segments.any? { |segment| segment.label == InvestmentAllocation::FUND_UNREPORTED } %>
+        <p><%= t("portfolio_holdings.fund_unreported_note") %></p>
+      <% end %>
+      <% if %w[sector asset_class].include?(allocation.by) %>
+        <p><%= t("portfolio_holdings.look_through_note") %></p>
+      <% end %>
+    </div>
   <% end %>
 </div>

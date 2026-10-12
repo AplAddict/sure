@@ -219,6 +219,48 @@ class Holding::DayChangeTest < ActiveSupport::TestCase
     assert_nil Holding::DayChange.for([ holding ])[holding.id]
   end
 
+  test "explains why a figure is unavailable" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    fresh = snap(MON, qty: 2, price: 110)
+    fresh.update_columns(updated_at: Time.utc(2026, 10, 12, 3, 17))
+    assert_equal :price_not_current, Holding::DayChange.new([ fresh ]).tap(&:trends).reasons[fresh.id]
+  end
+
+  test "reasons: no previous close, a changed share count and a new position" do
+    live = ->(h) { Security::Price.create!(security: @security, date: MON, price: 115, currency: "USD", provisional: true) }
+    # no close at all
+    holding = snap(MON, qty: 2, price: 115)
+    live.call(holding)
+    assert_equal :no_previous_close, Holding::DayChange.new([ holding ]).tap(&:trends).reasons[holding.id]
+
+    close(FRI, 110)
+    assert_equal :new_position, Holding::DayChange.new([ holding ]).tap(&:trends).reasons[holding.id]
+
+    snap(FRI, qty: 1, price: 110)
+    assert_equal :quantity_changed, Holding::DayChange.new([ holding ]).tap(&:trends).reasons[holding.id]
+  end
+
+  test "a measured figure has no reason" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 2, price: 110)
+    Security::Price.create!(security: @security, date: MON, price: 115, currency: "USD", provisional: true)
+
+    calc = Holding::DayChange.new([ holding ])
+    assert calc.trends[holding.id]
+    assert_nil calc.reasons[holding.id]
+  end
+
+  test "a snapshot from before the session with no sync since the previous close says the account is out of date" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(Date.new(2026, 10, 10), qty: 2, price: 110)
+    Security::Price.create!(security: @security, date: MON, price: 115, currency: "USD", provisional: true)
+
+    assert_equal :account_not_synced, Holding::DayChange.new([ holding ]).tap(&:trends).reasons[holding.id]
+  end
+
   private
     def sync(completed_at:)
       Sync.create!(syncable: @account, status: "completed", completed_at: completed_at)

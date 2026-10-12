@@ -245,4 +245,30 @@ class PortfolioHoldingsTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to new_session_path
   end
+
+  test "the positions table has a sortable day gain column and says why a figure is unavailable" do
+    sign_in @owner
+    get portfolio_holdings_path(account: @account.id, sort: "day_gain", dir: "desc")
+
+    assert_response :success
+    assert_select "th a[aria-sort=descending]", text: /Day gain/
+    assert_select "[data-testid=day-gain-cell][title]", minimum: 1
+    assert_no_match(/Unavailable\. The source did not provide this figure\.<\/span>.*day-gain/m, response.body)
+  end
+
+  test "day gain can be sorted with unavailable rows last" do
+    assert_includes PortfolioHoldings::SORTS, "day_gain"
+    assert_includes PortfolioHoldings::SORTS, "day_gain_pct"
+    assert_equal 3, positions(sort: "day_gain", direction: "desc").size
+  end
+
+  test "shows when prices were last refreshed and no raw english labels" do
+    Security::Price.create!(security: @big, date: Date.current, price: 201, currency: "USD", provisional: true)
+    sign_in @owner
+    get portfolio_holdings_path(account: @account.id)
+
+    assert_select "[data-testid=prices-freshness]"
+    assert_select "table caption", text: /Positions for Holdings Brokerage/
+    assert_select "h3", text: "Positions"
+  end
 end

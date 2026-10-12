@@ -4,7 +4,14 @@
     (their names are historical), so keyboard and touch reordering come with it. %>
 <div data-controller="reports-sortable"
      data-reports-sortable-url-value="<%= url %>"
-     data-reports-sortable-preference-key-value="<%= preference_key %>"
+     data-reports-sortable-preference-key-value="<%= preference_key %>">
+<div class="flex justify-end mb-2">
+  <button type="button" class="text-xs font-medium text-secondary hover:text-primary hover:underline focus-ring rounded px-1"
+          data-action="click->reports-sortable#reset">
+    <%= t("investments.sections.reset") %>
+  </button>
+</div>
+<div data-reports-sortable-target="list"
      data-action="dragover->reports-sortable#dragOver drop->reports-sortable#drop"
      role="list" aria-label="<%= t("investments.sections.aria_label") %>">
   <% sections.ordered.each do |section| %>
@@ -18,9 +25,9 @@
       data-reports-section-collapsed-value="<%= collapsed %>"
       data-reports-section-url-value="<%= url %>"
       data-reports-section-preference-key-value="<%= preference_key %>"
-      draggable="true" tabindex="0" role="listitem" aria-grabbed="false"
+      draggable="true" tabindex="0" role="listitem"
       aria-label="<%= t("investments.sections.section_label", title: section[:title]) %>"
-      data-action="dragstart->reports-sortable#dragStart dragend->reports-sortable#dragEnd touchstart->reports-sortable#touchStart touchmove->reports-sortable#touchMove touchend->reports-sortable#touchEnd keydown->reports-sortable#handleKeyDown">
+      data-action="dragstart->reports-sortable#dragStart dragend->reports-sortable#dragEnd keydown->reports-sortable#handleKeyDown">
       <div class="px-4 py-2 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <button type="button" class="text-secondary hover:text-primary transition-colors p-0.5"
@@ -31,7 +38,9 @@
           </button>
           <h2 class="text-base font-medium text-primary"><%= section[:title] %></h2>
         </div>
-        <button type="button" class="cursor-grab active:cursor-grabbing text-secondary hover:text-primary transition-colors p-0.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+        <button type="button" class="touch-none cursor-grab active:cursor-grabbing text-secondary hover:text-primary transition-colors p-2 -m-1 rounded focus-ring"
+                data-reports-sortable-target="handle"
+                data-action="touchstart->reports-sortable#touchStart touchmove->reports-sortable#touchMove:!passive touchend->reports-sortable#touchEnd touchcancel->reports-sortable#touchEnd"
                 aria-label="<%= t("investments.sections.drag") %>">
           <%= icon("grip-vertical", size: "sm") %>
         </button>
@@ -41,4 +50,5 @@
       </div>
     </section>
   <% end %>
+</div>
 </div>

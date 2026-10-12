@@ -16,3 +16,4 @@ en:
       section_label: "%{title} section. Press Enter or Space to grab for reordering, then use arrow keys to move."
       toggle: Toggle section visibility
       drag: Drag to reorder section
+      reset: Reset layout

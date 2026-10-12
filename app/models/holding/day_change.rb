@@ -34,11 +34,20 @@ class Holding::DayChange
     @holdings = Array(holdings).compact
     @today = today
     @now = now
+    @reasons = {}
   end
 
   # { holding.id => Trend or nil }
   def trends
     @trends ||= @holdings.index_by(&:id).transform_values { |holding| trend_for(holding) }
+  end
+
+  # { holding.id => why there is no figure }. Absent for a measured position.
+  # :no_price, :price_not_current, :account_not_synced, :no_previous_close,
+  # :new_position, :quantity_changed.
+  def reasons
+    trends
+    @reasons
   end
 
   # The most recent weekday on or before today. Holiday closures simply carry
@@ -64,23 +73,29 @@ class Holding::DayChange
 
   private
     def trend_for(holding)
-      return nil if holding.qty.to_d.zero? || holding.price.nil?
+      return unavailable(holding, :no_price) if holding.qty.to_d.zero? || holding.price.nil?
 
       price = current_price(holding)
-      return nil if price.nil?
-      return nil if holding.date < session_date && !synced_since_reference_close?(holding)
+      return unavailable(holding, :price_not_current) if price.nil?
+      return unavailable(holding, :account_not_synced) if holding.date < session_date && !synced_since_reference_close?(holding)
 
       close = closes[holding.security_id]
-      return nil if close.nil? || close.currency != holding.currency
+      return unavailable(holding, :no_previous_close) if close.nil? || close.currency != holding.currency
 
       reference = reference_holdings[[ holding.account_id, holding.security_id, holding.currency ]]
-      return nil if reference.nil? || reference.qty.to_d != holding.qty.to_d
+      return unavailable(holding, :new_position) if reference.nil?
+      return unavailable(holding, :quantity_changed) if reference.qty.to_d != holding.qty.to_d
 
       qty = holding.qty.to_d
       Trend.new(
         current: Money.new(qty * price, holding.currency),
         previous: Money.new(qty * close.price.to_d, holding.currency)
       )
+    end
+
+    def unavailable(holding, reason)
+      @reasons[holding.id] = reason
+      nil
     end
 
     # The latest price known to be from this session: a live quote written after

@@ -79,6 +79,9 @@ class Holding < ApplicationRecord
     @day_change = trend
   end
 
+  # Why day_change is nil, when a list renderer supplied it.
+  attr_accessor :day_change_reason
+
   def trades
     account.entries.where(entryable: account.trades.where(security: security)).reverse_chronological
   end

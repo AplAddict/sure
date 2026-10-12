@@ -37,7 +37,21 @@ en:
       cost_basis: Cost basis
       market_value: Market value
       gain: Gain / loss
+      day_gain: Day gain
       weight: Weight
+    positions_heading: Positions
+    positions_subtitle: Current holdings in this account
+    positions_caption: "Positions for %{account}"
+    prices_refreshed: "Live prices updated %{time} ago"
+    prices_not_refreshed: No live prices yet this session. Day gain needs a price from today's session.
+    day_gain_hint: "Day gain compares today's price with the previous close, on the shares held at that close."
+    day_gain_reasons:
+      no_price: No price on record for this position.
+      price_not_current: No price from today's session yet, so a day move cannot be measured.
+      account_not_synced: This account has not synced since the previous close, so its share count is unconfirmed.
+      no_previous_close: No previous close is on record to compare with.
+      new_position: Opened after the previous close, so there is no earlier price to compare with.
+      quantity_changed: The share count changed since the previous close, so a day move would mix trades with price.
     allocation_section: Allocation
     data_quality_section: Data quality
     group_by: Group allocation by
@@ -53,6 +67,12 @@ en:
       kind: Kind
     segment_value: Value
     segment_weight: Weight
+    segment_count:
+      one: "%{count} holding"
+      other: "%{count} holdings"
+    segment_count_hint: Holdings counted in this segment. A fund spread across several sectors counts once in each.
+    fund_unreported_note: "Fund holdings not reported is the part of a fund's value its provider does not break down by sector or asset class. It is shown separately rather than assigned."
+    look_through_note: Funds are split by the sector and asset mix their provider reports, so a fund can appear in several segments.
     allocation_empty: No holdings with a current value to allocate.
     allocation_aria_all: Allocation across all accessible investment accounts
     allocation_note: Segments are each holding's current market value in your family currency. A holding with no value for the chosen grouping is shown as Unclassified.

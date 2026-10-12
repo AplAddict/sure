@@ -7,3 +7,4 @@ en:
       empty_title: No current investment news
       empty_description: There are no current cached articles for securities in your accessible investment accounts.
       time_unavailable: Publication time unavailable
+      ago: "%{time} ago"

@@ -21,4 +21,12 @@ class InvestmentSectionPreferencesController < ApplicationController
       head :unprocessable_entity
     end
   end
+
+  # Back to the default layout for this page, for the signed-in member only.
+  def destroy
+    namespace = params[:namespace].to_s
+    return head :not_found unless User::INVESTMENT_SECTION_NAMESPACES.include?(namespace)
+
+    Current.user.reset_investment_sections(namespace) ? head(:ok) : head(:unprocessable_entity)
+  end
 end

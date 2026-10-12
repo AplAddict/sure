@@ -13,6 +13,18 @@
      end
    end %>
 <% unavailable = t("portfolio_holdings.unavailable") %>
+<% day_gain_cell = lambda do |position|
+     if position.day_gain.nil?
+       reason = position.day_change_reason
+       tag.span("—", class: "text-secondary", title: reason ? t("portfolio_holdings.day_gain_reasons.#{reason}") : unavailable, data: { testid: "day-gain-cell" })
+     else
+       tone = position.day_gain.amount.positive? ? "text-success" : position.day_gain.amount.negative? ? "text-destructive" : "text-primary"
+       tag.span(class: tone, data: { testid: "day-gain-cell" }, title: t("portfolio_holdings.day_gain_hint")) do
+         safe_join([ tag.span(format_money(position.day_gain), class: "privacy-sensitive"),
+                     position.day_gain_pct ? tag.span(" (#{number_to_percentage(position.day_gain_pct, precision: 1)})", class: "text-xs") : nil ].compact)
+       end
+     end
+   end %>
 <% qty = ->(value) { value.zero? ? "0" : number_with_precision(value, precision: 8, strip_insignificant_zeros: true) } %>
 <% money = ->(amount, currency) { amount.nil? ? tag.span("—", class: "text-secondary", title: unavailable) : tag.span(format_money(Money.new(amount, currency)), class: "privacy-sensitive") } %>
 <% gain_cell = lambda do |amount, pct, currency|
@@ -60,6 +72,11 @@
       </div>
     <% end %>
 
+    <% refreshed = portfolio.prices_refreshed_at %>
+    <p class="text-xs text-secondary" data-testid="prices-freshness" role="status">
+      <%= refreshed ? t("portfolio_holdings.prices_refreshed", time: time_ago_in_words(refreshed)) : t("portfolio_holdings.prices_not_refreshed") %>
+    </p>
+
     <% blocks.each do |block| %>
       <% account = block.account %>
       <% currency = block.currency %>
@@ -101,14 +118,14 @@
 
         <div class="mt-5 flex items-center justify-between gap-3 px-4">
           <div>
-            <h3 class="text-sm font-medium text-primary">Positions</h3>
-            <p class="text-xs text-secondary">Current holdings in this account</p>
+            <h3 class="text-sm font-medium text-primary"><%= t("portfolio_holdings.positions_heading") %></h3>
+            <p class="text-xs text-secondary"><%= t("portfolio_holdings.positions_subtitle") %></p>
           </div>
           <span class="rounded-md bg-container-inset px-2 py-1 text-xs tabular-nums text-secondary"><%= t("portfolio_holdings.position_count", count: block.positions.size) %></span>
         </div>
         <div class="@container mt-2 border-y border-tertiary"><div class="overflow-x-auto">
           <table class="w-full min-w-[480px] @3xl:min-w-[820px] text-sm" data-testid="positions-table">
-            <caption class="sr-only">Positions for <%= account.name %></caption>
+            <caption class="sr-only"><%= t("portfolio_holdings.positions_caption", account: account.name) %></caption>
             <thead class="bg-container-inset text-xs uppercase text-secondary">
               <tr>
                 <th scope="col" class="px-3 @3xl:px-4 py-2.5 text-left font-medium"><%= sort_link.call(t("portfolio_holdings.columns.symbol"), "symbol", align: "left") %></th>
@@ -118,6 +135,7 @@
                 <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.cost_basis"), "cost_basis") %></th>
                 <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.market_value"), "market_value") %></th>
                 <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.gain"), "gain") %></th>
+                <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.day_gain"), "day_gain") %></th>
                 <th scope="col" class="hidden @3xl:table-cell px-4 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.weight"), "weight") %></th>
               </tr>
             </thead>
@@ -150,6 +168,7 @@
                   <td class="px-3 py-3 text-right font-mono"><%= money.call(position.cost_basis, position.currency) %></td>
                   <td class="px-3 py-3 text-right font-mono font-medium"><%= money.call(position.market_value, position.currency) %></td>
                   <td class="px-3 py-3 text-right font-mono"><%= gain_cell.call(position.gain, position.gain_pct, position.currency) %></td>
+                  <td class="px-3 py-3 text-right font-mono"><%= day_gain_cell.call(position) %></td>
                   <td class="hidden @3xl:table-cell px-4 py-3 text-right font-mono">
                     <% if position.weight %>
                       <%= number_to_percentage(position.weight, precision: 1) %>
@@ -166,6 +185,7 @@
                     <td class="px-3 py-2 text-right font-mono"><%= money.call(lot.cost_basis, position.currency) %></td>
                     <td class="px-3 py-2 text-right font-mono"><%= money.call(lot.market_value, position.currency) %></td>
                     <td class="px-3 py-2 text-right font-mono"><%= gain_cell.call(lot.gain, lot.gain_pct, position.currency) %></td>
+                    <td class="px-3 py-2"></td>
                     <td class="hidden @3xl:table-cell px-4 py-2"></td>
                   </tr>
                 <% end %>

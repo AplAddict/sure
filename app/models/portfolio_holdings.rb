@@ -7,7 +7,7 @@
 # that does not is dropped rather than patched, because a guessed acquisition
 # date or basis would be a fabricated tax fact.
 class PortfolioHoldings
-  SORTS = %w[symbol quantity price avg_cost cost_basis market_value gain gain_pct weight].freeze
+  SORTS = %w[symbol quantity price avg_cost cost_basis market_value gain gain_pct weight day_gain day_gain_pct].freeze
   QTY_TOLERANCE = BigDecimal("0.0001")
 
   Lot = Data.define(:acquired_on, :quantity, :cost_basis, :market_value) do
@@ -16,7 +16,7 @@ class PortfolioHoldings
     def unit_cost = cost_basis && quantity.positive? ? cost_basis / quantity : nil
   end
 
-  Position = Data.define(:account, :security, :quantity, :price, :avg_cost, :cost_basis, :market_value, :currency, :weight, :lots, :day_change) do
+  Position = Data.define(:account, :security, :quantity, :price, :avg_cost, :cost_basis, :market_value, :currency, :weight, :lots, :day_change, :day_change_reason) do
     def ticker = security.ticker
     def name = security.name.presence || security.ticker
     def gain = cost_basis && market_value ? market_value - cost_basis : nil
@@ -69,8 +69,12 @@ class PortfolioHoldings
       scoped = [] unless scope_valid?
       lots_by_account = provider_lots(scoped)
       holdings = Holding::CurrentForInvestmentAccounts.new(scoped.map(&:id)).relation.includes(:security).to_a.reject { |holding| holding.qty.to_d.zero? }
-      day_changes = Holding::DayChange.for(holdings)
-      holdings.each { |holding| holding.preloaded_day_change = day_changes[holding.id] }
+      day_change = Holding::DayChange.new(holdings)
+      day_changes = day_change.trends
+      holdings.each do |holding|
+        holding.preloaded_day_change = day_changes[holding.id]
+        holding.day_change_reason = day_change.reasons[holding.id]
+      end
       holdings = holdings.group_by(&:account_id)
 
       scoped.filter_map do |account|
@@ -134,6 +138,18 @@ class PortfolioHoldings
     end
   end
 
+  # When a live quote last landed for any position shown, or nil when none has
+  # this session (everything is then the previous close).
+  def prices_refreshed_at
+    return @prices_refreshed_at if defined?(@prices_refreshed_at)
+
+    ids = blocks.flat_map { |block| block.positions.map { |position| position.security.id } }.uniq
+    session = Holding::DayChange.new([]).session_date
+    open = Holding::DayChange.new([]).session_open
+    @prices_refreshed_at = Security::Price.where(security_id: ids, date: session, provisional: true)
+                                           .where("updated_at >= ?", open).maximum(:updated_at)
+  end
+
   def lots_available?
     blocks.any? { |block| block.lot_count.positive? }
   end
@@ -176,7 +192,8 @@ class PortfolioHoldings
         currency: holding.currency,
         weight: account_total.positive? ? value / account_total * 100 : nil,
         lots: verified_lots(lots_by_security[holding.security.ticker.to_s.upcase], quantity),
-        day_change: holding.day_change
+        day_change: holding.day_change,
+        day_change_reason: holding.day_change_reason
       )
     end
 
@@ -200,6 +217,8 @@ class PortfolioHoldings
       when "gain" then position.gain
       when "gain_pct" then position.gain_pct
       when "weight" then position.weight
+      when "day_gain" then position.day_gain&.amount
+      when "day_gain_pct" then position.day_gain_pct
       end
     end
 

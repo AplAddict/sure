@@ -536,6 +536,7 @@ Rails.application.routes.draw do
   get "portfolio/income", to: "investment_incomes#show", as: :investment_income
   get "portfolio/news", to: "investment_news#show", as: :investment_news
   patch "portfolio/sections/:namespace", to: "investment_section_preferences#update", as: :investment_section_preferences
+  delete "portfolio/sections/:namespace", to: "investment_section_preferences#destroy"
   get "portfolio/tax-lots", to: "tax_lot_reviews#show", as: :tax_lot_review
   resources :research_watchlist_entries, only: %i[index create update destroy]
 

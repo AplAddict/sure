@@ -5,7 +5,7 @@ import { Controller } from "@hotwired/stimulus";
 // (the portfolio hub too). Renaming it would touch every Reports data
 // attribute for no behaviour change.
 export default class extends Controller {
-  static targets = ["section", "handle"];
+  static targets = ["section", "handle", "list"];
 
   // Short delay to prevent accidental touches on the grip handle.
   //
@@ -18,6 +18,13 @@ export default class extends Controller {
     url: { type: String, default: "/reports/update_preferences" },
     preferenceKey: { type: String, default: "reports" },
   };
+
+  // Pages that put other controls inside this controller (a reset button)
+  // mark the sections' own container with a `list` target; otherwise the
+  // controller element itself holds the sections, as on Reports.
+  get container() {
+    return this.hasListTarget ? this.listTarget : this.element;
+  }
 
   connect() {
     this.draggedElement = null;
@@ -49,7 +56,7 @@ export default class extends Controller {
     event.dataTransfer.dropEffect = "move";
 
     const afterElement = this.getDragAfterElement(event.clientY);
-    const container = this.element;
+    const container = this.container;
 
     this.clearPlaceholders();
 
@@ -65,7 +72,7 @@ export default class extends Controller {
     event.stopPropagation();
 
     const afterElement = this.getDragAfterElement(event.clientY);
-    const container = this.element;
+    const container = this.container;
 
     if (afterElement == null) {
       container.appendChild(this.draggedElement);
@@ -115,6 +122,17 @@ export default class extends Controller {
   }
 
   touchMove(event) {
+    // Moving before the hold delay passes means the person is scrolling, not
+    // dragging: drop the pending drag so the page keeps scrolling normally.
+    if (!this.holdActivated && this.holdTimer) {
+      const moved = Math.abs(event.touches[0].clientY - this.touchStartY);
+      if (moved > 8) {
+        this.cancelHold();
+        this.pendingSection = null;
+      }
+      return;
+    }
+
     if (!this.holdActivated || !this.isTouching || !this.draggedElement) return;
 
     event.preventDefault();
@@ -124,7 +142,7 @@ export default class extends Controller {
     this.clearPlaceholders();
 
     if (afterElement == null) {
-      this.showPlaceholder(this.element.lastElementChild, "after");
+      this.showPlaceholder(this.container.lastElementChild, "after");
     } else {
       this.showPlaceholder(afterElement, "before");
     }
@@ -139,7 +157,7 @@ export default class extends Controller {
     }
 
     const afterElement = this.getDragAfterElement(this.currentTouchY);
-    const container = this.element;
+    const container = this.container;
 
     if (afterElement == null) {
       container.appendChild(this.draggedElement);
@@ -241,7 +259,7 @@ export default class extends Controller {
   moveUp(section) {
     const previousSibling = section.previousElementSibling;
     if (previousSibling?.hasAttribute("data-section-key")) {
-      this.element.insertBefore(section, previousSibling);
+      this.container.insertBefore(section, previousSibling);
       section.focus();
     }
   }
@@ -249,7 +267,7 @@ export default class extends Controller {
   moveDown(section) {
     const nextSibling = section.nextElementSibling;
     if (nextSibling?.hasAttribute("data-section-key")) {
-      this.element.insertBefore(nextSibling, section);
+      this.container.insertBefore(nextSibling, section);
       section.focus();
     }
   }
@@ -293,6 +311,30 @@ export default class extends Controller {
         "border-b-2",
       );
     });
+  }
+
+  // Restore the default layout for this page: the saved order and collapsed
+  // state are cleared server-side, then the page is reloaded.
+  async reset(event) {
+    event.preventDefault();
+    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfToken) return;
+
+    try {
+      const response = await fetch(this.urlValue, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": csrfToken.content },
+      });
+      if (response.ok) {
+        if (window.Turbo) {
+          window.Turbo.visit(window.location.href, { action: "replace" });
+        } else {
+          window.location.reload();
+        }
+      }
+    } catch (error) {
+      console.error("[Reports Sortable] Network error resetting layout:", error);
+    }
   }
 
   async saveOrder() {

@@ -703,6 +703,17 @@ class User < ApplicationRecord
     preferences&.dig("investments_#{investment_section_namespace!(namespace)}_collapsed_sections", section_key.to_s) == true
   end
 
+  def reset_investment_sections(namespace)
+    prefix = "investments_#{investment_section_namespace!(namespace)}"
+    transaction do
+      lock!
+      updated = (preferences || {}).deep_dup
+      updated.delete("#{prefix}_section_order")
+      updated.delete("#{prefix}_collapsed_sections")
+      update!(preferences: updated)
+    end
+  end
+
   # `order` replaces the order; `collapsed` merges (one key per toggle) so quick
   # successive toggles keep each other's state.
   def update_investment_sections(namespace, order: nil, collapsed: nil)
