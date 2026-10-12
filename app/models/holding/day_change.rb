@@ -9,8 +9,10 @@
 #
 # A position gets no figure (nil, shown as unavailable) when any of these hold,
 # because a guessed number would be worse than none:
-#   - its price was not refreshed this session (the snapshot is older than the
-#     last trading day), so "today's move" is not known;
+#   - its price was not refreshed this session: the snapshot is older than the
+#     session day, or was last written before that session's market open (a
+#     price written overnight is the previous close carried forward, so a
+#     "move" computed from it is a flat zero that never happened);
 #   - the security has no close for the previous trading day, or in another
 #     currency than the holding;
 #   - the share count differs from the count held at that close, or the
@@ -18,13 +20,17 @@
 class Holding::DayChange
   LOOKBACK_DAYS = 7
 
-  def self.for(holdings, today: Date.current)
-    new(holdings, today: today).trends
+  MARKET_ZONE = "America/New_York".freeze
+  MARKET_OPEN = [ 9, 30 ].freeze
+
+  def self.for(holdings, today: Date.current, now: Time.current)
+    new(holdings, today: today, now: now).trends
   end
 
-  def initialize(holdings, today: Date.current)
+  def initialize(holdings, today: Date.current, now: Time.current)
     @holdings = Array(holdings).compact
     @today = today
+    @now = now
   end
 
   # { holding.id => Trend or nil }
@@ -35,7 +41,17 @@ class Holding::DayChange
   # The most recent weekday on or before today. Holiday closures simply carry
   # the previous close, which reads as no change for that day.
   def session_date
-    @session_date ||= last_weekday(@today)
+    @session_date ||= begin
+      zone = ActiveSupport::TimeZone[MARKET_ZONE]
+      local = @now.in_time_zone(zone)
+      opened = local.to_date.on_weekday? && local >= market_open(local.to_date)
+      opened ? local.to_date : last_weekday(local.to_date - 1.day)
+    end
+  end
+
+  # When the session opened, in absolute time.
+  def session_open
+    @session_open ||= market_open(session_date)
   end
 
   # The weekday before the session: the close the move is measured from.
@@ -47,6 +63,7 @@ class Holding::DayChange
     def trend_for(holding)
       return nil if holding.qty.to_d.zero? || holding.price.nil?
       return nil if holding.date < session_date
+      return nil if holding.updated_at.nil? || holding.updated_at < session_open
 
       close = closes[holding.security_id]
       return nil if close.nil? || close.currency != holding.currency
@@ -86,6 +103,10 @@ class Holding::DayChange
                .select(:id, :account_id, :security_id, :currency, :qty, :date)
                .index_by { |holding| [ holding.account_id, holding.security_id, holding.currency ] }
       end
+    end
+
+    def market_open(date)
+      ActiveSupport::TimeZone[MARKET_ZONE].local(date.year, date.month, date.day, *MARKET_OPEN)
     end
 
     def last_weekday(date)

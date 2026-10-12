@@ -12,7 +12,7 @@ class Holding::DayChangeTest < ActiveSupport::TestCase
   setup do
     @account = families(:empty).accounts.create!(name: "Day #{SecureRandom.hex(3)}", balance: 100, cash_balance: 0, currency: "USD", accountable: Investment.new)
     @security = Security.create!(ticker: "DAY#{SecureRandom.hex(2).upcase}", name: "Day")
-    travel_to Time.zone.local(2026, 10, 12, 11, 0)
+    travel_to Time.utc(2026, 10, 12, 15, 0) # 11:00 ET, session open
   end
 
   teardown { travel_back }
@@ -31,7 +31,7 @@ class Holding::DayChangeTest < ActiveSupport::TestCase
   end
 
   test "weekend: shows Friday's move, not a flat zero from carried-forward snapshots" do
-    travel_to Time.zone.local(2026, 10, 11, 12, 0)
+    travel_to Time.utc(2026, 10, 11, 16, 0) # Sunday
     close(THU, 100)
     close(FRI, 110)
     close(Date.new(2026, 10, 10), 110)
@@ -113,6 +113,34 @@ class Holding::DayChangeTest < ActiveSupport::TestCase
     ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { Holding::DayChange.for(holdings) }
 
     assert_operator count, :<=, 3
+  end
+
+  test "a price written overnight, before the session opened, is unavailable rather than a flat zero" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 2, price: 110)
+    holding.update_columns(updated_at: Time.utc(2026, 10, 12, 3, 17))
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
+  test "before the open on a trading day it is still Friday's move" do
+    travel_to Time.utc(2026, 10, 12, 12, 0) # 8:00 ET, before the 9:30 open
+    close(THU, 100)
+    close(FRI, 110)
+    snap(THU, qty: 2, price: 100)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(MON, qty: 2, price: 110)
+    holding.update_columns(updated_at: Time.utc(2026, 10, 12, 3, 17))
+
+    change = Holding::DayChange.for([ holding ])[holding.id]
+    assert_equal 20, change.value.amount
+  end
+
+  test "the session starts at the 9:30 ET open" do
+    assert_equal Date.new(2026, 10, 9), Holding::DayChange.new([], now: Time.utc(2026, 10, 12, 13, 29)).session_date
+    assert_equal Date.new(2026, 10, 12), Holding::DayChange.new([], now: Time.utc(2026, 10, 12, 13, 31)).session_date
+    assert_equal Date.new(2026, 10, 9), Holding::DayChange.new([], now: Time.utc(2026, 10, 11, 15, 0)).session_date
   end
 
   private

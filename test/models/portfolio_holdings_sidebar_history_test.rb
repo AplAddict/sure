@@ -3,7 +3,7 @@ require "test_helper"
 class PortfolioHoldingsSidebarHistoryTest < ActiveSupport::TestCase
   setup do
     SnaptradeAccount.stubs(:includes).returns([])
-    travel_to Time.zone.local(2026, 10, 12, 11, 0)
+    travel_to Time.utc(2026, 10, 12, 15, 0) # 11:00 ET, session open
     @user = users(:family_admin)
     @account = @user.family.accounts.create!(name: "History #{SecureRandom.hex(3)}", balance: 5_000, cash_balance: 0, currency: "USD", owner: @user,
                                              status: "active", accountable: Investment.new(subtype: "brokerage"))
