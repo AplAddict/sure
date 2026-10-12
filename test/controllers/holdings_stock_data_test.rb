@@ -29,4 +29,15 @@ class HoldingsStockDataTest < ActionDispatch::IntegrationTest
       assert_select "dd", text: "Unavailable"
     end
   end
+
+  test "a rating bucket the source did not report shows a dash, not zero" do
+    skip "no fixture holding" unless @holding
+    SecurityFundamental.create!(security: @holding.security, fetched_at: Time.current,
+                                payload: { "strong_buy" => 6, "buy" => 19, "hold" => 13 })
+
+    get holding_path(@holding)
+
+    assert_response :success
+    assert_select "[data-testid=stock-data] dd", text: "6 strong buy · 19 buy · 13 hold · — sell · — strong sell"
+  end
 end

@@ -1,6 +1,8 @@
 require "test_helper"
 
 class TaxLotReviewsControllerTest < ActionDispatch::IntegrationTest
+  include EntriesTestHelper
+
   setup do
     SnaptradeAccount.stubs(:includes).returns([])
     @owner = users(:family_admin)
@@ -170,5 +172,18 @@ class TaxLotReviewsControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[href*='format=csv']", text: /Download CSV/
     get tax_lot_review_path(tab: "harvest")
     assert_select "a[href*='format=csv']", count: 0
+  end
+
+  test "harvest tab shows realized gains as unavailable when no sale could be measured" do
+    unheld = Security.create!(ticker: "LOTUNK", exchange_mic: "XNAS", name: "Never Held Co")
+    create_trade(unheld, account: @account, qty: -3, date: Date.current - 2, price: 20)
+    sign_in @owner
+
+    get tax_lot_review_path(tab: "harvest")
+
+    assert_response :success
+    assert_select "[data-testid=realized-ytd]", text: "—", count: 1
+    assert_select "[data-testid=realized-ytd]", text: /\$/, count: 0
+    assert_match I18n.t("tax_loss_harvests.show.summary.realized_hint", count: 1), response.body
   end
 end

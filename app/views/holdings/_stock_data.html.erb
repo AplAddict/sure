@@ -58,7 +58,8 @@
             <div class="flex items-baseline justify-between gap-3"><dt class="text-secondary"><%= t("holdings.stock_data.fields.target_mean_price") %></dt><dd class="text-right text-primary"><%= data.target_mean_price ? format_money(Money.new(data.target_mean_price, ccy)) : unavailable %></dd></div>
             <% if (ratings = data.ratings) %>
               <div class="flex items-baseline justify-between gap-3"><dt class="text-secondary"><%= t("holdings.stock_data.fields.ratings") %></dt>
-                <dd class="text-right text-primary tabular-nums"><%= t("holdings.stock_data.ratings_line", strong_buy: ratings["strong_buy"].to_i, buy: ratings["buy"].to_i, hold: ratings["hold"].to_i, sell: ratings["sell"].to_i, strong_sell: ratings["strong_sell"].to_i) %></dd></div>
+                <% count = ->(v) { v.nil? ? "—" : v.to_i } %>
+                <dd class="text-right text-primary tabular-nums"><%= t("holdings.stock_data.ratings_line", strong_buy: count.call(ratings["strong_buy"]), buy: count.call(ratings["buy"]), hold: count.call(ratings["hold"]), sell: count.call(ratings["sell"]), strong_sell: count.call(ratings["strong_sell"])) %></dd></div>
             <% else %>
               <div class="flex items-baseline justify-between gap-3"><dt class="text-secondary"><%= t("holdings.stock_data.fields.ratings") %></dt><dd class="text-right text-primary"><%= unavailable %></dd></div>
             <% end %>

@@ -117,7 +117,10 @@ class TaxLossHarvest
         end
       end
 
-      { amount: Money.new(total, currency), known: known, unknown: unknown }
+      # No sale measured means the figure is unknown, not zero; a year with no
+      # sales at all is a real zero.
+      amount = known.zero? && unknown.positive? ? nil : Money.new(total, currency)
+      { amount: amount, known: known, unknown: unknown }
     end
   end
 

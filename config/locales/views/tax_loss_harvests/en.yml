@@ -20,6 +20,7 @@ en:
           one: "%{count} sale could not be measured"
           other: "%{count} sales could not be measured"
         realized_known: All recorded sales measured
+        realized_unavailable: "Unavailable: none of this year's sales could be measured"
       scope_note: "%{count} retirement or tax-advantaged accounts are not shown. Gains and losses inside them are not taxed when realized, but a purchase there can still trigger a wash sale."
       boundary:
         title: How to read this

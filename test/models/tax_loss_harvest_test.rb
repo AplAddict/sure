@@ -187,6 +187,24 @@ class TaxLossHarvestTest < ActiveSupport::TestCase
     assert_equal 0, harvest(@other_member).realized_year_to_date[:known] + harvest(@other_member).realized_year_to_date[:unknown]
   end
 
+  test "realized year to date is unknown, not zero, when no sale could be measured" do
+    # A sale with no prior holding has no cost basis, so its gain is unknown.
+    create_trade(@gain_security, account: @taxable, qty: -5, date: @today - 5, price: 150)
+
+    result = harvest(@owner).realized_year_to_date
+
+    assert_equal 0, result[:known]
+    assert_equal 1, result[:unknown]
+    assert_nil result[:amount]
+  end
+
+  test "realized year to date is a measured zero when there were no sales" do
+    result = harvest(@owner).realized_year_to_date
+
+    assert_equal 0, result[:known] + result[:unknown]
+    assert_equal 0, result[:amount].amount
+  end
+
   private
     def harvest(user)
       TaxLossHarvest.new(user: user, today: @today)
