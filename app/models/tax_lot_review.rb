@@ -9,8 +9,6 @@
 # user can access, and only taxable ones (gains elsewhere are not taxed on
 # realization).
 class TaxLotReview
-  # Matches TaxLossHarvest: held MORE than this many days is long-term.
-  LONG_TERM_DAYS = TaxLossHarvest::LONG_TERM_DAYS
   DEFAULT_WINDOW_DAYS = 60
 
   Lot = Data.define(:account, :security, :acquired_on, :quantity, :cost_basis, :market_value, :currency, :term, :days_to_long_term) do
@@ -38,6 +36,14 @@ class TaxLotReview
   def unmeasured_count
     build unless defined?(@unmeasured_count)
     @unmeasured_count
+  end
+
+  # Open positions in taxable accounts for which the broker supplied no lot set
+  # that adds up to the held quantity. They are absent from every figure, so the
+  # page reports them instead of letting "no lots" look like "nothing to review".
+  def positions_without_lots
+    build unless defined?(@positions_without_lots)
+    @positions_without_lots
   end
 
   def excluded_account_count
@@ -71,24 +77,28 @@ class TaxLotReview
     def build
       @lots = []
       @unmeasured_count = 0
+      @positions_without_lots = 0
       taxable = portfolio.accounts.select { |account| account.tax_treatment == :taxable }.map(&:id)
 
       portfolio.blocks.each do |block|
         next unless taxable.include?(block.account.id)
 
         block.positions.each do |position|
+          @positions_without_lots += 1 if position.lots.empty?
+
           position.lots.each do |lot|
-            if lot.acquired_on.nil? || lot.cost_basis.nil? || lot.market_value.nil? || block.currency != currency
+            long_term = HoldingPeriod.long_term?(lot.acquired_on, today)
+            measurable = !long_term.nil? && lot.cost_basis && lot.market_value && position.currency == currency
+            unless measurable
               @unmeasured_count += 1
               next
             end
 
-            held_days = (today - lot.acquired_on).to_i
-            term = held_days > LONG_TERM_DAYS ? :long : :short
+            term = long_term ? :long : :short
             @lots << Lot.new(
               account: block.account, security: position.security, acquired_on: lot.acquired_on, quantity: lot.quantity,
-              cost_basis: lot.cost_basis, market_value: lot.market_value, currency: block.currency, term: term,
-              days_to_long_term: term == :short ? LONG_TERM_DAYS + 1 - held_days : nil
+              cost_basis: lot.cost_basis, market_value: lot.market_value, currency: position.currency, term: term,
+              days_to_long_term: HoldingPeriod.days_to_long_term(lot.acquired_on, today)
             )
           end
         end

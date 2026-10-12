@@ -10,13 +10,16 @@
 <% content_for :page_header do %>
   <div class="mb-6 space-y-1">
     <h1 class="text-xl lg:text-3xl font-medium text-primary">Tax-Aware Lot Review</h1>
-    <p class="max-w-3xl text-sm text-secondary">Unrealized gains and losses by broker tax lot in taxable accounts, split by holding period (long-term means held more than 365 days). This is dates and arithmetic only: no tax rates, no tax owed, no advice. Gains and losses are not netted against each other.</p>
+    <p class="max-w-3xl text-sm text-secondary">Unrealized gains and losses by broker tax lot in taxable accounts, split by holding period (long-term means held more than one year, by calendar anniversary). This is dates and arithmetic only: no tax rates, no tax owed, no advice. Gains and losses are not netted against each other.</p>
   </div>
 <% end %>
 
 <div class="space-y-6 pb-6 lg:pb-12">
   <% if review.excluded_account_count.positive? %>
     <p class="text-xs text-secondary"><%= review.excluded_account_count %> tax-advantaged account<%= "s" if review.excluded_account_count != 1 %> left out, because gains there are not taxed when realized.</p>
+  <% end %>
+  <% if review.positions_without_lots.positive? %>
+    <p class="rounded-lg bg-container-inset px-4 py-3 text-sm text-secondary" role="status"><%= review.positions_without_lots %> open position<%= "s" if review.positions_without_lots != 1 %> in taxable accounts <%= review.positions_without_lots == 1 ? "has" : "have" %> no broker lot data that matches the held quantity, so <%= review.positions_without_lots == 1 ? "it is" : "they are" %> not included in any figure below.</p>
   <% end %>
   <% if review.unmeasured_count.positive? %>
     <p class="rounded-lg bg-container-inset px-4 py-3 text-sm text-secondary" role="status"><%= review.unmeasured_count %> lot<%= "s" if review.unmeasured_count != 1 %> could not be measured (the broker did not supply an acquisition date, cost basis or value, or the lot is in another currency) and <%= review.unmeasured_count == 1 ? "is" : "are" %> not included in any figure below.</p>

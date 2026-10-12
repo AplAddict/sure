@@ -17,7 +17,6 @@
 class TaxLossHarvest
   # A position is a "candidate" once the loss passes this share of its cost.
   CANDIDATE_LOSS_PCT = BigDecimal("5")
-  LONG_TERM_DAYS = 365
   WASH_WINDOW_DAYS = 30
   QTY_TOLERANCE = BigDecimal("0.000001")
   TAXABLE_TYPES = %w[Investment Crypto].freeze
@@ -238,7 +237,7 @@ class TaxLossHarvest
       held = lots.sum(BigDecimal("0")) { |_date, quantity| quantity }
       return unknown if (held - holding.qty.to_d).abs > [ holding.qty.to_d * BigDecimal("0.001"), QTY_TOLERANCE ].max
 
-      long_qty = lots.select { |date, _| (today - date).to_i > LONG_TERM_DAYS }.sum(BigDecimal("0")) { |_d, q| q }
+      long_qty = lots.select { |date, _| HoldingPeriod.long_term?(date, today) }.sum(BigDecimal("0")) { |_d, q| q }
       short_qty = held - long_qty
       term = if long_qty <= QTY_TOLERANCE then :short
       elsif short_qty <= QTY_TOLERANCE then :long

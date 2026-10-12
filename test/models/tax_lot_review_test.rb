@@ -93,6 +93,65 @@ class TaxLotReviewTest < ActiveSupport::TestCase
     assert_empty TaxLotReview.new(user: users(:empty), today: @today).lots
   end
 
+  test "positions in a taxable account with no verified broker lots are counted, not silently omitted" do
+    baseline = TaxLotReview.new(user: @user, today: @today).positions_without_lots
+    account = taxable_account
+    covered = Security.create!(ticker: "TLRG", exchange_mic: "XNAS", name: "Covered")
+    uncovered = Security.create!(ticker: "TLRH", exchange_mic: "XNAS", name: "No Lots")
+    holding(account, covered, qty: 10)
+    holding(account, uncovered, qty: 5)
+    stub_lots(account, "TLRG", [ lot(10, 1000, 1500, @today - 100.days) ])
+
+    review = TaxLotReview.new(user: @user, today: @today)
+
+    assert_equal 1, review.lots.size
+    assert_equal baseline + 1, review.positions_without_lots
+  end
+
+  test "a lot is measured in its position's currency, not the account's" do
+    account = taxable_account
+    security = Security.create!(ticker: "TLRI", exchange_mic: "XNAS", name: "Foreign Pos")
+    foreign_lot = PortfolioHoldings::Lot.new(acquired_on: @today - 100.days, quantity: BigDecimal("10"), cost_basis: BigDecimal("1000"), market_value: BigDecimal("1500"))
+    position = PortfolioHoldings::Position.new(account: account, security: security, quantity: BigDecimal("10"), price: BigDecimal("150"), avg_cost: BigDecimal("100"),
+                                               cost_basis: BigDecimal("1000"), market_value: BigDecimal("1500"), currency: "EUR", weight: nil, lots: [ foreign_lot ], day_change: nil)
+    block = PortfolioHoldings::AccountBlock.new(account: account, positions: [ position ], market_value: BigDecimal("1500"), cost_basis: BigDecimal("1000"), cash: 0, currency: "USD")
+    PortfolioHoldings.any_instance.stubs(:blocks).returns([ block ])
+    PortfolioHoldings.any_instance.stubs(:accounts).returns([ account ])
+
+    review = TaxLotReview.new(user: @user, today: @today)
+
+    assert_empty review.lots
+    assert_equal 1, review.unmeasured_count
+  end
+
+  test "an acquisition date in the future is unmeasured, not a negative holding period" do
+    account = taxable_account
+    security = Security.create!(ticker: "TLRJ", exchange_mic: "XNAS", name: "Future")
+    holding(account, security, qty: 10)
+    stub_lots(account, "TLRJ", [ lot(10, 1000, 1500, @today + 5.days) ])
+
+    review = TaxLotReview.new(user: @user, today: @today)
+
+    assert_empty review.lots
+    assert_equal 1, review.unmeasured_count
+  end
+
+  test "long-term is judged by calendar anniversary, so a span containing Feb 29 does not flip a day early" do
+    account = taxable_account
+    security = Security.create!(ticker: "TLRK", exchange_mic: "XNAS", name: "Leap")
+    holding(account, security, qty: 10)
+    # 2023-03-01 to 2024-03-01 is 366 days (it contains Feb 29, 2024) but exactly one year.
+    stub_lots(account, "TLRK", [ lot(10, 1000, 1100, Date.new(2023, 3, 1)) ])
+
+    on_anniversary = TaxLotReview.new(user: @user, today: Date.new(2024, 3, 1)).lots.last
+    day_after = TaxLotReview.new(user: @user, today: Date.new(2024, 3, 2)).lots.last
+
+    assert_equal :short, on_anniversary.term
+    assert_equal 1, on_anniversary.days_to_long_term
+    assert_equal :long, day_after.term
+    assert_nil day_after.days_to_long_term
+  end
+
   private
     def taxable_account
       @family.accounts.create!(name: "Review Taxable #{SecureRandom.hex(3)}", balance: 5000, cash_balance: 0, currency: "USD", owner: @user,

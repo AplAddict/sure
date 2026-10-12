@@ -88,10 +88,63 @@ class InvestmentIncomeReviewTest < ActiveSupport::TestCase
     assert_equal BigDecimal("0"), InvestmentIncomeReview.new(user: users(:empty), period: @period).option_premium[:net]
   end
 
+  test "a reversal reduces income instead of being turned positive" do
+    add_entry("Dividend", -30)
+    add_entry("Dividend", 12)   # broker reversal: opposite sign
+
+    assert_equal BigDecimal("18"), InvestmentIncomeReview.new(user: @user, period: @period).total(:dividends)
+  end
+
+  test "option premium keeps the broker's cash sign, so fees exceeding proceeds reduce the total" do
+    snaptrade_for(@account, [
+      option_activity("SELL_TO_OPEN", 100.00, date: @period.start_date),
+      option_activity("SELL_TO_OPEN", -0.66, date: @period.start_date)   # fees exceeded proceeds
+    ])
+
+    premium = InvestmentIncomeReview.new(user: @user, period: @period).option_premium
+
+    assert_equal BigDecimal("99.34"), premium[:sold_to_open]
+    assert_equal BigDecimal("99.34"), premium[:net]
+  end
+
+  test "one unconvertible option trade makes only its own category unavailable, not a partial sum" do
+    snaptrade_for(@account, [
+      option_activity("SELL_TO_OPEN", 100.00, date: @period.start_date),
+      option_activity("SELL_TO_OPEN", 10.00, date: @period.start_date, currency: "EUR"),
+      option_activity("BUY_TO_CLOSE", -20.00, date: @period.start_date)
+    ])
+
+    premium = InvestmentIncomeReview.new(user: @user, period: @period).option_premium
+
+    assert_nil premium[:sold_to_open]
+    assert_equal BigDecimal("20.00"), premium[:bought_to_close]
+    assert_nil premium[:net]
+  end
+
+  test "an option trade with no currency is unavailable rather than assumed to be the family currency" do
+    snaptrade_for(@account, [ option_activity("SELL_TO_OPEN", 50.00, date: @period.start_date, currency: nil) ])
+
+    premium = InvestmentIncomeReview.new(user: @user, period: @period).option_premium
+
+    assert_nil premium[:sold_to_open]
+    assert_nil premium[:net]
+    assert_equal 1, premium[:unconverted]
+  end
+
+  test "period market return is unavailable without balance evidence in the period" do
+    assert_nil InvestmentIncomeReview.new(user: @user, period: @period).period_return_trend
+  end
+
+  test "period market return is unavailable when an investment account is in another currency" do
+    @family.accounts.create!(name: "Euro #{SecureRandom.hex(3)}", balance: 1000, cash_balance: 0, currency: "EUR", owner: @user, accountable: Investment.new)
+
+    assert_nil InvestmentIncomeReview.new(user: @user, period: @period).period_return_trend
+  end
+
   private
     def option_activity(option_type, amount, date:, currency: "USD")
       { "type" => option_type.start_with?("SELL") ? "SELL" : "BUY", "option_type" => option_type, "amount" => amount,
-        "trade_date" => "#{date}T04:00:00Z", "currency" => { "code" => currency } }
+        "trade_date" => "#{date}T04:00:00Z", "currency" => (currency ? { "code" => currency } : nil) }
     end
 
     def snaptrade_for(account, activities)

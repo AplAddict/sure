@@ -11,6 +11,7 @@ class InvestmentIncomeReview
     contributions: "Contribution",
     withdrawals: "Withdrawal"
   }.freeze
+  INFLOW_KINDS = %i[dividends interest contributions].freeze
 
   attr_reader :user, :period
 
@@ -56,21 +57,26 @@ class InvestmentIncomeReview
 
   # Option premium cash flow from the broker's own open/close tags on each
   # activity. Amounts are the broker's signed, fee-inclusive cash figures
-  # (credits positive, debits negative). Assignments, exercises and expirations
-  # carry no premium amount and are not counted. This is cash premium, not
-  # realized profit: an open short has not been closed out yet.
+  # (credit positive, debit negative) and their signs are preserved, so a sale
+  # whose fees exceed its proceeds or a reversal reduces the total instead of
+  # being counted as income. Assignments, exercises and expirations carry no
+  # premium amount and are not counted. This is cash premium, not realized
+  # profit: an open short has not been closed out yet.
   #
-  # Only activities already in the family currency are summed (the broker
-  # supplies no FX rate); any other currency makes the net unavailable (nil).
+  # Only activities that state the family currency are summed (the broker
+  # supplies no FX rate, and a missing currency is unknown, not assumed). A
+  # category containing any unusable activity is nil as a whole rather than a
+  # partial sum, and the net is nil when any category is.
   def option_premium
     @option_premium ||= begin
       sums = OPTION_PREMIUM_TAGS.values.index_with { BigDecimal("0") }
+      broken = OPTION_PREMIUM_TAGS.values.index_with { false }
       count = 0
       unconverted = 0
 
       option_activities.each do |activity|
         kind = OPTION_PREMIUM_TAGS[activity[:option_type]]
-        code = activity.dig(:currency, :code).presence || currency
+        code = activity.dig(:currency, :code).presence
         amount = begin
           BigDecimal(activity[:amount].to_s)
         rescue ArgumentError
@@ -78,15 +84,22 @@ class InvestmentIncomeReview
         end
 
         if amount.nil? || code != currency
+          broken[kind] = true
           unconverted += 1
         else
-          sums[kind] += amount.abs
+          sums[kind] += amount
           count += 1
         end
       end
 
-      net = unconverted.positive? ? nil : sums[:sold_to_open] + sums[:sold_to_close] - sums[:bought_to_open] - sums[:bought_to_close]
-      sums.merge(net: net, count: count, unconverted: unconverted)
+      credits = %i[sold_to_open sold_to_close]
+      shown = sums.to_h do |kind, sum|
+        value = broken[kind] ? nil : (credits.include?(kind) ? sum : -sum)
+        [ kind, value ]
+      end
+      net = broken.values.any? ? nil : sums.values.sum
+
+      shown.merge(net: net, count: count, unconverted: unconverted)
     end
   end
 
@@ -101,7 +114,16 @@ class InvestmentIncomeReview
     end
   end
 
+  # Market movement for the period, or nil (unavailable). The shared statement
+  # treats a missing exchange rate as parity and a period with no balance rows as
+  # a measured zero; neither is acceptable here, so the review answers only when
+  # every investment account is in the family currency and has balance rows in
+  # the period.
   def period_return_trend
+    return nil if accounts.none?
+    return nil if accounts.where.not(currency: currency).exists?
+    return nil unless Balance.where(account_id: accounts.select(:id), date: period.date_range).exists?
+
     InvestmentStatement.new(family, user: user).period_return_trend(period: period)
   end
 
@@ -164,6 +186,14 @@ class InvestmentIncomeReview
         end
       end
 
-      @totals = LABELS.keys.index_with { |kind| @missing_fx[kind].positive? ? nil : sums[kind].abs }
+      # Ledger sign convention: money arriving in the account is negative
+      # (dividends, interest, contributions) and money leaving is positive
+      # (withdrawals). Signs are applied to the NET of each label, so a reversal
+      # reduces the total and a net-negative total stays negative.
+      @totals = LABELS.keys.index_with do |kind|
+        next nil if @missing_fx[kind].positive?
+
+        INFLOW_KINDS.include?(kind) ? -sums[kind] : sums[kind]
+      end
     end
 end
