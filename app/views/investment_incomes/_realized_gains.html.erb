@@ -1,0 +1,23 @@
+<%# locals: (realized:, currency:) %>
+<div class="space-y-3">
+  <p class="text-sm text-secondary"><%= t("investment_incomes.show.realized_gains_hint") %></p>
+  <% if realized.partial? %>
+    <p class="rounded-lg bg-container-inset px-4 py-3 text-sm text-secondary" role="status"><%= t("investment_incomes.show.realized_partial", count: realized.excluded_count) %></p>
+  <% end %>
+  <% if realized.measured_count.zero? && !realized.partial? %>
+    <p class="text-sm text-secondary"><%= t("investment_incomes.show.realized_empty") %></p>
+  <% else %>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <%= investment_stat t("investment_incomes.show.realized_gains_label"), investment_money(realized.gains, currency) %>
+      <%= investment_stat t("investment_incomes.show.realized_losses_label"), investment_money(realized.losses, currency) %>
+      <%= investment_stat t("investment_incomes.show.realized_net_label"), investment_gain(realized.net, currency), hint: t("investment_incomes.show.sales", count: realized.measured_count) %>
+    </div>
+    <% if realized.excluded_reasons.any? %>
+      <ul class="text-xs text-secondary">
+        <% realized.excluded_reasons.each do |reason, count| %>
+          <li><%= count %> · <%= t("investment_incomes.show.realized_excluded_#{reason}") %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+</div>

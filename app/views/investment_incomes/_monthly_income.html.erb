@@ -1,0 +1,28 @@
+<%# locals: (review:, currency:) %>
+<% rows = review.monthly_income %>
+<% if rows.empty? %>
+  <p class="text-sm text-secondary"><%= t("investment_incomes.show.monthly_income_empty") %></p>
+<% else %>
+  <div class="overflow-x-auto rounded-lg bg-container-inset p-1">
+    <table class="w-full min-w-[28rem] text-sm">
+      <thead>
+        <tr class="text-xs uppercase text-secondary">
+          <th scope="col" class="px-4 py-2 text-left font-medium"><%= t("investment_incomes.show.month") %></th>
+          <th scope="col" class="px-4 py-2 text-right font-medium"><%= t("investment_incomes.show.dividends") %></th>
+          <th scope="col" class="px-4 py-2 text-right font-medium"><%= t("investment_incomes.show.interest") %></th>
+          <th scope="col" class="px-4 py-2 text-right font-medium"><%= t("investment_incomes.show.total") %></th>
+        </tr>
+      </thead>
+      <tbody class="bg-container">
+        <% rows.each do |row| %>
+          <tr class="border-t border-tertiary">
+            <td class="px-4 py-2 text-primary"><%= l(row.month, format: "%b %Y") %></td>
+            <td class="px-4 py-2 text-right"><%= investment_money(row.dividends, currency) %></td>
+            <td class="px-4 py-2 text-right"><%= investment_money(row.interest, currency) %></td>
+            <td class="px-4 py-2 text-right font-medium"><%= investment_money(row.total, currency) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

@@ -38,3 +38,34 @@ en:
       market_value: Market value
       gain: Gain / loss
       weight: Weight
+    allocation_section: Allocation
+    data_quality_section: Data quality
+    group_by: Group allocation by
+    groupings:
+      security: Security
+      asset_class: Asset class
+      asset_sub_class: Sub-class
+      sector: Sector
+      country: Country
+      region: Region
+      account: Account
+      currency: Currency
+      kind: Kind
+    segment_value: Value
+    segment_weight: Weight
+    allocation_empty: No holdings with a current value to allocate.
+    allocation_aria_all: Allocation across all accessible investment accounts
+    allocation_note: Segments are each holding's current market value in your family currency. A holding with no value for the chosen grouping is shown as Unclassified.
+    allocation_excluded:
+      one: "1 holding in %{currencies} has no exchange rate, so it is left out instead of being counted 1:1."
+      other: "%{count} holdings in %{currencies} have no exchange rate, so they are left out instead of being counted 1:1."
+    data_quality_clear: Every holding has a cost basis and a recent price.
+    data_quality:
+      missing_cost_basis:
+        title: Missing cost basis
+        description: Gain and loss figures for these positions are unavailable until a cost basis is known.
+      stale_price:
+        title: Stale or missing price
+        description: "No price in the last %{days} days, so market value may be out of date."
+      last_priced: "Last priced %{date}"
+      never_priced: Never priced

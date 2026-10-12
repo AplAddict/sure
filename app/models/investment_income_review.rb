@@ -107,6 +107,52 @@ class InvestmentIncomeReview
     !option_premium[:net].nil?
   end
 
+  MoneyWeightedReturn = Data.define(:rate, :ambiguous, :start_value, :end_value, :flow_count)
+
+  # Money-weighted (XIRR) return for the period, as a rate over the period's own
+  # length (not annualised), from the real balance at the day before the period,
+  # the explicit Contribution/Withdrawal entries inside it, and the closing
+  # balance. nil (unavailable) when any ingredient is missing: an account
+  # without both balances, a flow that needs an exchange rate we lack, a
+  # foreign-currency account, or flows that never change sign. Never guessed.
+  def money_weighted_return
+    return @money_weighted_return if defined?(@money_weighted_return)
+
+    @money_weighted_return = compute_money_weighted_return
+  end
+
+  def money_weighted_return_available?
+    !money_weighted_return.nil?
+  end
+
+  MonthlyIncome = Data.define(:month, :dividends, :interest) do
+    def total = dividends.nil? || interest.nil? ? nil : dividends + interest
+  end
+
+  # Dividends and interest by the calendar month they were paid, from the same
+  # explicit labels as the totals. A month's category that needs a missing
+  # exchange rate is nil (unavailable) rather than a partial sum.
+  def monthly_income
+    @monthly_income ||= begin
+      rows = Entry.joins("INNER JOIN transactions ON transactions.id = entries.entryable_id AND entries.entryable_type = 'Transaction'")
+                  .where(account_id: accounts.select(:id), excluded: false, date: period.date_range)
+                  .where(transactions: { investment_activity_label: %w[Dividend Interest] })
+                  .pluck("transactions.investment_activity_label", "entries.amount", "entries.currency", "entries.date")
+      foreign = rows.map { |_, _, cur, _| cur }.uniq - [ currency ]
+      rates = foreign.empty? ? {} : ExchangeRate.where(from_currency: foreign, to_currency: currency, date: rows.map(&:last).uniq)
+                                                .pluck(:from_currency, :date, :rate).to_h { |from, date, rate| [ [ from, date ], rate ] }
+      months = Hash.new { |hash, month| hash[month] = { "Dividend" => BigDecimal("0"), "Interest" => BigDecimal("0") } }
+
+      rows.each do |label, amount, cur, date|
+        bucket = months[date.beginning_of_month]
+        rate = cur == currency ? 1 : rates[[ cur, date ]]
+        bucket[label] = rate.nil? || bucket[label].nil? ? nil : bucket[label] - amount.to_d * rate.to_d
+      end
+
+      months.map { |month, sums| MonthlyIncome.new(month: month, dividends: sums["Dividend"], interest: sums["Interest"]) }.sort_by(&:month)
+    end
+  end
+
   def accounts
     @accounts ||= begin
       scope = family.accounts.visible.included_in_reports.where(accountable_type: %w[Investment Crypto])
@@ -128,6 +174,58 @@ class InvestmentIncomeReview
   end
 
   private
+
+    def compute_money_weighted_return
+      return nil if accounts.none?
+      return nil if accounts.where.not(currency: currency).exists?
+
+      account_ids = accounts.pluck(:id)
+      range = period.date_range
+      # A period that has not ended yet is measured to today, never to a future
+      # day that has no balance.
+      last_day = [ range.end, Date.current ].min
+      opening_date = range.begin - 1.day
+      start_value = balances_at(account_ids, opening_date)
+      end_value = balances_at(account_ids, last_day)
+      return nil if start_value.nil? || end_value.nil?
+
+      flows = [ [ range.begin, -start_value ] ]
+      flow_rows = Entry.joins("INNER JOIN transactions ON transactions.id = entries.entryable_id AND entries.entryable_type = 'Transaction'")
+                       .where(account_id: account_ids, excluded: false, date: range.begin..last_day)
+                       .where(transactions: { investment_activity_label: %w[Contribution Withdrawal] })
+                       .pluck("entries.date", "entries.amount", "entries.currency")
+      return nil if flow_rows.any? { |_, _, cur| cur != currency }
+
+      # Ledger sign: money arriving in the account is negative, so negating it
+      # gives the investor's outflow; a withdrawal is the investor's inflow.
+      flow_rows.each { |date, amount, _| flows << [ date, amount.to_d ] }
+      flows << [ last_day, end_value ]
+
+      days = (last_day - range.begin).to_i
+      return nil unless days.positive?
+
+      xirr = Portfolio::Xirr.new(flows, days_per_unit: days)
+      rate = xirr.rate
+      MoneyWeightedReturn.new(rate: rate, ambiguous: xirr.ambiguous?, start_value: start_value, end_value: end_value, flow_count: flows.size - 2)
+    rescue Portfolio::Xirr::NoSignChangeError, Portfolio::Xirr::NoDurationError, Portfolio::Xirr::ConvergenceError
+      nil
+    end
+
+    # How stale a recorded balance may be and still stand for a date. Beyond it
+    # the value is unknown, not carried forward.
+    BALANCE_FRESHNESS_DAYS = 5
+
+    # The latest recorded balance on or before the date (within the freshness
+    # window) for every account, or nil when any account has none: an unknown
+    # opening/closing value is not zero.
+    def balances_at(account_ids, date)
+      rows = Balance.where(account_id: account_ids, date: (date - BALANCE_FRESHNESS_DAYS)..date)
+                    .select("DISTINCT ON (account_id) account_id, end_balance, currency")
+                    .order("account_id, date DESC").to_a
+      return nil if rows.size != account_ids.size || rows.any? { |row| row.currency != currency }
+
+      rows.sum(BigDecimal("0")) { |row| row.end_balance.to_d }
+    end
     def option_activities
       range = period.date_range
 

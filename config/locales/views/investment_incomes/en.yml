@@ -32,3 +32,23 @@ en:
       performance: Performance
       market_return: Period market return
       market_return_hint: Market movement only; excludes contributions and withdrawals. Unavailable without balance data in the period.
+      money_weighted: Money-weighted return
+      money_weighted_hint: "Return on the money actually invested, weighted by when contributions and withdrawals happened (XIRR). Measured over this period, not annualised."
+      money_weighted_ambiguous: "More than one rate fits these cash flows, so treat this figure as approximate."
+      money_weighted_unavailable: "Unavailable without an opening and closing balance for every account and complete, same-currency cash flows."
+      monthly_income: Income by month
+      month: Month
+      total: Total
+      monthly_income_empty: No labeled dividends or interest in this period.
+      realized_gains: Realized gains and losses
+      realized_gains_hint: "Sales measured against the position's average cost, converted at the rate on the day of sale. Transfers between your own accounts are not sales."
+      realized_gains_label: Realized gains
+      realized_losses_label: Realized losses
+      realized_net_label: Net realized
+      realized_partial:
+        one: "1 sale could not be measured and is left out (see below), so these totals are partial."
+        other: "%{count} sales could not be measured and are left out (see below), so these totals are partial."
+      realized_excluded_no_cost_basis: "No cost basis for the position on the sale date"
+      realized_excluded_no_exchange_rate: "No exchange rate on the sale date"
+      realized_empty: No sales in this period.
+      sales: Sales

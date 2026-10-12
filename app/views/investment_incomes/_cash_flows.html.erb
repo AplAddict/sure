@@ -1,0 +1,6 @@
+<%# locals: (review:, currency:) %>
+<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+  <%= investment_stat t("investment_incomes.show.contributions"), investment_money(review.total(:contributions), currency) %>
+  <%= investment_stat t("investment_incomes.show.withdrawals"), investment_money(review.total(:withdrawals), currency) %>
+  <%= investment_stat t("investment_incomes.show.net_contributions"), investment_money(review.net_contributions, currency) %>
+</div>

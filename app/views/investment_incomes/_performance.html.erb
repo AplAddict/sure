@@ -1,0 +1,11 @@
+<%# locals: (review:, currency:) %>
+<% trend = review.period_return_trend %>
+<% mwr = review.money_weighted_return %>
+<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+  <%= investment_stat t("investment_incomes.show.market_return"),
+        (trend ? investment_gain(trend.value.amount, currency, percent: trend.percent) : unavailable_cell),
+        hint: t("investment_incomes.show.market_return_hint") %>
+  <%= investment_stat t("investment_incomes.show.money_weighted"),
+        (mwr ? tag.span(number_to_percentage(mwr.rate * 100, precision: 2), class: "privacy-sensitive #{gain_tone_class(mwr.rate)}") : unavailable_cell(t("investment_incomes.show.money_weighted_unavailable"))),
+        hint: mwr&.ambiguous ? t("investment_incomes.show.money_weighted_ambiguous") : t("investment_incomes.show.money_weighted_hint") %>
+</div>

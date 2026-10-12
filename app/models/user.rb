@@ -688,6 +688,36 @@ class User < ApplicationRecord
     end
   end
 
+  # Reorderable/collapsible sections on the Investments pages. Each page is a
+  # namespace; order and collapsed state live under
+  # "investments_<namespace>_section_order" / "_collapsed_sections", so pages
+  # never read or write each other's keys and nothing else in preferences can
+  # be reached through this API.
+  INVESTMENT_SECTION_NAMESPACES = %w[income holdings].freeze
+
+  def investment_section_order(namespace)
+    Array(preferences&.[]("investments_#{investment_section_namespace!(namespace)}_section_order")).map(&:to_s)
+  end
+
+  def investment_section_collapsed?(namespace, section_key)
+    preferences&.dig("investments_#{investment_section_namespace!(namespace)}_collapsed_sections", section_key.to_s) == true
+  end
+
+  # `order` replaces the order; `collapsed` merges (one key per toggle) so quick
+  # successive toggles keep each other's state.
+  def update_investment_sections(namespace, order: nil, collapsed: nil)
+    prefix = "investments_#{investment_section_namespace!(namespace)}"
+    return true if order.nil? && collapsed.nil?
+
+    transaction do
+      lock!
+      updated = (preferences || {}).deep_dup
+      updated["#{prefix}_section_order"] = order unless order.nil?
+      updated["#{prefix}_collapsed_sections"] = (updated["#{prefix}_collapsed_sections"] || {}).merge(collapsed) unless collapsed.nil?
+      update!(preferences: updated)
+    end
+  end
+
   # Reports preferences management
   def reports_section_collapsed?(section_key)
     preferences&.dig("reports_collapsed_sections", section_key) == true
@@ -811,6 +841,13 @@ class User < ApplicationRecord
 
     def skip_password_validation?
       skip_password_validation == true
+    end
+
+    def investment_section_namespace!(namespace)
+      namespace = namespace.to_s
+      raise ArgumentError, "unknown investment section namespace #{namespace.inspect}" unless INVESTMENT_SECTION_NAMESPACES.include?(namespace)
+
+      namespace
     end
 
     def default_dashboard_section_order

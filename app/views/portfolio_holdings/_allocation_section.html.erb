@@ -1,0 +1,43 @@
+<%# locals: (allocation:, currency:) %>
+<% palette = %w[#2563eb #16a34a #d97706 #9333ea #dc2626 #0891b2 #be185d #65a30d #4f46e5 #ea580c #0d9488 #7c3aed] %>
+<div class="space-y-3" data-testid="allocation-section">
+  <nav class="flex flex-wrap gap-2" aria-label="<%= t("portfolio_holdings.group_by") %>">
+    <% InvestmentAllocation::GROUPINGS.each do |grouping| %>
+      <%= link_to t("portfolio_holdings.groupings.#{grouping}"), portfolio_holdings_path(request.query_parameters.merge("by" => grouping)),
+            class: "rounded-lg border border-tertiary px-3 py-1 text-xs font-medium focus-ring #{allocation.by == grouping ? "text-primary bg-container-inset" : "text-secondary"}",
+            aria: { current: (allocation.by == grouping ? "true" : nil) },
+            data: { turbo_prefetch: false } %>
+    <% end %>
+  </nav>
+  <% if allocation.excluded_count.positive? %>
+    <p class="rounded-lg bg-container-inset px-4 py-3 text-sm text-secondary" role="status"><%= t("portfolio_holdings.allocation_excluded", count: allocation.excluded_count, currencies: allocation.missing_rates.join(", ")) %></p>
+  <% end %>
+  <% if allocation.segments.empty? %>
+    <p class="text-sm text-secondary"><%= t("portfolio_holdings.allocation_empty") %></p>
+  <% else %>
+    <div class="flex h-3 w-full overflow-hidden rounded-full bg-tertiary" role="img" aria-label="<%= t("portfolio_holdings.allocation_aria_all") %>">
+      <% allocation.segments.each_with_index do |segment, index| %>
+        <span style="width: <%= segment.weight.to_f.round(2) %>%; background: <%= palette[index % palette.size] %>" title="<%= segment.label %> <%= number_to_percentage(segment.weight, precision: 1) %>"></span>
+      <% end %>
+    </div>
+    <div class="overflow-x-auto rounded-lg bg-container-inset p-1">
+      <table class="w-full min-w-[24rem] text-sm">
+        <thead><tr class="text-xs uppercase text-secondary">
+          <th scope="col" class="px-4 py-2 text-left font-medium"><%= t("portfolio_holdings.groupings.#{allocation.by}") %></th>
+          <th scope="col" class="px-4 py-2 text-right font-medium"><%= t("portfolio_holdings.segment_value") %></th>
+          <th scope="col" class="px-4 py-2 text-right font-medium"><%= t("portfolio_holdings.segment_weight") %></th>
+        </tr></thead>
+        <tbody class="bg-container">
+          <% allocation.segments.each_with_index do |segment, index| %>
+            <tr class="border-t border-tertiary">
+              <td class="px-4 py-2 text-primary"><span class="mr-2 inline-block h-2 w-2 rounded-full" style="background: <%= palette[index % palette.size] %>"></span><%= segment.label %> <span class="text-xs text-secondary">· <%= segment.count %></span></td>
+              <td class="px-4 py-2 text-right"><%= investment_money(segment.amount, currency) %></td>
+              <td class="px-4 py-2 text-right"><%= segment.weight ? number_to_percentage(segment.weight, precision: 1) : "—" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-xs text-secondary"><%= t("portfolio_holdings.allocation_note") %></p>
+  <% end %>
+</div>

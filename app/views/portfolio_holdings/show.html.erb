@@ -47,6 +47,7 @@
 
 <%= turbo_frame_tag "investment_workspace" do %>
   <div class="space-y-6 pb-6 lg:pb-12" data-controller="holding-lots">
+  <%= render "investments/sections", sections: @sections, namespace: "holdings", url: investment_section_preferences_path("holdings"), preference_key: "investments_holdings" %>
   <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :holdings, title: t("portfolio_holdings.title"), subtitle: t("portfolio_holdings.subtitle") %><% end %>
   <% if blocks.empty? %>
     <%= render DS::EmptyState.new(icon: "briefcase", title: t("portfolio_holdings.empty_title"), description: t("portfolio_holdings.empty_description")) %>

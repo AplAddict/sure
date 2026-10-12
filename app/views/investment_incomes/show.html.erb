@@ -1,8 +1,4 @@
 <% content_for :page_title, t(".title") %>
-<% review = @review %>
-<% currency = review.currency %>
-<% premium = review.option_premium %>
-<% closing = (premium[:sold_to_close] && premium[:bought_to_close]) ? premium[:sold_to_close] - premium[:bought_to_close] : nil %>
 
 <% content_for :page_header do %>
   <div class="mb-6">
@@ -23,48 +19,11 @@
 
 <%= turbo_frame_tag "investment_workspace" do %>
   <div class="space-y-6 pb-6 lg:pb-12">
-  <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :income, title: t(".title"), subtitle: t(".subtitle", period: @period.label.downcase, from: l(@period.start_date), to: l(@period.end_date)) %><% end %>
-  <% if review.accounts.none? %>
-    <%= render DS::EmptyState.new(icon: "briefcase", title: t(".empty_title"), description: t(".empty_description")) %>
-  <% else %>
-    <% if review.missing_fx_count.positive? %>
-      <p class="rounded-lg bg-container-inset px-4 py-3 text-sm text-secondary" role="status"><%= t(".missing_fx", count: review.missing_fx_count) %></p>
+    <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :income, title: t(".title"), subtitle: t(".subtitle", period: @period.label.downcase, from: l(@period.start_date), to: l(@period.end_date)) %><% end %>
+    <% if @review.accounts.none? %>
+      <%= render DS::EmptyState.new(icon: "briefcase", title: t(".empty_title"), description: t(".empty_description")) %>
+    <% else %>
+      <%= render "investments/sections", sections: @sections, namespace: "income", url: investment_section_preferences_path("income"), preference_key: "investments_income" %>
     <% end %>
-
-    <section aria-labelledby="inc-income" class="space-y-3">
-      <h2 id="inc-income" class="text-lg font-medium text-primary"><%= t(".income") %></h2>
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <%= investment_stat t(".dividends"), investment_money(review.total(:dividends), currency) %>
-        <%= investment_stat t(".interest"), investment_money(review.total(:interest), currency) %>
-        <%= investment_stat t(".total_income"), investment_money(review.income_total, currency) %>
-      </div>
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <%= investment_stat t(".premium_net"), investment_money(premium[:net], currency),
-              hint: premium[:net].nil? ? t(".premium_unconverted", count: premium[:unconverted]) : t(".premium_note", count: premium[:count]) %>
-        <%= investment_stat t(".premium_collected"), investment_money(premium[:sold_to_open], currency) %>
-        <%= investment_stat t(".premium_paid"), investment_money(premium[:bought_to_open], currency) %>
-        <%= investment_stat t(".premium_closing"), investment_money(closing, currency), hint: t(".premium_closing_hint") %>
-      </div>
-    </section>
-
-    <section aria-labelledby="inc-flows" class="space-y-3">
-      <h2 id="inc-flows" class="text-lg font-medium text-primary"><%= t(".cash_flows") %></h2>
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <%= investment_stat t(".contributions"), investment_money(review.total(:contributions), currency) %>
-        <%= investment_stat t(".withdrawals"), investment_money(review.total(:withdrawals), currency) %>
-        <%= investment_stat t(".net_contributions"), investment_money(review.net_contributions, currency) %>
-      </div>
-    </section>
-
-    <section aria-labelledby="inc-perf" class="space-y-3">
-      <h2 id="inc-perf" class="text-lg font-medium text-primary"><%= t(".performance") %></h2>
-      <% trend = review.period_return_trend %>
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <%= investment_stat t(".market_return"),
-              (trend ? investment_gain(trend.value.amount, currency, percent: trend.percent) : unavailable_cell),
-              hint: t(".market_return_hint") %>
-      </div>
-    </section>
-  <% end %>
-</div>
+  </div>
 <% end %>

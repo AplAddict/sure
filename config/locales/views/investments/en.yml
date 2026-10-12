@@ -11,3 +11,8 @@ en:
       events: Market events
       watchlist: Watchlist
       news: News
+    sections:
+      aria_label: Page sections
+      section_label: "%{title} section. Press Enter or Space to grab for reordering, then use arrow keys to move."
+      toggle: Toggle section visibility
+      drag: Drag to reorder section

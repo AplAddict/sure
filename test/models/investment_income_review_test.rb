@@ -141,7 +141,89 @@ class InvestmentIncomeReviewTest < ActiveSupport::TestCase
     assert_nil InvestmentIncomeReview.new(user: @user, period: @period).period_return_trend
   end
 
+  test "money-weighted return solves the account's balances and contributions" do
+    period = Period.custom(start_date: 40.days.ago.to_date, end_date: 10.days.ago.to_date)
+    balance_row(period.start_date - 1.day, 1000)
+    balance_row(period.end_date, 1700)
+    add_entry("Contribution", -500, date: period.start_date + 15.days)
+
+    result = InvestmentIncomeReview.new(user: @user, period: period).money_weighted_return
+    expected = Portfolio::Xirr.rate([
+      [ period.start_date, -1000 ], [ period.start_date + 15.days, -500 ], [ period.end_date, 1700 ]
+    ], days_per_unit: (period.end_date - period.start_date).to_i)
+
+    assert_in_delta expected.to_f, result.rate.to_f, 0.000001
+    assert_operator result.rate, :>, 0
+    assert_equal false, result.ambiguous
+  end
+
+  test "money-weighted return is unavailable without a start balance, an end balance, or complete flows" do
+    period = Period.custom(start_date: 40.days.ago.to_date, end_date: 10.days.ago.to_date)
+
+    assert_nil InvestmentIncomeReview.new(user: @user, period: period).money_weighted_return, "no balance rows"
+
+    balance_row(period.end_date, 1700)
+    assert_nil InvestmentIncomeReview.new(user: @user, period: period).money_weighted_return, "no opening balance"
+
+    balance_row(period.start_date - 1.day, 1000)
+    assert InvestmentIncomeReview.new(user: @user, period: period).money_weighted_return
+
+    add_entry("Contribution", -50, currency: "EUR", date: period.start_date + 3.days)
+    assert_nil InvestmentIncomeReview.new(user: @user, period: period).money_weighted_return, "a flow needing a missing exchange rate"
+  end
+
+  test "money-weighted return is unavailable when money only went one way" do
+    period = Period.custom(start_date: 40.days.ago.to_date, end_date: 10.days.ago.to_date)
+    @account.update!(balance: 0)
+    balance_row(period.start_date - 1.day, 0)
+    balance_row(period.end_date, 0)
+    add_entry("Contribution", -100, date: period.start_date + 3.days)
+
+    assert_nil InvestmentIncomeReview.new(user: @user, period: period).money_weighted_return
+  end
+
+  test "money-weighted return ignores accounts the user cannot access" do
+    period = Period.custom(start_date: 40.days.ago.to_date, end_date: 10.days.ago.to_date)
+    balance_row(period.start_date - 1.day, 1000)
+    balance_row(period.end_date, 1500)
+
+    assert_nil InvestmentIncomeReview.new(user: users(:empty), period: period).money_weighted_return
+  end
+
+  test "monthly income groups dividends and interest by the month they were paid" do
+    month = Period.custom(start_date: 70.days.ago.to_date, end_date: Date.current)
+    add_entry("Dividend", -10, date: 65.days.ago.to_date)
+    add_entry("Interest", -2, date: 64.days.ago.to_date)
+    add_entry("Dividend", -7, date: 3.days.ago.to_date)
+
+    rows = InvestmentIncomeReview.new(user: @user, period: month).monthly_income
+
+    assert_equal [ 12, 7 ], rows.sort_by(&:month).map { |row| row.total.to_i }
+    assert_equal [ 10, 7 ], rows.sort_by(&:month).map { |row| row.dividends.to_i }
+  end
+
+  test "a month needing a missing exchange rate is unavailable rather than partial" do
+    period = Period.custom(start_date: 40.days.ago.to_date, end_date: Date.current)
+    add_entry("Dividend", -10, date: 3.days.ago.to_date)
+    add_entry("Dividend", -9, currency: "EUR", date: 3.days.ago.to_date)
+
+    row = InvestmentIncomeReview.new(user: @user, period: period).monthly_income.last
+    assert_nil row.dividends
+    assert_nil row.total
+  end
+
   private
+    # Records the account's balance on a date, and zero for every other
+    # investment account the user can see, so the review has complete evidence.
+    def balance_row(date, value)
+      @account.balances.create!(date: date, currency: "USD", balance: value, cash_balance: 0, start_non_cash_balance: value)
+      InvestmentIncomeReview.new(user: @user, period: @period).accounts.where.not(id: @account.id).each do |other|
+        next if other.balances.exists?(date: date, currency: other.currency)
+
+        other.balances.create!(date: date, currency: other.currency, balance: 0, cash_balance: 0, start_non_cash_balance: 0)
+      end
+    end
+
     def option_activity(option_type, amount, date:, currency: "USD")
       { "type" => option_type.start_with?("SELL") ? "SELL" : "BUY", "option_type" => option_type, "amount" => amount,
         "trade_date" => "#{date}T04:00:00Z", "currency" => (currency ? { "code" => currency } : nil) }

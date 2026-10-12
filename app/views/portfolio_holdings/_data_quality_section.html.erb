@@ -1,0 +1,24 @@
+<%# locals: (issues:) %>
+<% if issues.empty? %>
+  <p class="text-sm text-secondary" data-testid="data-quality-clear"><%= t("portfolio_holdings.data_quality_clear") %></p>
+<% else %>
+  <div class="space-y-4" data-testid="data-quality-section">
+    <% issues.group_by(&:kind).each do |kind, kind_issues| %>
+      <div class="space-y-2" data-issue-kind="<%= kind %>">
+        <h3 class="text-sm font-medium text-primary"><%= t("portfolio_holdings.data_quality.#{kind}.title") %></h3>
+        <p class="text-xs text-secondary"><%= t("portfolio_holdings.data_quality.#{kind}.description", days: InvestmentAllocation::STALE_PRICE_AFTER_DAYS) %></p>
+        <ul class="divide-y divide-tertiary rounded-lg bg-container-inset">
+          <% kind_issues.each do |issue| %>
+            <li class="flex items-center justify-between gap-4 px-4 py-2 text-sm">
+              <span class="min-w-0"><%= link_to issue.security.ticker, research_ticker_path(issue.security.ticker), class: "font-medium text-primary hover:underline" %> <span class="truncate text-xs text-secondary"><%= issue.security.name %></span></span>
+              <span class="shrink-0 text-xs text-secondary">
+                <% if kind == :missing_cost_basis %><%= issue.holding.account.name %>
+                <% else %><%= issue.detail ? t("portfolio_holdings.data_quality.last_priced", date: l(issue.detail, format: :long)) : t("portfolio_holdings.data_quality.never_priced") %><% end %>
+              </span>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+  </div>
+<% end %>
