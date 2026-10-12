@@ -36,6 +36,34 @@ class HoldingTest < ActiveSupport::TestCase
     assert_in_delta 0.75, foreign_holding.weight, 0.001
   end
 
+  test "recalculates a manual holding amount when quantity or price changes" do
+    @amzn.update!(price: 250)
+    assert_equal BigDecimal("3750"), @amzn.amount
+
+    @amzn.update!(qty: 20)
+    assert_equal BigDecimal("5000"), @amzn.amount
+  end
+
+  test "keeps an explicitly assigned manual amount" do
+    @amzn.update!(qty: 20, price: 250, amount: 4321)
+
+    assert_equal BigDecimal("4321"), @amzn.amount
+  end
+
+  test "does not recalculate a provider-synced holding amount" do
+    item = @account.family.coinstats_items.create!(name: "CoinStats", api_key: "test-key")
+    provider = AccountProvider.create!(
+      account: @account,
+      provider: item.coinstats_accounts.create!(name: "Brokerage", currency: "USD")
+    )
+    @amzn.update!(account_provider: provider)
+    original_amount = @amzn.amount
+
+    @amzn.update!(price: 250)
+
+    assert_equal original_amount, @amzn.amount
+  end
+
   test "calculates average cost basis" do
     create_trade(@amzn.security, account: @account, qty: 10, price: 212.00, date: 1.day.ago.to_date)
     create_trade(@amzn.security, account: @account, qty: 15, price: 216.00, date: Date.current)
