@@ -3,7 +3,10 @@
 # provider did not send is left as it was, and an unrecognised quote type changes
 # nothing. A value set by the user or the AI, or locked, is never replaced.
 class Security::Classifier
-  SUB_CLASS_BY_QUOTE_TYPE = { "EQUITY" => "stock", "ETF" => "etf", "MUTUALFUND" => "mutual_fund" }.freeze
+  SUB_CLASS_BY_QUOTE_TYPE = { "EQUITY" => "stock", "ETF" => "etf", "MUTUALFUND" => "mutual_fund", "MONEYMARKET" => "mutual_fund" }.freeze
+
+  # Quote types that name the asset class outright, so no fund mix is needed.
+  ASSET_CLASS_BY_QUOTE_TYPE = { "MONEYMARKET" => "liquidity" }.freeze
 
   # A fund is classed by what it mostly holds. Anything mixed stays unclassed
   # rather than being forced into one bucket.
@@ -23,7 +26,8 @@ class Security::Classifier
     return false unless sub_class
 
     attrs = { asset_sub_class: sub_class, classification_source: "provider" }
-    attrs[:asset_class] = asset_class_for(sub_class) if asset_class_for(sub_class)
+    asset_class = ASSET_CLASS_BY_QUOTE_TYPE[@data["quote_type"]] || asset_class_for(sub_class)
+    attrs[:asset_class] = asset_class if asset_class
     attrs[:sector] = @data["sector"] if @data["sector"].present?
     attrs[:industry] = @data["industry"] if @data["industry"].present?
 

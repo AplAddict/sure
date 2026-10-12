@@ -63,4 +63,20 @@ class Security::ClassifierTest < ActiveSupport::TestCase
     assert_equal "Communication Services", @security.sector
     assert_equal "Software", @security.industry
   end
+
+  test "a money-market fund is liquidity, from the provider's own quote type" do
+    Security::Classifier.apply(@security, { "quote_type" => "MONEYMARKET" })
+
+    @security.reload
+    assert_equal "liquidity", @security.asset_class
+    assert_equal "mutual_fund", @security.asset_sub_class
+    assert_equal "provider", @security.classification_source
+  end
+
+  test "a money-market classification still never replaces a manual one" do
+    @security.update!(asset_class: "equity", classification_source: "manual")
+    Security::Classifier.apply(@security, { "quote_type" => "MONEYMARKET" })
+
+    assert_equal "equity", @security.reload.asset_class
+  end
 end
