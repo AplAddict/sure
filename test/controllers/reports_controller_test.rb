@@ -485,6 +485,23 @@ class ReportsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match /Export Retirement Income/, @response.body
   end
 
+  test "export transactions escapes spreadsheet formulas in category names" do
+    category = @family.categories.create!(name: "=HYPERLINK(\"https://example.test\")", color: "#111111")
+    create_transaction(account: accounts(:depository), name: "Formula category", amount: 25, category: category)
+
+    get export_transactions_reports_path(
+      format: :csv,
+      period_type: :monthly,
+      start_date: Date.current.beginning_of_month,
+      end_date: Date.current.end_of_month
+    )
+
+    assert_response :ok
+    category_cells = CSV.parse(response.body).filter_map { |row| row.first }
+    assert_includes category_cells, "'=HYPERLINK(\"https://example.test\")"
+    assert_not_includes category_cells, "=HYPERLINK(\"https://example.test\")"
+  end
+
   test "export transactions swaps dates when end_date is before start_date" do
     start_date = Date.current
     end_date = 1.month.ago.to_date

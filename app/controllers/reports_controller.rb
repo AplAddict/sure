@@ -839,6 +839,13 @@ class ReportsController < ApplicationController
       }
     end
 
+    FORMULA_START = /\A[=+\-@\t\r]/
+
+    def spreadsheet_safe_value(value)
+      text = value.to_s
+      text.match?(FORMULA_START) ? "'#{text}" : text
+    end
+
     def generate_transactions_csv
       require "csv"
 
@@ -853,7 +860,7 @@ class ReportsController < ApplicationController
           csv << [ "INCOME" ] + Array.new(month_headers.length + 1, "")
 
           @export_data[:income].each do |category_data|
-            row = [ category_data[:category] ]
+            row = [ spreadsheet_safe_value(category_data[:category]) ]
 
             # Add amounts for each month
             @export_data[:months].each do |month|
@@ -885,7 +892,7 @@ class ReportsController < ApplicationController
           csv << [ "EXPENSES" ] + Array.new(month_headers.length + 1, "")
 
           @export_data[:expenses].each do |category_data|
-            row = [ category_data[:category] ]
+            row = [ spreadsheet_safe_value(category_data[:category]) ]
 
             # Add amounts for each month
             @export_data[:months].each do |month|
@@ -929,7 +936,7 @@ class ReportsController < ApplicationController
           sheet.add_row [ "INCOME" ] + Array.new(month_headers.length + 1, ""), style: bold_style
 
           @export_data[:income].each do |category_data|
-            row = [ category_data[:category] ]
+            row = [ spreadsheet_safe_value(category_data[:category]) ]
 
             # Add amounts for each month
             @export_data[:months].each do |month|
@@ -961,7 +968,7 @@ class ReportsController < ApplicationController
           sheet.add_row [ "EXPENSES" ] + Array.new(month_headers.length + 1, ""), style: bold_style
 
           @export_data[:expenses].each do |category_data|
-            row = [ category_data[:category] ]
+            row = [ spreadsheet_safe_value(category_data[:category]) ]
 
             # Add amounts for each month
             @export_data[:months].each do |month|
@@ -1010,7 +1017,7 @@ class ReportsController < ApplicationController
             income_table_data = [ header_row ]
 
             @export_data[:income].each do |category_data|
-              row = [ category_data[:category] ]
+              row = [ spreadsheet_safe_value(category_data[:category]) ]
 
               @export_data[:months].each do |month|
                 amount = category_data[:months][month] || 0
@@ -1052,7 +1059,7 @@ class ReportsController < ApplicationController
             expenses_table_data = [ header_row ]
 
             @export_data[:expenses].each do |category_data|
-              row = [ category_data[:category] ]
+              row = [ spreadsheet_safe_value(category_data[:category]) ]
 
               @export_data[:months].each do |month|
                 amount = category_data[:months][month] || 0
