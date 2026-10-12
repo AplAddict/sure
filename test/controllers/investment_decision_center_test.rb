@@ -226,6 +226,17 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     Rails.cache = original
   end
 
+  test "data health statuses render as design-system pills, not undefined color classes" do
+    sign_in @owner
+    get root_path(view: "decision")
+
+    assert_response :success
+    assert_no_match(/bg-success-subtle|bg-warning-subtle/, response.body)
+    assert_select "[data-testid='idc-source-health']" do
+      assert_select "li", minimum: 1
+    end
+  end
+
   test "the overview shows the switch when the member has investments" do
     sign_in @owner
     get root_path

@@ -136,10 +136,18 @@ class PortfolioHoldings
 
       account_ids = current_rows.map(&:account_id).uniq
       security_ids = current_rows.map(&:security_id).uniq
+      newest = current_rows.map(&:date).max
       current_ids = current_rows.map(&:id)
-      Holding.where(account_id: account_ids, security_id: security_ids).where.not(id: current_ids)
-        .select(:id, :account_id, :security_id, :currency, :date, :amount)
-        .order(:date).to_a.group_by { |holding| sidebar_position_key(holding) }
+
+      # One bounded query: only the single most recent snapshot before today's
+      # per account/security/currency, never the full history. The sidebar
+      # renders on nearly every page, so this must stay positions-sized.
+      Holding.where(id: Holding.where(account_id: account_ids, security_id: security_ids)
+                               .where("date < ?", newest).where.not(id: current_ids)
+                               .select("DISTINCT ON (account_id, security_id, currency) id")
+                               .order("account_id, security_id, currency, date DESC"))
+             .select(:id, :account_id, :security_id, :currency, :date, :amount)
+             .order(:date).to_a.group_by { |holding| sidebar_position_key(holding) }
     end
 
     def sidebar_position_key(holding)
