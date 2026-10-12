@@ -208,6 +208,7 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "a[href=?]", options_review_path
     assert_select "a[href=?]", investment_income_path
+    assert_select "a[href=?]", tax_lot_review_path
     assert_select "a[href=?]", research_watchlist_entries_path
   end
 

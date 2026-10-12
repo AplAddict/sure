@@ -1,0 +1,80 @@
+<% content_for :page_title, "Tax-Aware Lot Review" %>
+<% review = @review %>
+<% totals = review.totals %>
+<% money = ->(amount) { tag.span(format_money(Money.new(amount, review.currency)), class: "privacy-sensitive") } %>
+<% card = lambda do |label, body, tone = "text-primary"|
+     tag.div(class: "rounded-lg bg-container-inset p-4") { safe_join([ tag.p(label, class: "text-sm text-secondary"), tag.p(body, class: "mt-2 text-xl font-semibold #{tone}") ]) }
+   end %>
+<% gain_tone = ->(amount) { amount.positive? ? "text-success" : amount.negative? ? "text-destructive" : "text-primary" } %>
+
+<% content_for :page_header do %>
+  <div class="mb-6 space-y-1">
+    <h1 class="text-xl lg:text-3xl font-medium text-primary">Tax-Aware Lot Review</h1>
+    <p class="max-w-3xl text-sm text-secondary">Unrealized gains and losses by broker tax lot in taxable accounts, split by holding period (long-term means held more than 365 days). This is dates and arithmetic only: no tax rates, no tax owed, no advice. Gains and losses are not netted against each other.</p>
+  </div>
+<% end %>
+
+<div class="space-y-6 pb-6 lg:pb-12">
+  <% if review.excluded_account_count.positive? %>
+    <p class="text-xs text-secondary"><%= review.excluded_account_count %> tax-advantaged account<%= "s" if review.excluded_account_count != 1 %> left out, because gains there are not taxed when realized.</p>
+  <% end %>
+  <% if review.unmeasured_count.positive? %>
+    <p class="rounded-lg bg-container-inset px-4 py-3 text-sm text-secondary" role="status"><%= review.unmeasured_count %> lot<%= "s" if review.unmeasured_count != 1 %> could not be measured (the broker did not supply an acquisition date, cost basis or value, or the lot is in another currency) and <%= review.unmeasured_count == 1 ? "is" : "are" %> not included in any figure below.</p>
+  <% end %>
+
+  <% if review.lots.empty? %>
+    <%= render DS::EmptyState.new(icon: "briefcase", title: "No measurable tax lots", description: "No taxable account you can access has broker lots with a date, cost basis and value.") %>
+  <% else %>
+    <section aria-labelledby="tl-totals" class="space-y-3">
+      <h2 id="tl-totals" class="text-lg font-medium text-primary">Unrealized by holding period</h2>
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <%= card.call("Short-term gains", money.call(totals[:short_gain]), gain_tone.call(totals[:short_gain])) %>
+        <%= card.call("Short-term losses", money.call(totals[:short_loss]), totals[:short_loss].positive? ? "text-destructive" : "text-primary") %>
+        <%= card.call("Long-term gains", money.call(totals[:long_gain]), gain_tone.call(totals[:long_gain])) %>
+        <%= card.call("Long-term losses", money.call(totals[:long_loss]), totals[:long_loss].positive? ? "text-destructive" : "text-primary") %>
+      </div>
+    </section>
+
+    <section aria-labelledby="tl-soon" class="space-y-3">
+      <h2 id="tl-soon" class="text-lg font-medium text-primary">Turning long-term within <%= review.window_days %> days</h2>
+      <% soon = review.approaching_long_term %>
+      <% if soon.empty? %>
+        <p class="text-sm text-secondary">No short-term lots reach the long-term threshold in this window.</p>
+      <% else %>
+        <div class="overflow-x-auto rounded-xl bg-container shadow-border-xs">
+          <table class="w-full text-sm">
+            <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary"><tr><th class="px-4 py-3">Ticker</th><th class="px-4 py-3">Account</th><th class="px-4 py-3">Acquired</th><th class="px-4 py-3">Long-term in</th><th class="px-4 py-3 text-right">Unrealized</th></tr></thead>
+            <tbody class="divide-y divide-tertiary">
+              <% soon.each do |lot| %>
+                <tr><td class="px-4 py-3 font-mono font-medium"><%= link_to lot.ticker, research_ticker_path(lot.ticker), class: "hover:underline" %></td><td class="px-4 py-3"><%= lot.account.name %></td><td class="px-4 py-3"><%= l(lot.acquired_on) %></td><td class="px-4 py-3"><%= pluralize(lot.days_to_long_term, "day") %></td><td class="px-4 py-3 text-right font-mono <%= gain_tone.call(lot.gain) %>"><%= money.call(lot.gain) %></td></tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </section>
+
+    <section aria-labelledby="tl-lots" class="space-y-3">
+      <h2 id="tl-lots" class="text-lg font-medium text-primary">All measured lots</h2>
+      <div class="overflow-x-auto rounded-xl bg-container shadow-border-xs">
+        <table class="w-full min-w-[820px] text-sm">
+          <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary"><tr><th class="px-4 py-3">Ticker</th><th class="px-4 py-3">Account</th><th class="px-4 py-3">Acquired</th><th class="px-4 py-3">Term</th><th class="px-4 py-3 text-right">Quantity</th><th class="px-4 py-3 text-right">Cost basis</th><th class="px-4 py-3 text-right">Value</th><th class="px-4 py-3 text-right">Gain / loss</th></tr></thead>
+          <tbody class="divide-y divide-tertiary">
+            <% review.lots.sort_by { |lot| [ lot.ticker, lot.acquired_on ] }.each do |lot| %>
+              <tr>
+                <td class="px-4 py-3 font-mono font-medium"><%= link_to lot.ticker, research_ticker_path(lot.ticker), class: "hover:underline" %></td>
+                <td class="px-4 py-3"><%= lot.account.name %></td>
+                <td class="px-4 py-3"><%= l(lot.acquired_on) %></td>
+                <td class="px-4 py-3"><%= lot.term == :long ? "Long-term" : "Short-term" %></td>
+                <td class="px-4 py-3 text-right font-mono"><%= number_with_precision(lot.quantity, precision: 8, strip_insignificant_zeros: true) %></td>
+                <td class="px-4 py-3 text-right font-mono"><%= money.call(lot.cost_basis) %></td>
+                <td class="px-4 py-3 text-right font-mono"><%= money.call(lot.market_value) %></td>
+                <td class="px-4 py-3 text-right font-mono <%= gain_tone.call(lot.gain) %>"><%= money.call(lot.gain) %><% if lot.gain_pct %> <span class="text-xs">(<%= number_to_percentage(lot.gain_pct, precision: 1) %>)</span><% end %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% end %>
+</div>

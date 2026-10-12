@@ -534,6 +534,7 @@ Rails.application.routes.draw do
   get "portfolio/holdings", to: "portfolio_holdings#show", as: :portfolio_holdings
   get "portfolio/options", to: "options_reviews#show", as: :options_review
   get "portfolio/income", to: "investment_incomes#show", as: :investment_income
+  get "portfolio/tax-lots", to: "tax_lot_reviews#show", as: :tax_lot_review
   resources :research_watchlist_entries, only: %i[index create update destroy]
 
   resources :holdings, only: %i[index new show update destroy] do
