@@ -21,4 +21,14 @@ class StyledFormBuilderTest < ActionView::TestCase
     assert_nil fragment.at(".form-field")
     assert_includes fragment.at("input[type=file]")["class"].split, "hidden"
   end
+
+  # Every styled form's submit shows this while the request is in flight, so
+  # it has to come from the locale rather than a literal English string.
+  test "submit shows a localized pending label while submitting" do
+    button = Nokogiri::HTML.fragment(@builder.submit("Save")).at("button[type=submit]")
+
+    assert button, "expected a submit button"
+    assert_equal I18n.t("helpers.submit.submitting"), button["data-turbo-submits-with"]
+    assert_equal "Save", button.text.strip
+  end
 end

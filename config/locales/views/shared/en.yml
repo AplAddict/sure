@@ -3,7 +3,15 @@ en:
   concerns:
     self_hostable:
       redis_configured: "Redis is now configured properly! You can now setup your Sure application."
+  helpers:
+    submit:
+      submitting: Submitting…
   shared:
+    pagination:
+      label: Pagination
+      previous: Previous page
+      next: Next page
+      per_page: Rows per page
     preview: Preview
     dot_separator: "·"
     sync_toast:
