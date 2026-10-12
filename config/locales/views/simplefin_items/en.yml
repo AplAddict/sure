@@ -144,6 +144,8 @@ en:
     select_existing_account:
       title: "Link %{account_name} to SimpleFIN"
       description: Select a SimpleFIN account to link to your existing account
+      balance: Balance
+      unavailable: Unavailable
       cancel: Cancel
       link_account: Link account
       no_accounts_found: "No SimpleFIN accounts found for this %{moniker}."

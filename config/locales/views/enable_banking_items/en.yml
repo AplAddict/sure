@@ -60,6 +60,7 @@ en:
       try_after_sync: If you just connected or synced, try again after the sync completes.
       unlink_to_move: To link a different account, first unlink it from the account's actions menu.
       balance: Balance
+      unavailable: Unavailable
       link: Link
       cancel: Cancel
     setup_accounts:

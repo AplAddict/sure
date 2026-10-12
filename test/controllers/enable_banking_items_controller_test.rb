@@ -15,6 +15,28 @@ class EnableBankingItemsControllerTest < ActionDispatch::IntegrationTest
     )
   end
 
+  test "select_existing_account distinguishes missing and zero balances" do
+    account = accounts(:depository)
+    @item.enable_banking_accounts.create!(
+      name: "Missing balance",
+      uid: "missing-balance",
+      currency: "EUR",
+      current_balance: nil
+    )
+    @item.enable_banking_accounts.create!(
+      name: "Zero balance",
+      uid: "zero-balance",
+      currency: "EUR",
+      current_balance: 0
+    )
+
+    get select_existing_account_enable_banking_items_url(account_id: account.id)
+
+    assert_response :success
+    assert_match(/Missing balance.*Unavailable/m, @response.body)
+    assert_match(/Zero balance.*EUR0\.00/m, @response.body)
+  end
+
   test "select_bank exposes ASPSP BIC in the searchable data attribute" do
     Provider::EnableBanking.any_instance.stubs(:get_aspsps).returns(
       aspsps: [
