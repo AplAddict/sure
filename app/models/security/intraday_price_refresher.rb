@@ -16,10 +16,15 @@ class Security::IntradayPriceRefresher
   CLOSE = [ 16, 15 ].freeze
   # Bounds one run so a large account cannot monopolise the provider quota.
   MAX_PER_RUN = 80
+  # Seconds between provider requests. Measured against Yahoo from this host:
+  # 29 of 29 requests at 1.5s apart succeeded, while a 0.5s burst is cut off
+  # after about 15. 80 securities therefore take about two minutes per run.
+  PACE_SECONDS = 1.5
 
-  def initialize(now: Time.current, limit: MAX_PER_RUN)
+  def initialize(now: Time.current, limit: MAX_PER_RUN, pace: PACE_SECONDS)
     @now = now
     @limit = limit
+    @pace = pace
   end
 
   def market_open?
@@ -35,7 +40,8 @@ class Security::IntradayPriceRefresher
     today = @now.in_time_zone(MARKET_ZONE).to_date
     updated = skipped = 0
 
-    securities.first(@limit).each do |security|
+    securities.first(@limit).each_with_index do |security, index|
+      sleep(@pace) if index.positive? && @pace.positive?
       provider = security.price_data_provider
       next skipped += 1 if provider.nil?
 
@@ -62,9 +68,13 @@ class Security::IntradayPriceRefresher
 
     # Held now, tradable, and with a today row the nightly import owns (a row that
     # is missing or final is left alone).
+    # Stalest first: a row last written longest ago (or before the open) goes to
+    # the front, so a run cut short by a rate limit moves on to different
+    # securities next time instead of re-fetching the same few.
     def securities
       held = Holding.where.not(qty: 0).where(date: Date.current - 3.days..).select(:security_id)
-      Security.online.where(id: held).order(:ticker).to_a
+      stale_since = Security::Price.where(date: @now.in_time_zone(MARKET_ZONE).to_date).group(:security_id).minimum(:updated_at)
+      Security.online.where(id: held).to_a.sort_by { |security| [ stale_since[security.id] || Time.at(0), security.ticker ] }
     end
 
     def write(security, date, quote)
