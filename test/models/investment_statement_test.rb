@@ -34,12 +34,42 @@ class InvestmentStatementTest < ActiveSupport::TestCase
     assert_in_delta 2083.92, @statement.holdings_value, 0.001
   end
 
-  test "portfolio_value falls back to 1:1 when FX rate is missing" do
+  test "portfolio_value is unavailable rather than 1:1 when an FX rate is missing" do
     create_investment_account(balance: 1921.92, currency: "USD")
     create_investment_account(balance: 1000, currency: "EUR")
 
-    # No ExchangeRate row → rates_for defaults to 1
-    assert_in_delta 2921.92, @statement.portfolio_value, 0.001
+    assert_nil @statement.portfolio_value
+    assert_nil @statement.cash_balance
+    assert_nil @statement.holdings_value
+    assert_nil @statement.portfolio_value_money
+    assert_equal [ "EUR" ], @statement.missing_exchange_rates
+  end
+
+  test "unrealized gain, weights and the foreign position are unavailable without an FX rate" do
+    usd = create_investment_account(balance: 100, currency: "USD")
+    eur = create_investment_account(balance: 200, currency: "EUR")
+    usd_security = Security.create!(ticker: "FXUSD", name: "US")
+    eur_security = Security.create!(ticker: "FXEUR", name: "EU")
+    Holding.create!(account: usd, security: usd_security, date: Date.current, qty: 1, price: 100, amount: 100, currency: "USD", cost_basis: 80)
+    Holding.create!(account: eur, security: eur_security, date: Date.current, qty: 1, price: 200, amount: 200, currency: "EUR", cost_basis: 150)
+
+    assert_nil @statement.unrealized_gains_trend
+    assert_nil @statement.unrealized_gains
+    assert_equal [ "FXUSD" ], @statement.allocation.map(&:ticker)
+    assert @statement.allocation.all? { |holding| holding.weight.nil? }
+  end
+
+  test "a real zero balance remains zero when rates are complete" do
+    create_investment_account(balance: 0, cash_balance: 0, currency: "USD")
+    assert_equal 0, @statement.portfolio_value
+  end
+
+  test "period return is unavailable when a foreign balance has no rate" do
+    account = create_investment_account(balance: 100, currency: "EUR")
+    Balance.create!(account: account, date: 40.days.ago.to_date, balance: 100, cash_balance: 0, currency: "EUR", start_non_cash_balance: 100)
+    Balance.create!(account: account, date: Date.current, balance: 110, cash_balance: 0, currency: "EUR", start_non_cash_balance: 100, net_market_flows: 10)
+
+    assert_nil @statement.period_return_trend(period: Period.last_30_days)
   end
 
   test "current_holdings includes holdings from every investment account regardless of currency" do

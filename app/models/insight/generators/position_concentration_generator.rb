@@ -14,7 +14,7 @@ class Insight::Generators::PositionConcentrationGenerator < Insight::Generator
     statement = InvestmentStatement.new(family, user: user)
 
     statement.allocation
-      .select { |holding| holding.weight >= NOTABLE_WEIGHT }
+      .select { |holding| holding.weight.present? && holding.weight >= NOTABLE_WEIGHT }
       .first(MAX_INSIGHTS)
       .map do |holding|
         weight = holding.weight.to_f.round(0).to_i

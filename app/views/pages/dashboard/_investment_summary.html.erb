@@ -9,7 +9,7 @@
         </div>
 
         <p class="text-primary text-3xl font-medium privacy-sensitive">
-          <%= format_money(investment_statement.portfolio_value_money) %>
+          <%= investment_statement.portfolio_value_money ? format_money(investment_statement.portfolio_value_money) : "—" %>
         </p>
 
         <% trend = investment_statement.unrealized_gains_trend %>

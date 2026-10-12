@@ -36,30 +36,43 @@ class InvestmentStatement
   end
 
   # Total portfolio value across all investment accounts
+  # nil (never a 1:1 guess) when any account needs an exchange rate we lack.
   def portfolio_value
-    investment_accounts.sum { |a| convert_to_family_currency(a.balance, a.currency) }
+    sum_converted(investment_accounts) { |a| [ a.balance, a.currency ] }
   end
 
   def portfolio_value_money
-    Money.new(portfolio_value, family.currency)
+    value = portfolio_value
+    value.nil? ? nil : Money.new(value, family.currency)
   end
 
   # Total cash in investment accounts
   def cash_balance
-    investment_accounts.sum { |a| convert_to_family_currency(a.cash_balance, a.currency) }
+    sum_converted(investment_accounts) { |a| [ a.cash_balance, a.currency ] }
   end
 
   def cash_balance_money
-    Money.new(cash_balance, family.currency)
+    value = cash_balance
+    value.nil? ? nil : Money.new(value, family.currency)
+  end
+
+  # Foreign currencies with no usable exchange rate. Any figure that would need
+  # one is reported as unavailable rather than converted at a guessed 1:1.
+  def missing_exchange_rates
+    needed = (investment_accounts.map(&:currency) + Holding.where(account_id: investment_account_ids).distinct.pluck(:currency))
+               .compact.uniq.reject { |currency| currency == family.currency }
+    (needed - exchange_rates.keys).sort
   end
 
   # Total holdings value
   def holdings_value
-    portfolio_value - cash_balance
+    total, cash = portfolio_value, cash_balance
+    total && cash ? total - cash : nil
   end
 
   def holdings_value_money
-    Money.new(holdings_value, family.currency)
+    value = holdings_value
+    value.nil? ? nil : Money.new(value, family.currency)
   end
 
   # All current holdings across investment accounts. Holdings are returned in
@@ -97,7 +110,7 @@ class InvestmentStatement
         HoldingAllocation.new(
           security: security,
           amount: Money.new(value, family.currency),
-          weight: (value / total * 100).round(2),
+          weight: total ? (value / total * 100).round(2) : nil,
           trend: combined_holding_trend(holdings)
         )
       end
@@ -118,7 +131,7 @@ class InvestmentStatement
       HoldingAllocation.new(
         security: security,
         amount: Money.new(value, family.currency),
-        weight: (value / total * 100).round(2),
+        weight: total ? (value / total * 100).round(2) : nil,
         trend: combined_holding_trend(holdings)
       )
     end
@@ -126,9 +139,9 @@ class InvestmentStatement
 
   # Unrealized gains across all holdings, summed in family currency
   def unrealized_gains
-    current_holdings.sum do |holding|
+    sum_converted(current_holdings) do |holding|
       trend = holding.trend
-      trend ? convert_to_family_currency(trend.value, holding.currency) : 0
+      [ trend ? trend.value : 0, holding.currency ]
     end
   end
 
@@ -155,12 +168,9 @@ class InvestmentStatement
     holdings_with_cost_basis = holdings.select(&:avg_cost)
     return nil if holdings_with_cost_basis.empty?
 
-    current = holdings_with_cost_basis.sum do |h|
-      convert_to_family_currency(h.amount, h.currency)
-    end
-    previous = holdings_with_cost_basis.sum do |h|
-      convert_to_family_currency(h.qty * h.avg_cost.amount, h.currency)
-    end
+    current = sum_converted(holdings_with_cost_basis) { |h| [ h.amount, h.currency ] }
+    previous = sum_converted(holdings_with_cost_basis) { |h| [ h.qty * h.avg_cost.amount, h.currency ] }
+    return nil if current.nil? || previous.nil?
 
     Trend.new(
       current: Money.new(current, family.currency),
@@ -176,14 +186,16 @@ class InvestmentStatement
     absolute_return = ActiveRecord::Base.connection.select_value(
       ActiveRecord::Base.sanitize_sql_array([
         <<~SQL.squish,
-          SELECT COALESCE(SUM(b.net_market_flows * COALESCE(er.rate, 1)), 0)
+          SELECT CASE WHEN BOOL_OR(b.currency <> :currency AND er.rate IS NULL) THEN NULL
+                      ELSE COALESCE(SUM(b.net_market_flows * CASE WHEN b.currency = :currency THEN 1 ELSE er.rate END), 0) END
           FROM balances b
           JOIN accounts a ON a.id = b.account_id
-          LEFT JOIN exchange_rates er ON (
-            er.date = b.date
-            AND er.from_currency = b.currency
-            AND er.to_currency = :currency
-          )
+          LEFT JOIN LATERAL (
+            SELECT rate FROM exchange_rates
+            WHERE from_currency = b.currency AND to_currency = :currency
+              AND date BETWEEN b.date - 5 AND b.date
+            ORDER BY date DESC LIMIT 1
+          ) er ON true
           WHERE a.id IN (:account_ids)
             AND a.family_id = :family_id
             AND a.status IN ('draft', 'active')
@@ -197,7 +209,9 @@ class InvestmentStatement
           end_date: period.date_range.end
         }
       ])
-    ).to_d
+    )
+    return nil if absolute_return.nil?
+    absolute_return = absolute_return.to_d
 
     period_start = period.date_range.begin
 
@@ -208,14 +222,16 @@ class InvestmentStatement
     start_value = ActiveRecord::Base.connection.select_value(
       ActiveRecord::Base.sanitize_sql_array([
         <<~SQL.squish,
-          SELECT COALESCE(SUM(b.end_balance * COALESCE(er.rate, 1)), 0)
+          SELECT CASE WHEN BOOL_OR(b.currency <> :currency AND er.rate IS NULL) THEN NULL
+                      ELSE COALESCE(SUM(b.end_balance * CASE WHEN b.currency = :currency THEN 1 ELSE er.rate END), 0) END
           FROM accounts a
           INNER JOIN balances b ON b.account_id = a.id
-          LEFT JOIN exchange_rates er ON (
-            er.date = :period_start
-            AND er.from_currency = b.currency
-            AND er.to_currency = :currency
-          )
+          LEFT JOIN LATERAL (
+            SELECT rate FROM exchange_rates
+            WHERE from_currency = b.currency AND to_currency = :currency
+              AND date BETWEEN (:period_start)::date - 5 AND (:period_start)::date
+            ORDER BY date DESC LIMIT 1
+          ) er ON true
           INNER JOIN (
             SELECT b2.account_id, MAX(b2.date) AS max_date
             FROM balances b2
@@ -229,7 +245,10 @@ class InvestmentStatement
         SQL
         { account_ids: account_ids, period_start: period_start, family_id: family.id, currency: currency }
       ])
-    ).to_d
+    )
+    return nil if start_value.nil?
+    start_value = start_value.to_d
+
 
     return nil if start_value.zero?
 
@@ -252,7 +271,7 @@ class InvestmentStatement
       ]
     end
 
-    return nil if changes.empty?
+    return nil if changes.empty? || changes.flatten.any?(&:nil?)
 
     Trend.new(
       current: Money.new(changes.sum { |c, _| c }, family.currency),
@@ -280,7 +299,7 @@ class InvestmentStatement
                     .compact
                     .uniq
                     .reject { |c| c == family.currency }
-        ExchangeRate.rates_for(foreign, to: family.currency, date: Date.current)
+        ExchangeRate.rates_for(foreign, to: family.currency, date: Date.current, fallback: nil).compact
       end
     end
 
@@ -293,8 +312,14 @@ class InvestmentStatement
       return amount if amount.nil?
       numeric = amount.is_a?(Money) ? amount.amount : amount
       return numeric if from_currency == family.currency
-      rate = exchange_rates[from_currency] || 1
-      numeric * rate
+      rate = exchange_rates[from_currency]
+      rate.nil? ? nil : numeric * rate
+    end
+
+    # Sum converted values; one unconvertible value makes the whole total unknown.
+    def sum_converted(items)
+      values = items.map { |item| convert_to_family_currency(*yield(item)) }
+      values.any?(&:nil?) ? nil : values.sum
     end
 
     def all_time_totals
@@ -330,7 +355,8 @@ class InvestmentStatement
     # as a floor. It also covers a stale-zero portfolio_value, where the cached
     # Account#balance lags behind the Holding rows.
     def weight_denominator(holdings_total)
-      [ portfolio_value, holdings_total ].max
+      total = portfolio_value
+      total.nil? ? nil : [ total, holdings_total ].max
     end
 
     def holdings_rolled_up_by_security
@@ -343,12 +369,13 @@ class InvestmentStatement
           # accounts yields two rows; a negative row in one would otherwise net
           # against the good row in the other and understate the position.
           positive_holdings = holdings.select do |holding|
-            convert_to_family_currency(holding.amount, holding.currency).positive?
+            converted = convert_to_family_currency(holding.amount, holding.currency)
+            converted && converted.positive?
           end
           next if positive_holdings.empty?
 
           security = positive_holdings.first.security
-          value = positive_holdings.sum { |h| convert_to_family_currency(h.amount, h.currency) }
+          value = sum_converted(positive_holdings) { |h| [ h.amount, h.currency ] }
 
           # positive_holdings, not holdings, so the trend excludes the bad row too.
           [ security, value, positive_holdings ]
@@ -368,7 +395,7 @@ class InvestmentStatement
         previouses << convert_to_family_currency(trend.previous, holding.currency)
       end
 
-      return nil if currents.empty?
+      return nil if currents.empty? || currents.any?(&:nil?) || previouses.any?(&:nil?)
 
       Trend.new(
         current: Money.new(currents.sum, family.currency),

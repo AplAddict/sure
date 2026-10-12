@@ -11,7 +11,7 @@
           <span class="text-sm text-secondary"><%= t("reports.investment_performance.portfolio_value") %></span>
         </div>
         <p class="text-xl font-semibold text-primary privacy-sensitive">
-          <%= format_money(investment_metrics[:portfolio_value]) %>
+          <%= investment_metrics[:portfolio_value] ? format_money(investment_metrics[:portfolio_value]) : "—" %>
         </p>
       </div>
 
@@ -104,7 +104,7 @@
                       </div>
                     </div>
                   </td>
-                  <td class="py-3 px-4 lg:px-6 text-right text-secondary"><%= number_to_percentage(holding.weight || 0, precision: 1) %></td>
+                  <td class="py-3 px-4 lg:px-6 text-right text-secondary"><%= format_optional_percentage(holding.weight, precision: 1) %></td>
                   <td class="py-3 px-4 lg:px-6 text-right font-medium text-primary privacy-sensitive"><%= format_money(holding.amount_money) %></td>
                   <td class="py-3 px-4 lg:px-6 text-right">
                     <% if holding.trend %>
@@ -142,22 +142,22 @@
                   title: t("accounts.tax_treatment_descriptions.#{treatment}")
                 ) %>
                 <span class="text-sm font-semibold text-primary privacy-sensitive">
-                  <%= format_money(data[:total_gain]) %>
+                  <%= data[:total_gain] ? format_money(data[:total_gain]) : "—" %>
                 </span>
               </div>
 
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                   <span class="text-secondary"><%= t("reports.investment_performance.unrealized_gains") %></span>
-                  <span class="text-primary privacy-sensitive"><%= format_money(data[:unrealized_gain]) %></span>
+                  <span class="text-primary privacy-sensitive"><%= data[:unrealized_gain] ? format_money(data[:unrealized_gain]) : "—" %></span>
                 </div>
                 <div class="flex justify-between">
                   <span class="text-secondary"><%= t("reports.investment_performance.realized_gains") %></span>
-                  <span class="text-primary privacy-sensitive"><%= format_money(data[:realized_gain]) %></span>
+                  <span class="text-primary privacy-sensitive"><%= data[:realized_gain] ? format_money(data[:realized_gain]) : "—" %></span>
                 </div>
               </div>
 
-              <% if treatment == :taxable && data[:realized_gain].amount > 0 %>
+              <% if treatment == :taxable && data[:realized_gain]&.amount.to_d > 0 %>
                 <p class="text-xs text-warning flex items-center gap-1">
                   <%= icon("alert-triangle", size: "sm") %>
                   <%= t("reports.investment_performance.taxable_realized_note") %>

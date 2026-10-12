@@ -99,7 +99,7 @@ class PortfolioHoldings
         total = rows.sum(BigDecimal("0")) { |holding| holding.amount.to_d }
         positions = rows.sort_by { |holding| -holding.amount.to_d }.map do |holding|
           prior = previous_rows[sidebar_position_key(holding)]&.reverse_each&.find { |candidate| candidate.date < holding.date }
-          day_change = prior&.amount_money ? Trend.new(current: holding.amount_money, previous: prior.amount_money) : nil
+          day_change = prior&.amount_money && prior.qty == holding.qty ? Trend.new(current: holding.amount_money, previous: prior.amount_money) : nil
           basis_per_share = holding.cost_basis
           known_basis = basis_per_share && (holding.cost_basis_locked? || basis_per_share.positive?)
           cost_basis = known_basis ? holding.qty.to_d * basis_per_share.to_d : nil
@@ -146,7 +146,7 @@ class PortfolioHoldings
                                .where("date < ?", newest).where.not(id: current_ids)
                                .select("DISTINCT ON (account_id, security_id, currency) id")
                                .order("account_id, security_id, currency, date DESC"))
-             .select(:id, :account_id, :security_id, :currency, :date, :amount)
+             .select(:id, :account_id, :security_id, :currency, :date, :amount, :qty)
              .order(:date).to_a.group_by { |holding| sidebar_position_key(holding) }
     end
 

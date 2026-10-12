@@ -90,7 +90,7 @@ class InvestmentDecisionCenter
   end
 
   def concentrated?(holding)
-    holding.weight >= CONCENTRATION_WEIGHT
+    holding.weight.present? && holding.weight >= CONCENTRATION_WEIGHT
   end
 
   # Trust rail: availability and freshness of the evidence already used by this

@@ -39,12 +39,12 @@
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <div>
         <p class="text-xs text-secondary"><%= t("investment_decision_center.pulse.portfolio_value") %></p>
-        <p class="mt-1 text-2xl font-medium text-primary privacy-sensitive"><%= format_money(pulse.portfolio_value) %></p>
-        <p class="text-xs text-subdued"><span class="privacy-sensitive"><%= format_money(pulse.holdings_value) %></span> · <%= t("investment_decision_center.pulse.holdings") %></p>
+        <p class="mt-1 text-2xl font-medium text-primary privacy-sensitive"><%= pulse.portfolio_value ? format_money(pulse.portfolio_value) : "—" %></p>
+        <p class="text-xs text-subdued"><span class="privacy-sensitive"><%= pulse.holdings_value ? format_money(pulse.holdings_value) : "—" %></span> · <%= t("investment_decision_center.pulse.holdings") %></p>
       </div>
       <div>
         <p class="text-xs text-secondary"><%= t("investment_decision_center.pulse.cash") %></p>
-        <p class="mt-1 text-2xl font-medium text-primary privacy-sensitive"><%= format_money(pulse.cash_balance) %></p>
+        <p class="mt-1 text-2xl font-medium text-primary privacy-sensitive"><%= pulse.cash_balance ? format_money(pulse.cash_balance) : "—" %></p>
       </div>
       <div>
         <p class="text-xs text-secondary"><%= t("investment_decision_center.pulse.day_change") %></p>
@@ -157,7 +157,7 @@
                   </div>
                   <p class="max-w-[16rem] truncate text-xs text-secondary"><%= holding.name %></p>
                 </td>
-                <td class="px-4 py-3 text-right font-mono"><%= number_to_percentage(holding.weight, precision: 1) %></td>
+                <td class="px-4 py-3 text-right font-mono"><%= format_optional_percentage(holding.weight, precision: 1) %></td>
                 <td class="px-4 py-3 text-right font-mono privacy-sensitive"><%= format_money(holding.amount) %></td>
                 <td class="px-4 py-3 text-right font-mono">
                   <% if holding.trend %>

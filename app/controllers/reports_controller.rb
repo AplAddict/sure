@@ -559,10 +559,10 @@ class ReportsController < ApplicationController
 
       # Unrealized gains mark holdings to market, so convert at today's FX.
       foreign_holding_currencies = current_holdings.map(&:currency).compact.uniq.reject { |c| c == currency }
-      holding_rates = ExchangeRate.rates_for(foreign_holding_currencies, to: currency, date: Date.current)
+      holding_rates = ExchangeRate.rates_for(foreign_holding_currencies, to: currency, date: Date.current, fallback: nil)
       convert_current = ->(amount, from) {
         numeric = to_numeric.call(amount)
-        from == currency ? numeric : numeric * (holding_rates[from] || 1)
+        from == currency ? numeric : (holding_rates[from] ? numeric * holding_rates[from] : nil)
       }
 
       # Realized gains are locked at trade time, so convert each at its own
@@ -580,11 +580,12 @@ class ReportsController < ApplicationController
         holdings_by_account.values.flatten.map(&:currency)
       ).compact.uniq.reject { |c| c == currency }
       rates_by_trade_date = sell_trades.map { |t| t.entry.date }.uniq.each_with_object({}) do |date, memo|
-        memo[date] = ExchangeRate.rates_for(foreign_trade_currencies, to: currency, date: date)
+        memo[date] = ExchangeRate.rates_for(foreign_trade_currencies, to: currency, date: date, fallback: nil)
       end
       convert_trade = ->(amount, from, date) {
         numeric = to_numeric.call(amount)
-        from == currency ? numeric : numeric * (rates_by_trade_date.dig(date, from) || 1)
+        rate = rates_by_trade_date.dig(date, from)
+        from == currency ? numeric : (rate ? numeric * rate : nil)
       }
 
       # Build metrics per treatment
@@ -593,22 +594,28 @@ class ReportsController < ApplicationController
         trades = trades_by_treatment[treatment] || []
 
         # Sum unrealized gains from holdings (only those with known cost basis)
-        unrealized = holdings.sum do |h|
+        unrealized_parts = holdings.map do |h|
           trend = h.trend
           trend ? convert_current.call(trend.value, h.currency) : 0
         end
+        unrealized = unrealized_parts.any?(&:nil?) ? nil : unrealized_parts.sum
 
         # Sum realized gains from sell trades, each converted from the currency
         # its own figure carries.
+        realized_unavailable = false
         realized_by_trade = trades.each_with_object({}) do |t, memo|
           gain = t.realized_gain_loss
           next if gain.nil?
 
           converted = convert_trade.call(gain.value, gain.value.currency.iso_code, t.entry.date)
+          if converted.nil?
+            realized_unavailable = true
+            next
+          end
           memo[t.id] = Money.new(converted, currency)
         end
 
-        realized = realized_by_trade.values.sum(Money.new(0, currency)).amount
+        realized = realized_unavailable ? nil : realized_by_trade.values.sum(Money.new(0, currency)).amount
 
         # Only include treatment groups that have some activity
         next if holdings.empty? && trades.empty?
@@ -616,13 +623,13 @@ class ReportsController < ApplicationController
         hash[treatment] = {
           holdings: holdings,
           sell_trades: trades,
-          unrealized_gain: Money.new(unrealized, currency),
-          realized_gain: Money.new(realized, currency),
+          unrealized_gain: unrealized.nil? ? nil : Money.new(unrealized, currency),
+          realized_gain: realized.nil? ? nil : Money.new(realized, currency),
           # Per-trade figures in family currency, so the lines under the card
           # and the card's own total are the same arithmetic. The partial used
           # to re-label `gain.value` as family currency without converting it.
           realized_gain_by_trade: realized_by_trade,
-          total_gain: Money.new(unrealized + realized, currency)
+          total_gain: unrealized.nil? || realized.nil? ? nil : Money.new(unrealized + realized, currency)
         }
       end
     end

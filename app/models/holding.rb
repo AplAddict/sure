@@ -78,7 +78,9 @@ class Holding < ApplicationRecord
                  .order(date: :desc)
                  .first
 
-    @day_change = prev&.amount_money ? Trend.new(current: amount_money, previous: prev.amount_money) : nil
+    # A changed quantity means a trade (or sync correction) is mixed into the
+    # value change, so it is not a market gain. Report it as unavailable.
+    @day_change = prev&.amount_money && prev.qty == qty ? Trend.new(current: amount_money, previous: prev.amount_money) : nil
   end
 
   def trades

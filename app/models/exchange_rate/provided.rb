@@ -57,7 +57,7 @@ module ExchangeRate::Provided
 
     # Batch-fetches exchange rates for multiple source currencies.
     # Returns a hash mapping each currency to its numeric rate, defaulting to 1 when unavailable.
-    def rates_for(currencies, to:, date: Date.current)
+    def rates_for(currencies, to:, date: Date.current, fallback: 1)
       unique_currencies = currencies.uniq
       return {} if unique_currencies.empty?
 
@@ -91,11 +91,11 @@ module ExchangeRate::Provided
       unique_currencies.each_with_object({}) do |currency, result|
         rate = exact_rates[currency] || nearest_rates[currency] || fetched_rates[currency]
         if rate.nil?
-          Rails.logger.warn("No exchange rate found for #{currency}/#{to} on #{date}, using 1")
+          Rails.logger.warn("No exchange rate found for #{currency}/#{to} on #{date}, using #{fallback.inspect}")
         elsif rate.date != date
           Rails.logger.debug("FX rate #{currency}/#{to}: using #{rate.date} for #{date} (gap=#{(date - rate.date).to_i}d)")
         end
-        result[currency] = rate&.rate || 1
+        result[currency] = rate&.rate || fallback
       end
     end
 
