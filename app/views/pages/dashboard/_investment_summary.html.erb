@@ -58,7 +58,7 @@
                 </td>
 
                 <td class="p-4 text-right text-secondary privacy-sensitive">
-                  <%= number_to_percentage(holding.weight || 0, precision: 1) %>
+                  <%= format_optional_percentage(holding.weight, precision: 1) %>
                 </td>
 
                 <td class="p-4 text-right privacy-sensitive">

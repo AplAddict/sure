@@ -34,6 +34,12 @@ class ApplicationHelperTest < ActionView::TestCase
     singleton_class.send(:remove_method, :lucide_icon) if singleton_class.method_defined?(:lucide_icon)
   end
 
+  test "#format_optional_percentage preserves missing financial evidence" do
+    assert_equal "—", format_optional_percentage(nil)
+    assert_equal "0.0%", format_optional_percentage(0)
+    assert_equal "12.3%", format_optional_percentage(12.34)
+  end
+
   test "#title(page_title)" do
     title("Test Title")
     assert_equal "Test Title", content_for(:title)

@@ -2505,6 +2505,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
     t.jsonb "raw_activities_payload", default: []
     t.jsonb "raw_balances_payload", default: []
     t.jsonb "raw_holdings_payload", default: []
+    t.jsonb "raw_options_payload", default: [], null: false
     t.jsonb "raw_payload"
     t.jsonb "raw_transactions_payload"
     t.string "snaptrade_account_id"

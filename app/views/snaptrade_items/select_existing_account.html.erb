@@ -47,7 +47,7 @@
                     <%= snaptrade_account.brokerage_name %> •
                   <% end %>
                   <%= t("snaptrade_items.select_existing_account.balance_label", default: "Balance:") %>
-                  <%= number_to_currency(snaptrade_account.current_balance || 0, unit: Money::Currency.new(snaptrade_account.currency || "USD").symbol) %>
+                  <%= snaptrade_account.current_balance.nil? ? "Unavailable" : number_to_currency(snaptrade_account.current_balance, unit: Money::Currency.new(snaptrade_account.currency || "USD").symbol) %>
                 </p>
               </div>
               <%= render DS::Button.new(

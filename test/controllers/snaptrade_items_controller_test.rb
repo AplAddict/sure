@@ -575,6 +575,17 @@ class SnaptradeItemsControllerTest < ActionDispatch::IntegrationTest
     assert_not pending_item.oauth_configured?
   end
 
+  test "select existing account does not render a missing provider balance as zero" do
+    provider_account = @snaptrade_item.snaptrade_accounts.first
+    provider_account.update!(current_balance: nil)
+
+    get select_existing_account_snaptrade_items_url, params: { account_id: accounts(:investment).id }
+
+    assert_response :success
+    assert_includes response.body, "Unavailable"
+    assert_no_match(/\$0\.00/, response.body)
+  end
+
   test "setup_accounts shows linkable investment and crypto accounts in dropdown" do
     get setup_accounts_snaptrade_item_url(@snaptrade_item)
 
