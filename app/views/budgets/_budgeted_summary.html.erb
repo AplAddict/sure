@@ -11,10 +11,10 @@
     <div>
       <div class="flex h-1.5 mb-3 gap-1">
         <% if budget.remaining_expected_income.negative? %>
-          <div class="rounded-md h-1.5 bg-green-500" style="width: <%= 100 - budget.surplus_percent %>%"></div>
-          <div class="rounded-md h-1.5 bg-green-500" style="width: <%= budget.surplus_percent %>%"></div>
+          <div class="rounded-md h-1.5 bg-success" style="width: <%= 100 - budget.surplus_percent %>%"></div>
+          <div class="rounded-md h-1.5 bg-success" style="width: <%= budget.surplus_percent %>%"></div>
         <% else %>
-          <div class="rounded-md h-1.5 bg-green-500" style="width: <%= budget.actual_income_percent %>%"></div>
+          <div class="rounded-md h-1.5 bg-success" style="width: <%= budget.actual_income_percent %>%"></div>
           <div class="rounded-md h-1.5 bg-surface-inset" style="width: <%= 100 - budget.actual_income_percent %>%"></div>
         <% end %>
       </div>
@@ -22,7 +22,7 @@
         <p class="text-secondary"><%= t(".earned", amount: format_money(budget.actual_income_money)) %></p>
         <p class="font-medium">
           <% if budget.remaining_expected_income.negative? %>
-            <span class="text-green-500"><%= t(".over", amount: format_money(budget.remaining_expected_income_money.abs)) %></span>
+            <span class="text-success"><%= t(".over", amount: format_money(budget.remaining_expected_income_money.abs)) %></span>
           <% else %>
             <span class="text-primary"><%= t(".left", amount: format_money(budget.remaining_expected_income_money)) %></span>
           <% end %>

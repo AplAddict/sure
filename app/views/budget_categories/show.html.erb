@@ -42,19 +42,19 @@
             <div class="flex items-center justify-between text-sm">
               <dt class="text-secondary"><%= t(".status") %></dt>
               <% if @budget_category.available_to_spend.negative? %>
-                <dd class="flex items-center gap-1 text-red-500 font-medium privacy-sensitive">
+                <dd class="flex items-center gap-1 text-destructive font-medium privacy-sensitive">
                   <%= icon "alert-circle", size: "sm", color: "destructive" %>
                   <%= format_money @budget_category.available_to_spend_money.abs %>
                   <span><%= t(".overspent") %></span>
                 </dd>
               <% elsif @budget_category.available_to_spend.zero? %>
-                <dd class="flex items-center gap-1 text-orange-500 font-medium privacy-sensitive">
+                <dd class="flex items-center gap-1 text-warning font-medium privacy-sensitive">
                   <%= icon "x-circle", size: "sm", color: "warning" %>
                   <%= format_money @budget_category.available_to_spend_money %>
                   <span><%= t(".left") %></span>
                 </dd>
               <% else %>
-                <dd class="text-primary flex items-center gap-1 text-green-500 font-medium privacy-sensitive">
+                <dd class="flex items-center gap-1 text-success font-medium privacy-sensitive">
                   <%= icon "check-circle", size: "sm", color: "success" %>
                   <%= format_money @budget_category.available_to_spend_money %>
                   <span><%= t(".left") %></span>
@@ -104,7 +104,7 @@
               <% @recent_transactions.each_with_index do |transaction, index| %>
                 <li class="flex gap-4 text-sm space-y-1">
                   <div class="flex flex-col items-center gap-1.5 pt-2">
-                    <div class="rounded-full h-1.5 w-1.5 bg-gray-300"></div>
+                    <div class="rounded-full h-1.5 w-1.5 bg-alpha-black-200"></div>
                     <% unless index == @recent_transactions.length - 1 %>
                       <div class="h-12 w-px bg-alpha-black-200"></div>
                     <% end %>

@@ -93,12 +93,12 @@
         <div class="whitespace-nowrap w-full sm:w-auto lg:ml-auto">
           <% if budget_category.available_to_spend >= 0 %>
             <span class="text-sm text-secondary"><%= t("reports.budget_performance.remaining") %>:</span>
-            <span class="font-medium <%= (budget_category.near_limit? ? "text-yellow-500" : "text-green-500") %> privacy-sensitive">
+            <span class="font-medium <%= (budget_category.near_limit? ? "text-warning" : "text-success") %> privacy-sensitive">
               <%= format_money(budget_category.available_to_spend_money) %>
             </span>
           <% else %>
             <span class="text-sm text-secondary"><%= t("reports.budget_performance.over_by") %>:</span>
-            <span class="font-medium text-red-500 privacy-sensitive">
+            <span class="font-medium text-destructive privacy-sensitive">
               <%= format_money(budget_category.available_to_spend_money.abs) %>
             </span>
           <% end %>

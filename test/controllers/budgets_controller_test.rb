@@ -36,6 +36,20 @@ class BudgetsControllerTest < ActionDispatch::IntegrationTest
     assert_select "button[disabled][aria-label=?]", I18n.t("budgets.budget_header.previous_month"), count: 1
   end
 
+  # Budget status colours come from the functional tokens so they follow the
+  # theme; the raw red/green/yellow/orange classes they replaced did not.
+  test "budget pages colour status with design-system tokens, not raw palette classes" do
+    raw_palette = /\b(?:text|bg)-(?:red|green|yellow|orange)-500\b/
+
+    get budget_url(budgets(:one))
+    assert_response :success
+    assert_no_match raw_palette, response.body
+
+    get budget_budget_categories_url(budgets(:one))
+    assert_response :success
+    assert_no_match raw_palette, response.body
+  end
+
   test "edit renders localized wizard steps and marks the current one" do
     budget = Budget.date_to_param(Date.current)
 
