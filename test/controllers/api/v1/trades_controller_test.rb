@@ -511,6 +511,16 @@ class Api::V1::TradesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "index excludes trades in another member's unshared account" do
+    private_trade = create_private_trade
+
+    get api_v1_trades_url, headers: api_headers(member_api_key)
+
+    assert_response :success
+    trade_ids = JSON.parse(response.body)["trades"].map { |trade| trade["id"] }
+    assert_not_includes trade_ids, private_trade.id
+  end
+
   test "should filter trades by account_id" do
     get api_v1_trades_url,
       params: { account_id: @investment_account.id },
@@ -594,6 +604,44 @@ class Api::V1::TradesControllerTest < ActionDispatch::IntegrationTest
 
     get api_v1_trade_url(trade_id), headers: api_headers(read_only_api_key)
     assert_response :success
+  end
+
+  test "show hides a trade in another member's unshared account" do
+    get api_v1_trade_url(create_private_trade), headers: api_headers(member_api_key)
+
+    assert_response :not_found
+  end
+
+  test "create rejects another member's unshared account" do
+    security = Security.create!(ticker: "PRIVATE", name: "Private Security", country_code: "US")
+
+    post api_v1_trades_url,
+      params: { trade: {
+        account_id: @investment_account.id,
+        type: "buy",
+        date: Date.current,
+        qty: 1,
+        price: 100,
+        currency: "USD",
+        security_id: security.id
+      } },
+      headers: api_headers(member_api_key)
+
+    assert_response :not_found
+  end
+
+  test "update and destroy reject a trade in another member's unshared account" do
+    private_trade = create_private_trade
+
+    put api_v1_trade_url(private_trade),
+      params: { trade: { notes: "unauthorized change" } },
+      headers: api_headers(member_api_key)
+    assert_response :not_found
+    assert_not_equal "unauthorized change", private_trade.entry.reload.notes
+
+    delete api_v1_trade_url(private_trade), headers: api_headers(member_api_key)
+    assert_response :not_found
+    assert Trade.exists?(private_trade.id)
   end
 
   test "should return 404 for non-existent trade" do
@@ -1001,6 +1049,38 @@ class Api::V1::TradesControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+    def member_api_key
+      ApiRateLimiter.any_instance.stubs(:rate_limit_exceeded?).returns(false)
+      ApiRateLimiter.any_instance.stubs(:increment_request_count!)
+      ApiRateLimiter.any_instance.stubs(:usage_info).returns(
+        current_count: 1, rate_limit: 100, remaining: 99, reset_time: 3600, tier: :standard
+      )
+      @member_api_key ||= ApiKey.create!(
+        user: users(:family_member),
+        name: "Member RW Key",
+        key: ApiKey.generate_secure_key,
+        scopes: %w[read_write],
+        source: "web"
+      )
+    end
+
+    def create_private_trade
+      entry = @investment_account.entries.create!(
+        name: "Private trade",
+        date: Date.current,
+        amount: 100,
+        currency: "USD",
+        entryable: Trade.new(
+          security: securities(:aapl),
+          qty: 1,
+          price: 100,
+          currency: "USD",
+          investment_activity_label: "Buy"
+        )
+      )
+      entry.trade
+    end
 
     def read_write_api_key
       @read_write_api_key ||= ApiKey.create!(
