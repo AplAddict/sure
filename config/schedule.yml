@@ -114,3 +114,9 @@ expire_research_watchlist:
   class: "ResearchWatchlistExpiryJob"
   queue: "scheduled"
   description: "Removes AI-assistant-added research watchlist entries past their expiry"
+
+discover_investment_watchlist_candidates:
+  cron: "15 21 * * 1-5" # after the final weekday research-universe refresh
+  class: "InvestmentWatchlistDiscoveryJob"
+  queue: "scheduled"
+  description: "Queues at most one fresh, evidence-gated research candidate daily for members who opted in"

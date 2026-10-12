@@ -201,6 +201,21 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_select "[aria-current='true']", text: I18n.t("investment_decision_center.switch.decision")
   end
 
+  test "investment tabs replace the current workspace frame instead of doing a full-page visit" do
+    sign_in @owner
+    get root_path(view: "decision")
+
+    assert_response :success
+    assert_select "turbo-frame#investment_workspace" do
+      assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label") do
+        [ portfolio_holdings_path, investment_income_path, tax_lot_review_path, options_review_path,
+          market_events_path, research_watchlist_entries_path, investment_news_path ].each do |path|
+          assert_select "a[href=?][data-turbo-frame=investment_workspace]", path
+        end
+      end
+    end
+  end
+
   test "every investment page is reachable from the shared sub-navigation" do
     sign_in @owner
     get root_path(view: "decision")

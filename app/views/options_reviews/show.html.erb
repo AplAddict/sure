@@ -8,7 +8,9 @@
   </div>
 <% end %>
 
-<div class="space-y-4 pb-6 lg:pb-12">
+<%= turbo_frame_tag "investment_workspace" do %>
+  <div class="space-y-4 pb-6 lg:pb-12">
+  <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :options, title: t(".title"), subtitle: t(".subtitle") %><% end %>
   <% if @review.rows.empty? %>
     <%= render DS::EmptyState.new(icon: "chart-no-axes-combined", title: t(".empty_title"), description: t(".empty_description")) %>
   <% else %>
@@ -55,3 +57,4 @@
     </div>
   <% end %>
 </div>
+<% end %>

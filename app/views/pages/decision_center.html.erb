@@ -17,7 +17,8 @@
   </div>
 <% end %>
 
-<div class="space-y-5 pb-6 lg:pb-12">
+<%= turbo_frame_tag "investment_workspace" do %>
+  <div class="space-y-5 pb-6 lg:pb-12">
   <%= render "investments/subnav", current: :decision %>
   <section class="rounded-xl bg-container shadow-border-xs p-4 space-y-4" aria-labelledby="idc-pulse">
     <% if pulse.nil? %>
@@ -185,3 +186,4 @@
     </div>
   </section>
 </div>
+<% end %>

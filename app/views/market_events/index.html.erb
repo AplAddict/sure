@@ -1,6 +1,8 @@
 <% content_for :page_title, "Market Events" %>
 
-<div class="space-y-5 pb-8">
+<%= turbo_frame_tag "investment_workspace" do %>
+  <div class="space-y-5 pb-8">
+  <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :events, title: "Market Events", subtitle: "Generated from holdings, cached market data, and read-only options snapshots. This does not import or copy your external calendar." %><% end %>
   <%= render "investments/subnav", current: :events %>
   <div class="flex flex-wrap items-start justify-between gap-3">
     <div>
@@ -74,3 +76,4 @@
     </div>
   <% end %>
 </div>
+<% end %>

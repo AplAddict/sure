@@ -1,0 +1,9 @@
+---
+en:
+  investment_news:
+    show:
+      title: Investment news
+      subtitle: Current cached articles tagged to securities held in accounts you can access. Source context only — not a trade signal.
+      empty_title: No current investment news
+      empty_description: There are no current cached articles for securities in your accessible investment accounts.
+      time_unavailable: Publication time unavailable

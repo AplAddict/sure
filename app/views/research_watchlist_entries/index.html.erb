@@ -9,7 +9,9 @@
   </div>
 <% end %>
 
-<div class="space-y-6 pb-6 lg:pb-12">
+<%= turbo_frame_tag "investment_workspace" do %>
+  <div class="space-y-6 pb-6 lg:pb-12">
+  <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :watchlist, title: t(".title"), subtitle: t(".subtitle") %><% end %>
   <section class="rounded-xl bg-container p-4 shadow-border-xs" aria-labelledby="rw-add" data-testid="watchlist-add">
     <h2 id="rw-add" class="text-sm font-medium text-primary"><%= t(".add_heading") %></h2>
     <% if @new_entry.errors.any? %>
@@ -65,3 +67,4 @@
     <% end %>
   </section>
 </div>
+<% end %>
