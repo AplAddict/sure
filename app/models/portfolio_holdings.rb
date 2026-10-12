@@ -46,6 +46,14 @@ class PortfolioHoldings
     @accounts ||= user.accessible_accounts.visible.where(accountable_type: %w[Investment Crypto]).includes(:accountable).order(:name).to_a
   end
 
+  # Ids of the member's accounts linked to a SnapTrade connection, the only
+  # source of tax lots. For an account in this set, missing or unusable lots mean
+  # the broker's lot data could not be verified; for any other account the source
+  # does not supply lots at all.
+  def snaptrade_account_ids
+    AccountProvider.where(account_id: accounts.map(&:id), provider_type: "SnaptradeAccount").pluck(:account_id)
+  end
+
   def selected_account
     accounts.find { |account| account.id == @account_id }
   end

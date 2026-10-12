@@ -17,6 +17,14 @@ class TaxLotReview
     def gain_pct = cost_basis.positive? ? gain / cost_basis * 100 : nil
   end
 
+  # An open taxable position with no usable lot set, and why. :provider_supplies_none
+  # means the account's source sends no lots; :broker_lots_unusable means a
+  # SnapTrade-linked account whose lots were missing or did not add up to the
+  # held quantity.
+  Gap = Data.define(:account, :security, :reason)
+
+  CASH_SWEEP_NAME = /money\s*market/i
+
   attr_reader :user, :today, :window_days
 
   def initialize(user:, today: Date.current, window_days: DEFAULT_WINDOW_DAYS)
@@ -41,9 +49,18 @@ class TaxLotReview
   # Open positions in taxable accounts for which the broker supplied no lot set
   # that adds up to the held quantity. They are absent from every figure, so the
   # page reports them instead of letting "no lots" look like "nothing to review".
-  def positions_without_lots
-    build unless defined?(@positions_without_lots)
-    @positions_without_lots
+  def positions_without_lots = lot_gaps.size
+
+  def lot_gaps
+    build unless defined?(@lot_gaps)
+    @lot_gaps
+  end
+
+  # Money-market sweeps held at $1 a share. They have no meaningful gain to
+  # measure by lot, so they are listed apart and not reported as a data gap.
+  def cash_sweeps
+    build unless defined?(@cash_sweeps)
+    @cash_sweeps
   end
 
   def excluded_account_count
@@ -77,14 +94,23 @@ class TaxLotReview
     def build
       @lots = []
       @unmeasured_count = 0
-      @positions_without_lots = 0
+      @lot_gaps = []
+      @cash_sweeps = []
+      snaptrade_ids = portfolio.snaptrade_account_ids
       taxable = portfolio.accounts.select { |account| account.tax_treatment == :taxable }.map(&:id)
 
       portfolio.blocks.each do |block|
         next unless taxable.include?(block.account.id)
 
         block.positions.each do |position|
-          @positions_without_lots += 1 if position.lots.empty?
+          if position.lots.empty?
+            if cash_sweep?(position)
+              @cash_sweeps << position
+            else
+              reason = snaptrade_ids.include?(block.account.id) ? :broker_lots_unusable : :provider_supplies_none
+              @lot_gaps << Gap.new(account: block.account, security: position.security, reason: reason)
+            end
+          end
 
           position.lots.each do |lot|
             long_term = HoldingPeriod.long_term?(lot.acquired_on, today)
@@ -103,5 +129,9 @@ class TaxLotReview
           end
         end
       end
+    end
+
+    def cash_sweep?(position)
+      position.price == 1 && position.security.name.to_s.match?(CASH_SWEEP_NAME)
     end
 end

@@ -152,6 +152,67 @@ class TaxLotReviewTest < ActiveSupport::TestCase
     assert_nil day_after.days_to_long_term
   end
 
+  test "lists each position without verified lots with its account and a reason, instead of only a count" do
+    account = taxable_account
+    covered = Security.create!(ticker: "TLRM", exchange_mic: "XNAS", name: "Covered")
+    uncovered = Security.create!(ticker: "TLRN", exchange_mic: "XNAS", name: "No Lots")
+    holding(account, covered, qty: 10)
+    holding(account, uncovered, qty: 5)
+    stub_lots(account, "TLRM", [ lot(10, 1000, 1500, @today - 100.days) ])
+
+    gaps = TaxLotReview.new(user: @user, today: @today).lot_gaps.select { |gap| gap.account.id == account.id }
+
+    assert_equal [ "TLRN" ], gaps.map { |gap| gap.security.ticker }
+    assert_equal :provider_supplies_none, gaps.first.reason
+  end
+
+  test "a snapshot-linked account reports lots as unusable rather than claiming the broker sent none" do
+    account = taxable_account
+    security = Security.create!(ticker: "TLRP", exchange_mic: "XNAS", name: "Linked")
+    holding(account, security, qty: 5)
+    PortfolioHoldings.any_instance.stubs(:snaptrade_account_ids).returns([ account.id ])
+
+    gap = TaxLotReview.new(user: @user, today: @today).lot_gaps.find { |g| g.account.id == account.id }
+
+    assert_equal :broker_lots_unusable, gap.reason
+  end
+
+  test "a money-market sweep is counted apart and is not reported as a missing lot" do
+    account = taxable_account
+    sweep = Security.create!(ticker: "TLRS", exchange_mic: "XNAS", name: "Government Money Market Fund")
+    account.holdings.create!(security: sweep, date: Date.current, qty: 5000, price: 1, amount: 5000, currency: "USD", cost_basis: 1, cost_basis_source: "provider")
+    ordinary = Security.create!(ticker: "TLRT", exchange_mic: "XNAS", name: "Ordinary Co")
+    holding(account, ordinary, qty: 5)
+
+    review = TaxLotReview.new(user: @user, today: @today)
+    mine = review.lot_gaps.select { |gap| gap.account.id == account.id }
+
+    assert_equal [ "TLRT" ], mine.map { |gap| gap.security.ticker }
+    assert_includes review.cash_sweeps.map { |position| position.security.ticker }, "TLRS"
+  end
+
+  test "a fund named money market but not priced at one dollar is still a gap" do
+    account = taxable_account
+    fund = Security.create!(ticker: "TLRU", exchange_mic: "XNAS", name: "Money Market Opportunities Fund")
+    holding(account, fund, qty: 5)
+
+    mine = TaxLotReview.new(user: @user, today: @today).lot_gaps.select { |gap| gap.account.id == account.id }
+
+    assert_equal [ "TLRU" ], mine.map { |gap| gap.security.ticker }
+  end
+
+  test "positions_without_lots counts only real gaps" do
+    account = taxable_account
+    sweep = Security.create!(ticker: "TLRV", exchange_mic: "XNAS", name: "Treasury Money Market Fund")
+    account.holdings.create!(security: sweep, date: Date.current, qty: 100, price: 1, amount: 100, currency: "USD", cost_basis: 1, cost_basis_source: "provider")
+    baseline = TaxLotReview.new(user: @user, today: @today).positions_without_lots
+
+    other = Security.create!(ticker: "TLRW", exchange_mic: "XNAS", name: "Plain")
+    holding(account, other, qty: 5)
+
+    assert_equal baseline + 1, TaxLotReview.new(user: @user, today: @today).positions_without_lots
+  end
+
   private
     def taxable_account
       @family.accounts.create!(name: "Review Taxable #{SecureRandom.hex(3)}", balance: 5000, cash_balance: 0, currency: "USD", owner: @user,

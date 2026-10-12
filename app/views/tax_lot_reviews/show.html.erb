@@ -31,8 +31,21 @@
   <% if review.excluded_account_count.positive? %>
     <p class="text-xs text-secondary"><%= t(".excluded", count: review.excluded_account_count) %></p>
   <% end %>
-  <% if review.positions_without_lots.positive? %>
-    <p class="rounded-lg bg-container-inset px-4 py-3 text-sm text-secondary" role="status"><%= t(".no_lots", count: review.positions_without_lots) %></p>
+  <% if review.lot_gaps.any? %>
+    <details class="rounded-lg bg-container-inset px-4 py-3 text-sm text-secondary" role="status">
+      <summary class="cursor-pointer"><%= t(".no_lots", count: review.lot_gaps.size) %> <span class="underline"><%= t(".gaps_show") %></span></summary>
+      <% review.lot_gaps.group_by(&:account).each do |account, gaps| %>
+        <div class="mt-3">
+          <p class="font-medium text-primary"><%= account.name %></p>
+          <% gaps.group_by(&:reason).each do |reason, items| %>
+            <p class="mt-1"><%= items.map { |gap| gap.security.ticker }.sort.join(", ") %> — <%= t(".gaps_reason.#{reason}") %></p>
+          <% end %>
+        </div>
+      <% end %>
+    </details>
+  <% end %>
+  <% if review.cash_sweeps.any? %>
+    <p class="text-xs text-secondary"><%= t(".cash_sweeps", count: review.cash_sweeps.size) %></p>
   <% end %>
   <% if review.unmeasured_count.positive? %>
     <p class="rounded-lg bg-container-inset px-4 py-3 text-sm text-secondary" role="status"><%= t(".unmeasured", count: review.unmeasured_count) %></p>

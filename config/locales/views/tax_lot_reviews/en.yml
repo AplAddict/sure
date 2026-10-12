@@ -14,6 +14,13 @@ en:
       no_lots:
         one: 1 open position in taxable accounts has no broker lot data that matches the held quantity, so it is not included in any figure below.
         other: "%{count} open positions in taxable accounts have no broker lot data that matches the held quantity, so they are not included in any figure below."
+      gaps_show: Which positions
+      gaps_reason:
+        provider_supplies_none: This account's connection does not send tax lots.
+        broker_lots_unusable: The broker's lots were missing or did not add up to the held quantity, so they were not used.
+      cash_sweeps:
+        one: 1 money-market sweep held at $1 a share is not counted as a gap, since it has no gain to measure by lot.
+        other: "%{count} money-market sweeps held at $1 a share are not counted as gaps, since they have no gain to measure by lot."
       unmeasured:
         one: 1 lot could not be measured (the broker did not supply an acquisition date, cost basis or value, or the lot is in another currency) and is not included in any figure below.
         other: "%{count} lots could not be measured (the broker did not supply an acquisition date, cost basis or value, or the lot is in another currency) and are not included in any figure below."

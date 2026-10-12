@@ -62,4 +62,20 @@ class TaxLotReviewsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_no_match "LOTPG", response.body
   end
+
+  test "names the positions without lot data and why, and never shows them to a member without access" do
+    gap = Security.create!(ticker: "LOTGAP", exchange_mic: "XNAS", name: "No Lot Co")
+    @account.holdings.create!(security: gap, date: Date.current, qty: 3, price: 10, amount: 30, currency: "USD", cost_basis: 8, cost_basis_source: "provider")
+
+    sign_in @owner
+    get tax_lot_review_path
+    assert_select "details summary", text: /no broker lot data/
+    assert_select "details", text: /Lot Page Brokerage/
+    assert_select "details", text: /LOTGAP/
+    assert_select "details", text: /does not send tax lots/
+
+    sign_in users(:empty)
+    get tax_lot_review_path
+    assert_no_match "LOTGAP", response.body
+  end
 end
