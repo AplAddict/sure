@@ -36,7 +36,10 @@ class InvestmentsSubnavTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select "h1", count: 1
       assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label"), count: 1
-      assert_select "turbo-frame#investment_workspace" do
+      # Links out of the workspace (ticker research, account pages) go to
+      # pages without this frame, so the frame targets _top by default and
+      # only the tab strip opts back into the frame.
+      assert_select "turbo-frame#investment_workspace[target=_top]" do
         assert_select "h1", count: 1
         assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label"), count: 1
       end

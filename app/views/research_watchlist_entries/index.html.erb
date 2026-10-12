@@ -1,7 +1,7 @@
 <% content_for :page_title, t(".title") %>
 <% statuses = ResearchWatchlistEntry::STATUSES.map { |s| [ t(".statuses.#{s}"), s ] } %>
 <% field_class = "w-full rounded-lg border border-tertiary bg-container px-3 py-2 text-sm text-primary focus-ring" %>
-<%= turbo_frame_tag "investment_workspace" do %>
+<%= turbo_frame_tag "investment_workspace", target: "_top" do %>
   <div class="mb-6">
     <%= render "investments/subnav", current: :watchlist %>
     <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t(".title") %></h1>

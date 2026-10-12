@@ -5,7 +5,7 @@
 <% source_health = center.source_health %>
 <% content_for :page_title, t("investment_decision_center.title") %>
 
-<%= turbo_frame_tag "investment_workspace" do %>
+<%= turbo_frame_tag "investment_workspace", target: "_top" do %>
   <div class="space-y-1 mb-6 flex gap-4 justify-between items-center lg:items-start">
     <div class="space-y-1">
       <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t("investment_decision_center.title") %></h1>

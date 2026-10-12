@@ -1,6 +1,6 @@
 <% content_for :page_title, t(".title") %>
 
-<%= turbo_frame_tag "investment_workspace" do %>
+<%= turbo_frame_tag "investment_workspace", target: "_top" do %>
   <div class="mb-6">
     <%= render "investments/subnav", current: :tax_lots %>
     <div class="space-y-1">
