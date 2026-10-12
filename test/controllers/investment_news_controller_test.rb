@@ -15,43 +15,12 @@ class InvestmentNewsControllerTest < ActionDispatch::IntegrationTest
     SecurityResearchSnapshot.create!(security: secret_security, status: "current", generated_at: Time.current, imported_at: Time.current, payload: { "news" => [ { "title" => "Private headline", "link" => "https://example.com/private", "source" => "Wire", "published" => "2026-10-12", "tickers" => [ "SECNW" ] } ] })
   end
 
-  test "shows only cached news for securities in accounts the member can access" do
+  test "legacy portfolio news redirects to the canonical sentiment-rich research feed" do
     sign_in @owner
-    get investment_news_path
-    assert_response :success
-    assert_match "Owned headline", response.body
-    assert_match "Private headline", response.body
 
-    sign_in @member
-    get investment_news_path
-    assert_response :success
-    assert_no_match "Owned headline", response.body
-    assert_no_match "Private headline", response.body
-  end
-
-  test "turbo request returns the investment workspace frame with its tab current" do
-    sign_in @owner
-    get investment_news_path, headers: { "Turbo-Frame" => "investment_workspace" }
-    assert_response :success
-    assert_select "turbo-frame#investment_workspace"
-    assert_select "a[aria-current=page]", text: "News"
-  end
-
-  test "shows relative time with the exact time on hover, newest first, and says when a date is missing" do
-    own = Security.find_by!(ticker: "OWNNW")
-    SecurityResearchSnapshot.where(security: own).destroy_all
-    SecurityResearchSnapshot.create!(security: own, status: "current", generated_at: Time.current, imported_at: Time.current, payload: { "news" => [
-      { "title" => "Older", "link" => "https://example.com/older", "source" => "Wire", "published" => (2.days.ago).httpdate, "tickers" => [ "OWNNW" ] },
-      { "title" => "Newest", "link" => "https://example.com/newest", "source" => "Wire", "published" => (2.hours.ago).iso8601, "tickers" => [ "OWNNW" ] },
-      { "title" => "Undated", "link" => "https://example.com/undated", "source" => "Wire", "tickers" => [ "OWNNW" ] }
-    ] })
-    sign_in @owner
     get investment_news_path
 
-    titles = css_select("article a[target=_blank]").map { |a| a.text.strip }
-    assert_equal %w[Newest Older Undated], titles & %w[Newest Older Undated]
-    assert_select "article time[datetime][title]", minimum: 2
-    assert_match(/about 2 hours ago|2 hours ago/, response.body)
-    assert_select "article", text: /Publication time unavailable/
+    assert_redirected_to research_news_path
   end
+
 end

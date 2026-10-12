@@ -534,7 +534,7 @@ Rails.application.routes.draw do
   get "portfolio/holdings", to: "portfolio_holdings#show", as: :portfolio_holdings
   get "portfolio/options", to: "options_reviews#show", as: :options_review
   get "portfolio/income", to: "investment_incomes#show", as: :investment_income
-  get "portfolio/news", to: "investment_news#show", as: :investment_news
+  get "portfolio/news", to: redirect("/research/news"), as: :investment_news
   patch "portfolio/sections/:namespace", to: "investment_section_preferences#update", as: :investment_section_preferences
   delete "portfolio/sections/:namespace", to: "investment_section_preferences#destroy"
   get "portfolio/tax-lots", to: "tax_lot_reviews#show", as: :tax_lot_review

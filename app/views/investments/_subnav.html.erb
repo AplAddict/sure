@@ -9,11 +9,11 @@
        [ :options, t("investments.subnav.options"), options_review_path ],
        [ :events, t("investments.subnav.events"), market_events_path ],
        [ :watchlist, t("investments.subnav.watchlist"), research_watchlist_entries_path ],
-       [ :news, t("investments.subnav.news"), investment_news_path ]
+       [ :news, t("investments.subnav.news"), research_news_path ]
      ].each do |key, label, path| %>
     <%= link_to label, path,
           class: "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium focus-ring #{current == key ? "bg-container-inset text-primary" : "text-secondary hover:text-primary hover:bg-container-inset-hover"}",
           aria: { current: (current == key ? "page" : nil) },
-          data: { turbo_frame: "investment_workspace", turbo_action: "advance" } %>
+          data: (key == :news ? {} : { turbo_frame: "investment_workspace", turbo_action: "advance" }) %>
   <% end %>
 </nav>
