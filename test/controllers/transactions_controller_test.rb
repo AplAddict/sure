@@ -9,6 +9,27 @@ class TransactionsControllerTest < ActionDispatch::IntegrationTest
     @entry = entries(:transaction)
   end
 
+  # The one-time marker was an orange asterisk explained only by a hover title,
+  # so touch and screen-reader users got colour alone. It is a labelled pill now.
+  test "a one-time transaction is marked with a labelled pill" do
+    @entry.entryable.update!(kind: "one_time")
+
+    get transactions_url
+
+    assert_response :success
+    assert_select "##{dom_id(@entry)} [data-testid=one-time-pill]", text: /#{I18n.t("transactions.transaction.one_time")}/, count: 1
+    assert_select "##{dom_id(@entry)} [data-testid=one-time-pill][title=?]", I18n.t("transactions.transaction.one_time_tooltip")
+  end
+
+  test "the bulk selection bar names its controls for assistive technology" do
+    get transactions_url
+
+    assert_response :success
+    assert_select "label[for=entry_selection].sr-only", text: I18n.t("transactions.selection_bar.deselect_all")
+    assert_select "button[data-bulk-select-scope-param=bulk_delete][aria-label=?]", I18n.t("transactions.selection_bar.delete")
+    assert_select "button[data-bulk-select-scope-param=bulk_delete][title]", count: 0
+  end
+
   # Bills has always linked out to transactions. Until now nothing linked back,
   # so a transaction that settled a bill was a dead end. The link-back is part
   # of the preview-gated bills surface, so the viewer needs the flag.

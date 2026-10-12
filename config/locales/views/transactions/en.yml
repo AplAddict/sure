@@ -23,6 +23,8 @@ en:
     selection_bar:
       duplicate: Duplicate
       edit: Edit
+      delete: Delete selected
+      deselect_all: Clear selection
       selected: selected
     form:
       details: Details
@@ -168,6 +170,8 @@ en:
     transaction:
       pending: Pending
       pending_tooltip: Pending transaction — may change when posted
+      one_time: One-time
+      one_time_tooltip: One-time transaction, excluded from averages and budget analytics
       linked_with_provider: Linked with %{provider}
       activity_type_tooltip: Investment activity type
       possible_duplicate: Duplicate?
