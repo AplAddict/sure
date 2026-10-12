@@ -228,6 +228,54 @@ class SnaptradeAccount < ApplicationRecord
     snaptrade_item.snaptrade_provider
   end
 
+  OptionPosition = Data.define(:contract, :underlying, :type, :expiration, :strike, :quantity, :mark, :currency)
+
+  # Normalize the read-only contract snapshot for presentation. This is
+  # deliberately independent from Holding: option contracts must not become
+  # equity shares or feed account totals, cost basis, performance, or net worth.
+  def option_positions_snapshot
+    Array(raw_options_payload).filter_map do |raw_position|
+      position = raw_position.respond_to?(:to_h) ? raw_position.to_h.with_indifferent_access : {}
+      instrument = position[:instrument].respond_to?(:to_h) ? position[:instrument].to_h.with_indifferent_access : {}
+      contract = instrument[:symbol].to_s.strip.presence
+      next unless contract
+
+      OptionPosition.new(
+        contract: contract,
+        underlying: contract[/\A([A-Z.]+)\s+/, 1],
+        type: instrument[:option_type].to_s.upcase.presence,
+        expiration: Date.iso8601(instrument[:expiration_date].to_s),
+        strike: option_decimal(instrument[:strike_price]),
+        quantity: option_decimal(position[:units]),
+        mark: option_decimal(position[:price]),
+        currency: option_currency(position[:currency]) || currency
+      )
+    rescue ArgumentError
+      OptionPosition.new(
+        contract: contract,
+        underlying: contract[/\A([A-Z.]+)\s+/, 1],
+        type: instrument[:option_type].to_s.upcase.presence,
+        expiration: nil,
+        strike: option_decimal(instrument[:strike_price]),
+        quantity: option_decimal(position[:units]),
+        mark: option_decimal(position[:price]),
+        currency: option_currency(position[:currency]) || currency
+      )
+    end
+  end
+
+  private
+
+  def option_decimal(value)
+    BigDecimal(value.to_s)
+  rescue ArgumentError
+    nil
+  end
+
+  def option_currency(value)
+    value.respond_to?(:to_h) ? value.to_h.with_indifferent_access[:code].presence : value.to_s.presence
+  end
+
   private
 
     def normalized_balance_entries

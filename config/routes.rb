@@ -532,6 +532,7 @@ Rails.application.routes.draw do
   get "market-events", to: "market_events#index", as: :market_events
   get "tax-loss-harvest", to: "tax_loss_harvests#show", as: :tax_loss_harvest
   get "portfolio/holdings", to: "portfolio_holdings#show", as: :portfolio_holdings
+  get "portfolio/options", to: "options_reviews#show", as: :options_review
 
   resources :holdings, only: %i[index new show update destroy] do
     member do

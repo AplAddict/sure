@@ -24,6 +24,30 @@ class SnaptradeAccountTest < ActiveSupport::TestCase
     )
   end
 
+  test "option positions expose only reviewed contract fields and preserve unknown values" do
+    account = SnaptradeAccount.new(snaptrade_item: @item_a, name: "Brokerage", currency: "USD", raw_options_payload: [
+      {
+        "instrument" => { "symbol" => "MSFT  270115C00500000", "option_type" => "CALL", "expiration_date" => "2027-01-15", "strike_price" => "500" },
+        "units" => "2", "price" => "12.5", "currency" => { "code" => "USD" }, "untrusted_provider_detail" => "do not expose"
+      },
+      { "instrument" => { "symbol" => "bad contract" }, "units" => "not-a-number" }
+    ])
+
+    positions = account.option_positions_snapshot
+
+    assert_equal 2, positions.size
+    assert_equal "MSFT  270115C00500000", positions.first.contract
+    assert_equal "MSFT", positions.first.underlying
+    assert_equal "CALL", positions.first.type
+    assert_equal Date.new(2027, 1, 15), positions.first.expiration
+    assert_equal BigDecimal("500"), positions.first.strike
+    assert_equal BigDecimal("2"), positions.first.quantity
+    assert_equal BigDecimal("12.5"), positions.first.mark
+    assert_equal "USD", positions.first.currency
+    assert_nil positions.last.expiration
+    assert_nil positions.last.quantity
+  end
+
   test "same snaptrade_account_id can be linked under different snaptrade_items" do
     SnaptradeAccount.create!(
       snaptrade_item: @item_a,
