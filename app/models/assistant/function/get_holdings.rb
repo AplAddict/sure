@@ -90,7 +90,7 @@ class Assistant::Function::GetHoldings < Assistant::Function
     pagy = Pagy.new(count: ordered_holdings.count, page: resolved_page(params), limit: default_page_size)
     paginated_holdings = ordered_holdings.includes(:security, :account).offset(pagy.offset).limit(pagy.limit)
 
-    total_value = holdings_query.sum(:amount)
+    total_value = formatted_total_value(holdings_query)
 
     normalized_holdings = paginated_holdings.map do |holding|
       {
@@ -115,11 +115,28 @@ class Assistant::Function::GetHoldings < Assistant::Function
       page: pagy.page,
       page_size: default_page_size,
       total_pages: pagy.pages,
-      total_value: Money.new(total_value, family.currency).format
+      total_value: total_value
     }
   end
 
   private
+    def formatted_total_value(holdings)
+      amounts = holdings.pluck(:amount, :currency)
+      foreign_currencies = amounts.map(&:last).compact.uniq - [ family.currency ]
+      rates = ExchangeRate.rates_for(
+        foreign_currencies,
+        to: family.currency,
+        date: Date.current,
+        fallback: nil
+      )
+      return "Unavailable" if foreign_currencies.any? { |currency| rates[currency].nil? }
+
+      total = amounts.sum(BigDecimal("0")) do |amount, currency|
+        amount.to_d * (currency == family.currency ? 1 : rates.fetch(currency).to_d)
+      end
+      Money.new(total, family.currency).format
+    end
+
     def default_page_size
       self.class.default_page_size
     end
