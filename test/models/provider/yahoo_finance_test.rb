@@ -788,6 +788,21 @@ class Provider::YahooFinanceTest < ActiveSupport::TestCase
     assert_includes Provider::YahooFinance::USER_AGENTS, user_agent
   end
 
+  test "YAHOO_FINANCE_USER_AGENTS narrows the pool to the agents the host is allowed to use" do
+    allowed = [ "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/145.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0) Edg/145" ]
+    ENV.stubs(:[]).with("YAHOO_FINANCE_USER_AGENTS").returns(allowed.join("||"))
+    ENV.stubs(:[]).with(Not(equals("YAHOO_FINANCE_USER_AGENTS"))).returns(nil)
+
+    20.times { assert_includes allowed, @provider.send(:random_user_agent) }
+  end
+
+  test "a blank YAHOO_FINANCE_USER_AGENTS leaves the default pool" do
+    ENV.stubs(:[]).with("YAHOO_FINANCE_USER_AGENTS").returns("  ")
+    ENV.stubs(:[]).with(Not(equals("YAHOO_FINANCE_USER_AGENTS"))).returns(nil)
+
+    assert_includes Provider::YahooFinance::USER_AGENTS, @provider.send(:random_user_agent)
+  end
+
   test "USER_AGENTS contains multiple modern browser user-agents" do
     assert Provider::YahooFinance::USER_AGENTS.length >= 5
     assert Provider::YahooFinance::USER_AGENTS.all? { |ua| ua.include?("Mozilla") }

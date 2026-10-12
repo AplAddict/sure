@@ -969,8 +969,14 @@ class Provider::YahooFinance < Provider
       end
     end
 
+    # Yahoo blocks some browser signatures per client IP (from one host, Mac
+    # Chrome, Safari and Firefox user agents get a hard 429 while Windows Chrome
+    # and Edge do not), and the block differs by network. YAHOO_FINANCE_USER_AGENTS
+    # ("||"-separated) narrows the pool to the agents a given host is allowed to
+    # use; unset, the whole default pool is rotated as before.
     def random_user_agent
-      USER_AGENTS.sample
+      configured = ENV["YAHOO_FINANCE_USER_AGENTS"].to_s.split("||").map(&:strip).reject(&:blank?)
+      (configured.presence || USER_AGENTS).sample
     end
 
     def max_retries
