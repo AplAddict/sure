@@ -36,6 +36,9 @@
               <div>
                 <%= link_to entry.security.ticker, research_ticker_path(entry.security.ticker), class: "font-mono font-medium text-primary hover:underline" %>
                 <span class="ml-2 text-xs text-secondary"><%= entry.security.name %></span>
+                <% if entry.assistant_added? %>
+                  <span class="ml-2 rounded-full bg-container-inset px-2 py-0.5 text-xs text-secondary"><%= t(".added_by_assistant") %></span>
+                <% end %>
               </div>
               <%= button_to t(".remove"), research_watchlist_entry_path(entry), method: :delete, class: "text-xs font-medium text-secondary hover:text-destructive cursor-pointer", form: { data: { turbo_confirm: t(".confirm_remove", ticker: entry.security.ticker) } } %>
             </div>

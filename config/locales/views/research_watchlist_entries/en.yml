@@ -14,6 +14,7 @@ en:
       saved: Saved theses
       empty: No saved research theses yet.
       remove: Remove
+      added_by_assistant: Added by assistant
       save: Save
       confirm_remove: "Remove %{ticker} from your watchlist?"
       status_for: "Status for %{ticker}"

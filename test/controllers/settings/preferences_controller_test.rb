@@ -51,6 +51,24 @@ class Settings::PreferencesControllerTest < ActionDispatch::IntegrationTest
     assert_not user.reload.preview_features_enabled?
   end
 
+  test "the AI watchlist setting is off by default and each member controls their own" do
+    user = users(:family_admin)
+    assert_not user.ai_watchlist_enabled?
+
+    get settings_preferences_url
+    assert_response :success
+    assert_select "input[name='user[ai_watchlist_enabled]']"
+
+    patch settings_preferences_url, params: { user: { ai_watchlist_enabled: "1" } }
+    assert_redirected_to settings_preferences_url
+    assert user.reload.ai_watchlist_enabled?
+    assert_not users(:family_member).ai_watchlist_enabled?
+    assert_not user.preview_features_enabled?, "saving one setting must not touch the others"
+
+    patch settings_preferences_url, params: { user: { ai_watchlist_enabled: "0" } }
+    assert_not user.reload.ai_watchlist_enabled?
+  end
+
   test "admin can toggle the family pending-balance master switch" do
     family = users(:family_admin).family
     assert_not family.include_pending_transactions_in_balances?

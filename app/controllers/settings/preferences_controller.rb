@@ -13,7 +13,7 @@ class Settings::PreferencesController < ApplicationController
   # UsersController#update flow (which expects a full user form payload).
   def update
     @user = Current.user
-    user_params = params.permit(user: [ :preview_features_enabled ]).fetch(:user, {})
+    user_params = params.permit(user: [ :preview_features_enabled, :ai_watchlist_enabled ]).fetch(:user, {})
     family_params = params.permit(family: [ :include_pending_transactions_in_balances ]).fetch(:family, {})
 
     if family_params.key?(:include_pending_transactions_in_balances) && !@user.admin?
@@ -26,6 +26,10 @@ class Settings::PreferencesController < ApplicationController
       if user_params.key?(:preview_features_enabled)
         updated_prefs["preview_features_enabled"] =
           ActiveModel::Type::Boolean.new.cast(user_params[:preview_features_enabled])
+      end
+      if user_params.key?(:ai_watchlist_enabled)
+        updated_prefs["ai_watchlist_enabled"] =
+          ActiveModel::Type::Boolean.new.cast(user_params[:ai_watchlist_enabled])
       end
       @user.update!(preferences: updated_prefs)
       Current.family.update!(family_params) if family_params.key?(:include_pending_transactions_in_balances)

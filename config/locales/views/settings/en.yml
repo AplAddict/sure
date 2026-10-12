@@ -240,6 +240,9 @@ en:
         preview:
           title: Enable preview features
           description: Opt in to in-progress features tagged preview or canary.
+        ai_watchlist:
+          title: Let the AI assistant add to my research watchlist
+          description: When on, the assistant can queue tickers on your private research watchlist when you ask it to or agree to its suggestion. It cannot trade, change holdings, edit or remove anything you already have, and adds at most 10 a day. Entries it adds are labeled, and you can edit or delete them.
     budget_shares:
       update:
         success: Budget sharing settings updated

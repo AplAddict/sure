@@ -748,6 +748,13 @@ class User < ApplicationRecord
     preferences&.dig("preview_features_enabled") == true
   end
 
+  # Off by default. When on, the member's AI assistant is offered a tool that can
+  # add tickers to their own research watchlist (never anyone else's, and never
+  # anything that trades or changes holdings).
+  def ai_watchlist_enabled?
+    preferences&.dig("ai_watchlist_enabled") == true
+  end
+
   private
     def apply_ui_layout_defaults
       self.ui_layout = (ui_layout.presence || self.class.default_ui_layout)

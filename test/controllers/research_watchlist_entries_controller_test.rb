@@ -152,6 +152,20 @@ class ResearchWatchlistEntriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "researching", @entry.reload.status
   end
 
+  test "entries the assistant added are labeled, and the member can still edit or remove them" do
+    ai_security = Security.create!(ticker: letters_ticker, exchange_mic: "XNAS", name: "Assistant Pick")
+    ai_entry = ResearchWatchlistEntry.create!(user: @owner, security: ai_security, source: "assistant")
+    sign_in @owner
+
+    get research_watchlist_entries_path
+    assert_select "[data-testid='watchlist-row-#{ai_entry.id}']", text: /Added by assistant/
+    assert_select "[data-testid='watchlist-row-#{@entry.id}']", text: /Added by assistant/, count: 0
+
+    assert_difference -> { @owner.research_watchlist_entries.count }, -1 do
+      delete research_watchlist_entry_path(ai_entry)
+    end
+  end
+
   test "updates only the owner's entry" do
     sign_in @owner
     patch research_watchlist_entry_path(@entry), params: { research_watchlist_entry: { status: "ready", priority: 1, thesis: "Updated" } }

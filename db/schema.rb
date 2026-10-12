@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_030000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_12_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -2281,15 +2281,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_030000) do
     t.datetime "created_at", null: false
     t.integer "priority", default: 3, null: false
     t.uuid "security_id", null: false
+    t.string "source", default: "user", null: false
     t.string "status", default: "watching", null: false
     t.text "thesis"
     t.datetime "updated_at", null: false
     t.uuid "user_id", null: false
     t.index ["security_id"], name: "index_research_watchlist_entries_on_security_id"
     t.index ["user_id", "security_id"], name: "index_research_watchlist_entries_on_user_id_and_security_id", unique: true
+    t.index ["user_id", "source", "created_at"], name: "index_research_watchlist_entries_on_user_source_created"
     t.index ["user_id"], name: "index_research_watchlist_entries_on_user_id"
     t.check_constraint "priority >= 1 AND priority <= 5", name: "research_watchlist_entries_priority"
-    t.check_constraint "status::text = ANY (ARRAY['watching'::character varying, 'researching'::character varying, 'ready'::character varying, 'archived'::character varying]::text[])", name: "research_watchlist_entries_status"
+    t.check_constraint "source::text = ANY (ARRAY['user'::character varying, 'assistant'::character varying]::text[])", name: "research_watchlist_entries_source"
+    t.check_constraint "status::text = ANY (ARRAY['watching'::character varying::text, 'researching'::character varying::text, 'ready'::character varying::text, 'archived'::character varying::text])", name: "research_watchlist_entries_status"
   end
 
   create_table "rule_actions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
