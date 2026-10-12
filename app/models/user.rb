@@ -755,6 +755,16 @@ class User < ApplicationRecord
     preferences&.dig("ai_watchlist_enabled") == true
   end
 
+  # How long entries the assistant adds stay before they lapse (days). Only the
+  # offered choices are honoured; anything else falls back to the default.
+  AI_WATCHLIST_EXPIRY_CHOICES = [ 7, 14, 30, 60, 90 ].freeze
+  AI_WATCHLIST_EXPIRY_DEFAULT = 30
+
+  def ai_watchlist_expiry_days
+    days = preferences&.dig("ai_watchlist_expiry_days")
+    AI_WATCHLIST_EXPIRY_CHOICES.include?(days) ? days : AI_WATCHLIST_EXPIRY_DEFAULT
+  end
+
   private
     def apply_ui_layout_defaults
       self.ui_layout = (ui_layout.presence || self.class.default_ui_layout)

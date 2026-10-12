@@ -11,6 +11,7 @@ class ResearchWatchlistEntriesController < ApplicationController
   end
 
   def create
+    ResearchWatchlistEntry.purge_expired!(user: Current.user) # a lapsed leftover must not block a manual add
     @new_entry = Current.user.research_watchlist_entries.new(entry_params.except(:ticker))
     @typed_ticker = entry_params[:ticker].to_s.strip.upcase
 
@@ -38,7 +39,10 @@ class ResearchWatchlistEntriesController < ApplicationController
   end
 
   def update
-    if @entry.update(entry_params.except(:ticker))
+    return keep_entry if params[:keep].present?
+
+    # Saving an edit means the member reviewed it, so an assistant entry stops expiring.
+    if @entry.update(entry_params.except(:ticker).merge(expires_at: nil))
       redirect_to research_watchlist_entries_path, notice: t(".updated")
     else
       load_entries
@@ -54,12 +58,17 @@ class ResearchWatchlistEntriesController < ApplicationController
   end
 
   private
+    def keep_entry
+      @entry.keep!
+      redirect_to research_watchlist_entries_path, notice: t("research_watchlist_entries.keep.kept", ticker: @entry.security.ticker)
+    end
+
     def set_entry
       @entry = Current.user.research_watchlist_entries.find(params[:id])
     end
 
     def load_entries
-      @entries = Current.user.research_watchlist_entries.includes(:security).order(:priority, created_at: :desc)
+      @entries = Current.user.research_watchlist_entries.active.includes(:security).order(:priority, created_at: :desc)
       @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("breadcrumbs.research_watchlist"), nil ] ]
     end
 

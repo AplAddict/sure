@@ -1,7 +1,7 @@
 # Lets the member's AI assistant queue a ticker on the member's own research
 # watchlist. It is opt-in per member (User#ai_watchlist_enabled?), additive only
 # (it never edits or removes anything, and never overwrites an entry the member
-# already has), rate-limited, and research-only: it cannot trade, change holdings
+# already has), rate-limited, expires on its own, and research-only: it cannot trade, change holdings
 # or touch anyone else's list.
 class Assistant::Function::AddToResearchWatchlist < Assistant::Function
   class << self
@@ -15,7 +15,9 @@ class Assistant::Function::AddToResearchWatchlist < Assistant::Function
 
         Use this only when the user asks you to track, watch or queue a ticker, or agrees to a suggestion you made.
         It is research context only: it does not buy, sell, or change any holdings. It never changes a ticker
-        the user already has on the list. Tell the user which ticker you added and why.
+        the user already has on the list. Entries you add lapse automatically (the user chooses how long in
+        Preferences) unless they keep them, so add only what is worth a fresh look. Tell the user which
+        ticker you added and why.
 
         Example:
 
@@ -48,6 +50,9 @@ class Assistant::Function::AddToResearchWatchlist < Assistant::Function
       return failure("daily_limit", "The assistant has already added #{ResearchWatchlistEntry::ASSISTANT_ADDS_PER_DAY} tickers in the last 24 hours. Ask the user to add more themselves.")
     end
 
+    # A lapsed leftover must not block a fresh add of the same ticker.
+    ResearchWatchlistEntry.purge_expired!(user: user)
+
     ticker = params["ticker"].to_s.strip.upcase
     security, status = TickerResearchGenerateJob.resolve_security(ticker)
     case status
@@ -63,6 +68,7 @@ class Assistant::Function::AddToResearchWatchlist < Assistant::Function
     entry = user.research_watchlist_entries.new(
       security: security,
       source: "assistant",
+      expires_at: user.ai_watchlist_expiry_days.days.from_now,
       status: "watching",
       priority: priority_from(params["priority"]),
       thesis: params["thesis"].to_s.strip.first(2000).presence
@@ -70,7 +76,7 @@ class Assistant::Function::AddToResearchWatchlist < Assistant::Function
 
     if entry.save
       TickerResearchGenerateJob.perform_later(ticker, enrich_only: true) if status == :created
-      { success: true, ticker: ticker, message: "#{ticker} added to the user's research watchlist." }
+      { success: true, ticker: ticker, expires_at: entry.expires_at.to_date.iso8601, message: "#{ticker} added to the user's research watchlist. It expires on #{entry.expires_at.to_date.iso8601} unless the user keeps it." }
     else
       failure("validation_failed", entry.errors.full_messages.join("; "))
     end

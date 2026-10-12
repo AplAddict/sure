@@ -38,9 +38,17 @@
                 <span class="ml-2 text-xs text-secondary"><%= entry.security.name %></span>
                 <% if entry.assistant_added? %>
                   <span class="ml-2 rounded-full bg-container-inset px-2 py-0.5 text-xs text-secondary"><%= t(".added_by_assistant") %></span>
+                  <% if entry.expires? %>
+                    <span class="ml-1 text-xs text-secondary"><%= t(".expires_in", time: distance_of_time_in_words(Time.current, entry.expires_at)) %></span>
+                  <% end %>
                 <% end %>
               </div>
-              <%= button_to t(".remove"), research_watchlist_entry_path(entry), method: :delete, class: "text-xs font-medium text-secondary hover:text-destructive cursor-pointer", form: { data: { turbo_confirm: t(".confirm_remove", ticker: entry.security.ticker) } } %>
+              <div class="flex items-center gap-3">
+                <% if entry.assistant_added? && entry.expires? %>
+                  <%= button_to t(".keep"), research_watchlist_entry_path(entry), method: :patch, params: { keep: 1 }, class: "text-xs font-medium text-primary hover:underline cursor-pointer" %>
+                <% end %>
+                <%= button_to t(".remove"), research_watchlist_entry_path(entry), method: :delete, class: "text-xs font-medium text-secondary hover:text-destructive cursor-pointer", form: { data: { turbo_confirm: t(".confirm_remove", ticker: entry.security.ticker) } } %>
+              </div>
             </div>
             <% if row.errors.any? %>
               <ul class="mt-2 text-sm text-destructive" role="alert"><% row.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>

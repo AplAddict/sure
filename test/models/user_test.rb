@@ -1296,4 +1296,15 @@ class UserTest < ActiveSupport::TestCase
     assert token.reload.revoked_at.present?
     assert grant.reload.revoked_at.present?
   end
+
+  test "ai_watchlist_expiry_days defaults to 30 and ignores values that are not offered" do
+    user = users(:family_admin)
+    assert_equal 30, user.ai_watchlist_expiry_days
+
+    user.update!(preferences: (user.preferences || {}).merge("ai_watchlist_expiry_days" => 14))
+    assert_equal 14, user.ai_watchlist_expiry_days
+
+    user.update!(preferences: user.preferences.merge("ai_watchlist_expiry_days" => 9999))
+    assert_equal 30, user.ai_watchlist_expiry_days
+  end
 end

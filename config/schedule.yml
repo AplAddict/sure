@@ -108,3 +108,9 @@ refresh_maintained_goal_targets:
   class: "RefreshMaintainedGoalTargetsJob"
   queue: "scheduled"
   description: "Recomputes the floor of reserves expressed in months of expenses"
+
+expire_research_watchlist:
+  cron: "20 4 * * *" # daily; lapsed assistant-added entries are already hidden, this frees the rows
+  class: "ResearchWatchlistExpiryJob"
+  queue: "scheduled"
+  description: "Removes AI-assistant-added research watchlist entries past their expiry"

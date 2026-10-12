@@ -2279,6 +2279,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_150000) do
 
   create_table "research_watchlist_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.datetime "expires_at"
     t.integer "priority", default: 3, null: false
     t.uuid "security_id", null: false
     t.string "source", default: "user", null: false
@@ -2286,6 +2287,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_150000) do
     t.text "thesis"
     t.datetime "updated_at", null: false
     t.uuid "user_id", null: false
+    t.index ["expires_at"], name: "index_research_watchlist_entries_on_expires_at", where: "(expires_at IS NOT NULL)"
     t.index ["security_id"], name: "index_research_watchlist_entries_on_security_id"
     t.index ["user_id", "security_id"], name: "index_research_watchlist_entries_on_user_id_and_security_id", unique: true
     t.index ["user_id", "source", "created_at"], name: "index_research_watchlist_entries_on_user_source_created"

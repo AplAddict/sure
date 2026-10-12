@@ -53,6 +53,33 @@ class Assistant::Function::AddToResearchWatchlistTest < ActiveSupport::TestCase
     assert_equal "Check margins", entry.thesis
   end
 
+  test "assistant entries expire after the member's chosen number of days, 30 by default" do
+    enable!
+    freeze_time do
+      assert @fn.call("ticker" => @security.ticker)[:success]
+      assert_in_delta 30.days.from_now.to_f, @user.research_watchlist_entries.find_by!(security: @security).expires_at.to_f, 2
+    end
+
+    other = Security.create!(ticker: letters_ticker, exchange_mic: "XNAS", name: "Seven Day")
+    @user.update!(preferences: @user.preferences.merge("ai_watchlist_expiry_days" => 7))
+    freeze_time do
+      assert Assistant::Function::AddToResearchWatchlist.new(@user.reload).call("ticker" => other.ticker)[:success]
+      assert_in_delta 7.days.from_now.to_f, @user.research_watchlist_entries.find_by!(security: other).expires_at.to_f, 2
+    end
+  end
+
+  test "an expired leftover does not block adding the same ticker again" do
+    enable!
+    ResearchWatchlistEntry.create!(user: @user, security: @security, source: "assistant", expires_at: 1.hour.ago, thesis: "stale")
+
+    result = @fn.call("ticker" => @security.ticker, "thesis" => "fresh")
+
+    assert result[:success], result.inspect
+    entry = @user.research_watchlist_entries.find_by!(security: @security)
+    assert_equal "fresh", entry.thesis
+    assert entry.expires_at > Time.current
+  end
+
   test "never overwrites an entry the member already has" do
     enable!
     mine = ResearchWatchlistEntry.create!(user: @user, security: @security, status: "ready", priority: 1, thesis: "My own thesis")

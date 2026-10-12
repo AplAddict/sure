@@ -69,6 +69,20 @@ class Settings::PreferencesControllerTest < ActionDispatch::IntegrationTest
     assert_not user.reload.ai_watchlist_enabled?
   end
 
+  test "the member can choose how long assistant-added watchlist items last" do
+    user = users(:family_admin)
+
+    get settings_preferences_url
+    assert_select "select[name='user[ai_watchlist_expiry_days]']"
+
+    patch settings_preferences_url, params: { user: { ai_watchlist_expiry_days: "14" } }
+    assert_equal 14, user.reload.ai_watchlist_expiry_days
+
+    patch settings_preferences_url, params: { user: { ai_watchlist_expiry_days: "9999" } }
+    assert_equal 14, user.reload.ai_watchlist_expiry_days, "an unoffered value is ignored"
+    assert_not user.ai_watchlist_enabled?, "choosing a duration does not turn the feature on"
+  end
+
   test "admin can toggle the family pending-balance master switch" do
     family = users(:family_admin).family
     assert_not family.include_pending_transactions_in_balances?

@@ -166,6 +166,44 @@ class ResearchWatchlistEntriesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "assistant entries show when they expire, expired ones are hidden, and Keep makes one permanent" do
+    live = ResearchWatchlistEntry.create!(user: @owner, security: Security.create!(ticker: letters_ticker, exchange_mic: "XNAS", name: "Live Ai"), source: "assistant", expires_at: 5.days.from_now)
+    gone = ResearchWatchlistEntry.create!(user: @owner, security: Security.create!(ticker: letters_ticker, exchange_mic: "XNAS", name: "Gone Ai"), source: "assistant", expires_at: 1.hour.ago)
+    sign_in @owner
+
+    get research_watchlist_entries_path
+    assert_select "[data-testid='watchlist-row-#{live.id}']", text: /Expires in/
+    assert_select "[data-testid='watchlist-row-#{gone.id}']", count: 0
+    assert_select "[data-testid='watchlist-row-#{live.id}'] form[action=?]", research_watchlist_entry_path(live)
+
+    patch research_watchlist_entry_path(live), params: { keep: "1" }
+    assert_redirected_to research_watchlist_entries_path
+    assert_nil live.reload.expires_at
+    assert_equal "assistant", live.source, "the label stays so the origin is still visible"
+  end
+
+  test "editing an assistant entry counts as reviewing it and stops the expiry" do
+    entry = ResearchWatchlistEntry.create!(user: @owner, security: Security.create!(ticker: letters_ticker, exchange_mic: "XNAS", name: "Edit Ai"), source: "assistant", expires_at: 3.days.from_now)
+    sign_in @owner
+
+    patch research_watchlist_entry_path(entry), params: { research_watchlist_entry: { status: "researching", priority: 2, thesis: "Looked at it" } }
+
+    assert_nil entry.reload.expires_at
+  end
+
+  test "a manual add over an expired assistant leftover replaces it instead of failing" do
+    sec = Security.create!(ticker: letters_ticker, exchange_mic: "XNAS", name: "Leftover")
+    ResearchWatchlistEntry.create!(user: @owner, security: sec, source: "assistant", expires_at: 1.hour.ago)
+    sign_in @owner
+
+    post research_watchlist_entries_path, params: { research_watchlist_entry: { ticker: sec.ticker, status: "watching", priority: 3 } }
+
+    assert_redirected_to research_watchlist_entries_path
+    entry = @owner.research_watchlist_entries.find_by!(security: sec)
+    assert_equal "user", entry.source
+    assert_nil entry.expires_at
+  end
+
   test "updates only the owner's entry" do
     sign_in @owner
     patch research_watchlist_entry_path(@entry), params: { research_watchlist_entry: { status: "ready", priority: 1, thesis: "Updated" } }

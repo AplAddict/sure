@@ -15,6 +15,8 @@ en:
       empty: No saved research theses yet.
       remove: Remove
       added_by_assistant: Added by assistant
+      expires_in: "Expires in %{time}"
+      keep: Keep
       save: Save
       confirm_remove: "Remove %{ticker} from your watchlist?"
       status_for: "Status for %{ticker}"
@@ -35,3 +37,5 @@ en:
       updated: Watchlist entry updated.
     destroy:
       removed: Removed from your research watchlist.
+    keep:
+      kept: "%{ticker} will stay on your watchlist."

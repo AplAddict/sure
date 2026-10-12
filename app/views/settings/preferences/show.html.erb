@@ -302,6 +302,18 @@
       ) %>
     </label>
   <% end %>
+  <%= form_with url: settings_preferences_path, method: :patch, class: "mt-4 flex items-center justify-between gap-4",
+        data: { controller: "auto-submit-form" } do |f| %>
+    <label for="user_ai_watchlist_expiry_days" class="text-sm space-y-1">
+      <span class="block text-primary font-medium"><%= t(".ai_watchlist.expiry_title") %></span>
+      <span class="block text-secondary"><%= t(".ai_watchlist.expiry_description") %></span>
+    </label>
+    <%= select_tag "user[ai_watchlist_expiry_days]",
+          options_for_select(User::AI_WATCHLIST_EXPIRY_CHOICES.map { |days| [ t(".ai_watchlist.days", count: days), days ] }, @user.ai_watchlist_expiry_days),
+          id: "user_ai_watchlist_expiry_days",
+          class: "rounded-lg border border-tertiary bg-container px-3 py-2 text-sm text-primary focus-ring",
+          data: { auto_submit_form_target: "auto" } %>
+  <% end %>
 <% end %>
 
 <%# Preview features toggle — visible to all users, not just admins. Lives at
