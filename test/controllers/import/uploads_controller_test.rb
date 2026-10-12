@@ -11,6 +11,18 @@ class Import::UploadsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "show marks the upload step as current in the wizard nav" do
+    get import_upload_url(@import)
+
+    assert_response :success
+    assert_select "a[aria-current=step][href=?]", import_upload_path(@import),
+                  text: /#{Regexp.escape(I18n.t("imports.steps.upload"))}/, count: 1
+    assert_select "a[aria-current=step]", count: 1
+    assert_select "a[href=?]", import_configuration_path(@import),
+                  text: /#{Regexp.escape(I18n.t("imports.steps.configure"))}/, count: 1
+    assert_no_match(/\b(?:text|bg)-green-600\b/, response.body)
+  end
+
   test "uploads valid csv by copy and pasting" do
     patch import_upload_url(@import), params: {
       import: {
