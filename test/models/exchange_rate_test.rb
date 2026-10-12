@@ -10,6 +10,22 @@ class ExchangeRateTest < ActiveSupport::TestCase
     ExchangeRate.stubs(:provider).returns(@provider)
   end
 
+  test "rejects exchange rates that cannot convert amounts" do
+    attributes = { from_currency: "USD", to_currency: "EUR", date: Date.current }
+
+    [ 0, -1 ].each do |rate|
+      record = ExchangeRate.new(attributes.merge(rate: rate))
+      assert_not record.valid?, rate
+      assert record.errors.added?(:rate, :greater_than, count: 0), rate
+    end
+
+    assert ExchangeRate.valid_rate?(BigDecimal("1.25"))
+    refute ExchangeRate.valid_rate?(0)
+    refute ExchangeRate.valid_rate?(-1)
+    refute ExchangeRate.valid_rate?(Float::INFINITY)
+    refute ExchangeRate.valid_rate?("not-a-rate")
+  end
+
   test "finds rate in DB" do
     existing_rate = exchange_rates(:one)
 
