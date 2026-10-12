@@ -138,6 +138,28 @@ class CategoriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal @transaction.reload.category, new_category
   end
 
+  test "create cannot assign a category to another member's unshared transaction" do
+    private_transaction = Transaction.create!
+    private_entry = accounts(:investment).entries.create!(
+      entryable: private_transaction,
+      name: "Private transaction",
+      date: Date.current,
+      amount: 25,
+      currency: "USD"
+    )
+    sign_in users(:family_member)
+
+    assert_no_difference "Category.count" do
+      post categories_url, params: {
+        transaction_id: private_transaction.id,
+        category: { name: "Unauthorized category", color: Category::COLORS.first }
+      }
+    end
+
+    assert_response :not_found
+    assert_nil private_entry.reload.transaction.category_id
+  end
+
   test "edit" do
     get edit_category_url(categories(:food_and_drink))
     assert_response :success
