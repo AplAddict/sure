@@ -1,50 +1,50 @@
 class Holding::CurrentForInvestmentAccounts
-  CURRENT_HOLDINGS_SQL = <<~SQL.squish.freeze
-    (
-      holdings.account_provider_id IS NOT NULL
-      AND holdings.updated_at::date = (
-        SELECT MAX(provider_holdings.updated_at::date)
-        FROM holdings provider_holdings
-        WHERE provider_holdings.account_id = holdings.account_id
-          AND provider_holdings.account_provider_id IS NOT NULL
-      )
-    ) OR (
-      NOT EXISTS (
-        SELECT 1
-        FROM holdings provider_holdings
-        WHERE provider_holdings.account_id = holdings.account_id
-          AND provider_holdings.account_provider_id IS NOT NULL
-      )
-      AND holdings.currency = (
-        SELECT accounts.currency
-        FROM accounts
-        WHERE accounts.id = holdings.account_id
-      )
-      AND holdings.id = (
-        SELECT latest_holdings.id
-        FROM holdings latest_holdings
-        WHERE latest_holdings.account_id = holdings.account_id
-          AND latest_holdings.security_id = holdings.security_id
-          AND latest_holdings.currency = holdings.currency
-        ORDER BY latest_holdings.date DESC
-        LIMIT 1
-      )
-    )
-  SQL
-
   def initialize(account_ids)
     @account_ids = account_ids
   end
 
+  # Non-zero current holdings: a linked account's latest import, else each security's latest row.
   def relation
     return Holding.none if account_ids.empty?
 
     Holding
       .where(account_id: account_ids)
       .where.not(qty: 0)
-      .where(Arel.sql(CURRENT_HOLDINGS_SQL))
+      .and(Holding.where(id: provider_snapshot_ids).or(Holding.where(id: latest_manual_ids)))
   end
 
   private
     attr_reader :account_ids
+
+    def provider_holdings
+      Holding.where(account_id: account_ids).where.not(account_provider_id: nil)
+    end
+
+    # Match on the import day, not the holding date: one import may retain each
+    # security's own price date.
+    def provider_snapshot_ids
+      import_days = provider_holdings
+        .group(:account_id)
+        .select("holdings.account_id, MAX(holdings.updated_at::date) AS import_day")
+
+      provider_holdings
+        .joins(<<~SQL.squish)
+          INNER JOIN (#{import_days.to_sql}) import_days
+            ON import_days.account_id = holdings.account_id
+           AND import_days.import_day = holdings.updated_at::date
+        SQL
+        .select(:id)
+    end
+
+    # Manual accounts use the latest row for each security in account currency.
+    def latest_manual_ids
+      Holding
+        .joins(:account)
+        .where(account_id: account_ids)
+        .where(accounts: { id: account_ids })
+        .where.not(account_id: provider_holdings.select(:account_id))
+        .where("holdings.currency = accounts.currency")
+        .select("DISTINCT ON (holdings.account_id, holdings.security_id) holdings.id")
+        .order(Arel.sql("holdings.account_id, holdings.security_id, holdings.date DESC"))
+    end
 end

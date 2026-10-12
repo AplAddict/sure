@@ -586,7 +586,7 @@ class InvestmentStatementTest < ActiveSupport::TestCase
       @statement.day_change
     end
 
-    holdings_queries = queries.grep(/MAX\(provider_holdings\.updated_at::date\)/)
+    holdings_queries = queries.grep(/MAX\(holdings\.updated_at::date\) AS import_day/)
     assert_equal 1, holdings_queries.size,
       "current_holdings should only run its holdings query once per instance, not once per caller"
   end
