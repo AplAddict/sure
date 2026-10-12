@@ -102,6 +102,56 @@ class ResearchWatchlistEntriesControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
+  test "market lookups for unseen tickers are limited per user, while known tickers stay free" do
+    original = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    provider = mock("yahoo")
+    provider.stubs(:search_securities).returns(Lookup.new([], true))
+    Provider::YahooFinance.stubs(:new).returns(provider)
+    sign_in @owner
+
+    ResearchWatchlistEntriesController::LOOKUPS_PER_MINUTE.times do
+      post research_watchlist_entries_path, params: { research_watchlist_entry: { ticker: letters_ticker, status: "watching", priority: 3 } }
+      assert_response :unprocessable_entity
+    end
+    post research_watchlist_entries_path, params: { research_watchlist_entry: { ticker: letters_ticker, status: "watching", priority: 3 } }
+
+    assert_response :too_many_requests
+    assert_match "too many", response.body.downcase
+
+    known = Security.create!(ticker: letters_ticker, exchange_mic: "XNAS", name: "Known Free")
+    assert_difference -> { @owner.research_watchlist_entries.count }, 1 do
+      post research_watchlist_entries_path, params: { research_watchlist_entry: { ticker: known.ticker, status: "watching", priority: 3 } }
+    end
+  ensure
+    Rails.cache = original
+  end
+
+  test "a failed add keeps what the user typed" do
+    provider = mock("yahoo")
+    provider.stubs(:search_securities).returns(Lookup.new([], true))
+    Provider::YahooFinance.stubs(:new).returns(provider)
+    sign_in @owner
+
+    post research_watchlist_entries_path, params: { research_watchlist_entry: { ticker: "ZZQQX", status: "researching", priority: 2, thesis: "Keep this text" } }
+
+    assert_response :unprocessable_entity
+    assert_select "input[name='research_watchlist_entry[ticker]'][value=ZZQQX]"
+    assert_select "input[name='research_watchlist_entry[thesis]'][value=?], textarea[name='research_watchlist_entry[thesis]']", "Keep this text"
+    assert_select "option[selected][value=researching]"
+  end
+
+  test "an invalid update shows its error beside the edited row and leaves the add form alone" do
+    sign_in @owner
+
+    patch research_watchlist_entry_path(@entry), params: { research_watchlist_entry: { status: "bogus", priority: 9, thesis: "x" } }
+
+    assert_response :unprocessable_entity
+    assert_select "[data-testid='watchlist-row-#{@entry.id}'] [role=alert]"
+    assert_select "[data-testid='watchlist-add'] [role=alert]", count: 0
+    assert_equal "researching", @entry.reload.status
+  end
+
   test "updates only the owner's entry" do
     sign_in @owner
     patch research_watchlist_entry_path(@entry), params: { research_watchlist_entry: { status: "ready", priority: 1, thesis: "Updated" } }

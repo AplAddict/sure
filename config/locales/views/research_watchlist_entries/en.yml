@@ -1,0 +1,36 @@
+---
+en:
+  research_watchlist_entries:
+    index:
+      title: Research Watchlist
+      subtitle: Your private thesis queue. Research context only; it does not change holdings, valuations, or trade authority.
+      add_heading: Add a ticker
+      ticker: Ticker
+      status: Status
+      priority_label: Priority (1 highest)
+      thesis: Thesis
+      thesis_placeholder: Thesis or what you need to validate
+      add: Add
+      saved: Saved theses
+      empty: No saved research theses yet.
+      remove: Remove
+      save: Save
+      confirm_remove: "Remove %{ticker} from your watchlist?"
+      status_for: "Status for %{ticker}"
+      priority_for: "Priority for %{ticker}"
+      thesis_for: "Thesis for %{ticker}"
+      statuses:
+        watching: Watching
+        researching: Researching
+        ready: Ready
+        archived: Archived
+    create:
+      added: "%{ticker} added to your research watchlist."
+      invalid: "\"%{ticker}\" doesn't look like a ticker symbol."
+      unknown: "%{ticker} isn't a known ticker. Check the symbol and try again."
+      unavailable: "%{ticker} couldn't be checked right now, so nothing was added. Try again in a moment."
+      too_many: You've looked up too many new tickers in the last minute. Wait a moment and try again.
+    update:
+      updated: Watchlist entry updated.
+    destroy:
+      removed: Removed from your research watchlist.
