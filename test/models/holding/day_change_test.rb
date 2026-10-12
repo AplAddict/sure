@@ -177,16 +177,53 @@ class Holding::DayChangeTest < ActiveSupport::TestCase
     assert_nil Holding::DayChange.for([ holding ])[holding.id]
   end
 
-  test "a stale position snapshot stays unavailable even with a live price" do
+  test "a stale position snapshot stays unavailable even with a live price when the account has not synced since the previous close" do
     close(FRI, 110)
     snap(FRI, qty: 2, price: 110)
     holding = snap(Date.new(2026, 10, 10), qty: 2, price: 110)
     Security::Price.create!(security: @security, date: MON, price: 115, currency: "USD", provisional: true)
+    sync(completed_at: Time.utc(2026, 10, 9, 18, 0)) # before Friday's 4pm ET close
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
+  test "a snapshot whose price date lags is measured against a live price once the account has synced since the previous close" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(Date.new(2026, 10, 10), qty: 2, price: 110) # broker dates its prices to the weekend
+    Security::Price.create!(security: @security, date: MON, price: 115, currency: "USD", provisional: true)
+    sync(completed_at: Time.utc(2026, 10, 12, 7, 33))
+
+    change = Holding::DayChange.for([ holding ])[holding.id]
+
+    assert_equal 10, change.value.amount
+  end
+
+  test "a lagging snapshot with no live price is still unavailable, however recently the account synced" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(Date.new(2026, 10, 10), qty: 2, price: 110)
+    holding.update_columns(updated_at: Time.utc(2026, 10, 10, 15, 0))
+    sync(completed_at: Time.utc(2026, 10, 12, 7, 33))
+
+    assert_nil Holding::DayChange.for([ holding ])[holding.id]
+  end
+
+  test "a lagging snapshot whose quantity changed is still unavailable" do
+    close(FRI, 110)
+    snap(FRI, qty: 2, price: 110)
+    holding = snap(Date.new(2026, 10, 10), qty: 3, price: 110)
+    Security::Price.create!(security: @security, date: MON, price: 115, currency: "USD", provisional: true)
+    sync(completed_at: Time.utc(2026, 10, 12, 7, 33))
 
     assert_nil Holding::DayChange.for([ holding ])[holding.id]
   end
 
   private
+    def sync(completed_at:)
+      Sync.create!(syncable: @account, status: "completed", completed_at: completed_at)
+    end
+
     def close(date, price)
       Security::Price.create!(security: @security, date: date, price: price, currency: "USD")
     end

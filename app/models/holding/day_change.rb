@@ -9,10 +9,13 @@
 #
 # A position gets no figure (nil, shown as unavailable) when any of these hold,
 # because a guessed number would be worse than none:
-#   - its price was not refreshed this session: the snapshot is older than the
-#     session day, or was last written before that session's market open (a
-#     price written overnight is the previous close carried forward, so a
-#     "move" computed from it is a flat zero that never happened);
+#   - its price was not refreshed this session: a live quote written after the
+#     session open is required, or a snapshot written after it (a price written
+#     overnight is the previous close carried forward, so a "move" computed from
+#     it is a flat zero that never happened). A snapshot dated before the
+#     session, such as a broker's weekend-dated Friday price, is accepted only
+#     with such a live quote and a completed account sync since the previous
+#     close;
 #   - the security has no close for the previous trading day, or in another
 #     currency than the holding;
 #   - the share count differs from the count held at that close, or the
@@ -62,10 +65,10 @@ class Holding::DayChange
   private
     def trend_for(holding)
       return nil if holding.qty.to_d.zero? || holding.price.nil?
-      return nil if holding.date < session_date
 
       price = current_price(holding)
       return nil if price.nil?
+      return nil if holding.date < session_date && !synced_since_reference_close?(holding)
 
       close = closes[holding.security_id]
       return nil if close.nil? || close.currency != holding.currency
@@ -89,6 +92,26 @@ class Holding::DayChange
       return live.price.to_d if live && live.currency == holding.currency
 
       holding.updated_at && holding.updated_at >= session_open ? holding.price.to_d : nil
+    end
+
+    # A broker may date its snapshot to the price's as-of day (a weekend date
+    # for Friday's close) even though the share count was confirmed by a sync
+    # since. The snapshot then supplies only the quantity, so it is accepted
+    # when the account has completed a sync after the previous close and the
+    # quantity still matches that close (checked by the caller). The price must
+    # still come from this session, which current_price already requires.
+    def synced_since_reference_close?(holding)
+      last = last_syncs[holding.account_id]
+      last.present? && last >= reference_close
+    end
+
+    def last_syncs
+      @last_syncs ||= Sync.where(syncable_type: "Account", syncable_id: @holdings.map(&:account_id).uniq, status: "completed")
+                          .group(:syncable_id).maximum(:completed_at)
+    end
+
+    def reference_close
+      @reference_close ||= ActiveSupport::TimeZone[MARKET_ZONE].local(reference_date.year, reference_date.month, reference_date.day, 16, 0)
     end
 
     def live_prices
