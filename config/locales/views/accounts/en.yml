@@ -147,6 +147,14 @@ en:
         debts: Debts
         holdings: Holdings
       all_holdings: All holdings
+      metric_label: Holding sidebar metric
+      metrics:
+        market_value: Value
+        price: Share price
+        day_gain: Day gain / loss
+        day_gain_pct: "Day gain / loss %"
+        gain: Total gain / loss
+        gain_pct: "Total gain / loss %"
       position_count:
         one: "%{count} position"
         other: "%{count} positions"

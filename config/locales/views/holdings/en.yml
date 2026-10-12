@@ -41,6 +41,7 @@ en:
       per_share: per share
       shares: "%{qty} shares"
       unknown: "--"
+      unavailable: Unavailable
       no_cost_basis: No cost basis
     index:
       average_cost: Average cost
@@ -48,6 +49,19 @@ en:
       name: Name
       new_holding: New activity
       no_holdings: No holdings to show.
+      no_holdings_description: Positions appear here once a trade is recorded or the connected broker syncs them.
+      views:
+        label: Holdings view
+        compact: Compact
+        advanced: Advanced table
+      metric_label: Right-side value
+      metrics:
+        share_price: Share price
+        total_value: Total value
+        day_gain: Day gain
+        total_gain: Total gain
+        day_gain_pct: "Day gain %"
+        total_gain_pct: "Total gain %"
       positions:
         one: "%{count} position"
         other: "%{count} positions"

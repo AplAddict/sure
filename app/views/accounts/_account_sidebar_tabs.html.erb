@@ -101,9 +101,9 @@
             ) %>
 
             <%= select_tag :sidebar_holding_metric,
-              options_for_select([["Value", "market_value"], ["Share price", "price"], ["Day gain / loss", "day_gain"], ["Day gain / loss %", "day_gain_pct"], ["Total gain / loss", "gain"], ["Total gain / loss %", "gain_pct"]]),
-              class: "max-w-32 rounded-md border border-tertiary bg-container px-1.5 py-1 text-xs text-primary",
-              aria: { label: "Holding sidebar metric" },
+              options_for_select(%w[market_value price day_gain day_gain_pct gain gain_pct].map { |metric| [ t("accounts.sidebar.metrics.#{metric}"), metric ] }),
+              class: "max-w-32 rounded-md border border-tertiary bg-container px-1.5 py-1 text-xs text-primary focus-ring",
+              aria: { label: t("accounts.sidebar.metric_label") },
               data: { sidebar_holding_metric_target: "selector", action: "change->sidebar-holding-metric#update" } %>
 
             <%= render DS::ExpandToggle.new(

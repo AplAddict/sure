@@ -31,6 +31,17 @@ class LayoutAccessibilityTest < ActionDispatch::IntegrationTest
     assert_select "input[type=submit][value=?]", I18n.t("layouts.application.search.submit")
   end
 
+  test "sidebar holdings metric picker is labelled from the locale" do
+    get root_path
+    assert_response :ok
+
+    assert_select "select[name=sidebar_holding_metric][aria-label=?]", I18n.t("accounts.sidebar.metric_label"), minimum: 1 do
+      %w[market_value price day_gain day_gain_pct gain gain_pct].each do |metric|
+        assert_select "option[value=?]", metric, text: I18n.t("accounts.sidebar.metrics.#{metric}")
+      end
+    end
+  end
+
   test "settings layout renders skip-link pointing at #main and a <main> with id=\"main\"" do
     get settings_profile_path
     assert_response :ok
