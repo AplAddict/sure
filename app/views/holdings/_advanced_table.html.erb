@@ -4,28 +4,27 @@
 <% money = ->(amount, currency) { amount.nil? ? tag.span("—", class: "text-secondary", title: unavailable) : tag.span(format_money(Money.new(amount, currency)), class: "privacy-sensitive") } %>
 <% gain = ->(amount, currency) { amount.nil? ? tag.span("—", class: "text-secondary", title: unavailable) : tag.span(format_money(Money.new(amount, currency)), class: "privacy-sensitive #{amount.positive? ? "text-success" : amount.negative? ? "text-destructive" : "text-primary"}") } %>
 <% percent = ->(amount) { amount.nil? ? tag.span("—", class: "text-secondary", title: unavailable) : tag.span(number_to_percentage(amount, precision: 1), class: amount.positive? ? "text-success" : amount.negative? ? "text-destructive" : "text-primary") } %>
-<% sort_link = lambda do |label, key|
-     active = portfolio.sort == key
-     direction = active && portfolio.direction == "desc" ? "asc" : "desc"
-     link_to holdings_path(account_id: account.id, view: "advanced", sort: key, dir: direction), class: "hover:text-primary #{active ? "text-primary" : ""}", data: { turbo_frame: dom_id(account, :holdings) } do
-       safe_join([label, active ? (portfolio.direction == "asc" ? " ↑" : " ↓") : ""])
+<% sort_th = lambda do |label, key, align: :right, css: "px-3 py-2.5 font-medium"|
+     sortable_header(label, key, sort: portfolio.sort, direction: portfolio.direction, align: align, css: css,
+                     link_data: { turbo_frame: dom_id(account, :holdings) }) do |sort_key, dir|
+       holdings_path(account_id: account.id, view: "advanced", sort: sort_key, dir: dir)
      end
    end %>
 <div class="overflow-x-auto rounded-xl border border-tertiary" data-testid="account-holdings-advanced">
   <table class="min-w-[1120px] w-full text-sm">
-    <caption class="sr-only">Advanced holdings table for <%= account.name %></caption>
+    <caption class="sr-only"><%= t("holdings.advanced_table.caption", account: account.name) %></caption>
     <thead class="bg-container-inset text-xs uppercase text-secondary">
       <tr>
-        <th scope="col" class="px-4 py-2.5 text-left font-medium"><%= sort_link.call("Security", "symbol") %></th>
-        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Quantity", "quantity") %></th>
-        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Share price", "price") %></th>
-        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Cost/share", "avg_cost") %></th>
-        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Total value", "market_value") %></th>
-        <th scope="col" class="px-3 py-2.5 text-right font-medium">Day gain</th>
-        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Total gain", "gain") %></th>
-        <th scope="col" class="px-3 py-2.5 text-right font-medium">Day gain %</th>
-        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= sort_link.call("Total gain %", "gain_pct") %></th>
-        <th scope="col" class="px-4 py-2.5 text-right font-medium"><%= sort_link.call("Weight", "weight") %></th>
+        <%= sort_th.call(t("holdings.advanced_table.columns.security"), "symbol", align: :left, css: "px-4 py-2.5 font-medium") %>
+        <%= sort_th.call(t("holdings.advanced_table.columns.quantity"), "quantity") %>
+        <%= sort_th.call(t("holdings.advanced_table.columns.share_price"), "price") %>
+        <%= sort_th.call(t("holdings.advanced_table.columns.cost_per_share"), "avg_cost") %>
+        <%= sort_th.call(t("holdings.advanced_table.columns.total_value"), "market_value") %>
+        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= t("holdings.advanced_table.columns.day_gain") %></th>
+        <%= sort_th.call(t("holdings.advanced_table.columns.total_gain"), "gain") %>
+        <th scope="col" class="px-3 py-2.5 text-right font-medium"><%= t("holdings.advanced_table.columns.day_gain_pct") %></th>
+        <%= sort_th.call(t("holdings.advanced_table.columns.total_gain_pct"), "gain_pct") %>
+        <%= sort_th.call(t("holdings.advanced_table.columns.weight"), "weight", css: "px-4 py-2.5 font-medium") %>
       </tr>
     </thead>
     <tbody class="divide-y divide-tertiary">

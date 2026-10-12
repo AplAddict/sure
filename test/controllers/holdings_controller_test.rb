@@ -85,6 +85,8 @@ class HoldingsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-testid=account-holdings-advanced]"
     assert_select "[data-testid=account-holdings-advanced] table"
+    assert_select "[data-testid=account-holdings-advanced] th[aria-sort=none] a", minimum: 6
+    assert_select "[data-testid=account-holdings-advanced] th[aria-sort=ascending], [data-testid=account-holdings-advanced] th[aria-sort=descending]", count: 1
 
     get holdings_url(account_id: @account.id, view: "compact", metric: "day_gain")
     assert_select "select[name=metric] option[selected][value=day_gain]"

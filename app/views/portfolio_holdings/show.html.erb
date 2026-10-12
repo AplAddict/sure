@@ -2,14 +2,10 @@
 <% blocks = portfolio.blocks %>
 <% content_for :page_title, t("portfolio_holdings.title") %>
 <% palette = %w[#2563eb #16a34a #d97706 #9333ea #dc2626 #0891b2 #be185d #65a30d #4f46e5 #ea580c #0d9488 #7c3aed] %>
-<% sort_link = lambda do |label, key, align: "right"|
-     active = portfolio.sort == key
-     next_dir = active ? (portfolio.direction == "asc" ? "desc" : "asc") : (key == "symbol" ? "asc" : "desc")
-     arrow = active ? (portfolio.direction == "asc" ? "↑" : "↓") : ""
-     link_to(portfolio_holdings_path(account: params[:account].presence, sort: key, dir: next_dir),
-             class: "inline-flex items-center gap-1 #{align == "right" ? "justify-end" : ""} hover:text-primary #{active ? "text-primary" : ""}",
-             aria: { sort: (active ? (portfolio.direction == "asc" ? "ascending" : "descending") : nil) }.compact) do
-       safe_join([ label, tag.span(arrow, class: "w-3 text-xs", "aria-hidden": true) ])
+<% sort_th = lambda do |label, key, align: :right, css: "px-3 py-2 font-medium"|
+     sortable_header(label, key, sort: portfolio.sort, direction: portfolio.direction, default_direction: (key == "symbol" ? "asc" : "desc"),
+                     align: align, css: css, link_data: { turbo_action: "advance" }) do |sort_key, dir|
+       portfolio_holdings_path(account: params[:account].presence, sort: sort_key, dir: dir)
      end
    end %>
 <% unavailable = t("portfolio_holdings.unavailable") %>
@@ -124,15 +120,15 @@
             <caption class="sr-only"><%= t("portfolio_holdings.positions_caption", account: account.name) %></caption>
             <thead class="bg-container-inset text-xs uppercase text-secondary">
               <tr>
-                <th scope="col" class="px-3 @3xl:px-4 py-2.5 text-left font-medium"><%= sort_link.call(t("portfolio_holdings.columns.symbol"), "symbol", align: "left") %></th>
-                <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.quantity"), "quantity") %></th>
-                <th scope="col" class="hidden @3xl:table-cell px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.price"), "price") %></th>
-                <th scope="col" class="hidden @3xl:table-cell px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.avg_cost"), "avg_cost") %></th>
-                <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.cost_basis"), "cost_basis") %></th>
-                <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.market_value"), "market_value") %></th>
-                <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.gain"), "gain") %></th>
-                <th scope="col" class="px-3 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.day_gain"), "day_gain") %></th>
-                <th scope="col" class="hidden @3xl:table-cell px-4 py-2 text-right font-medium"><%= sort_link.call(t("portfolio_holdings.columns.weight"), "weight") %></th>
+                <%= sort_th.call(t("portfolio_holdings.columns.symbol"), "symbol", align: :left, css: "px-3 @3xl:px-4 py-2.5 font-medium") %>
+                <%= sort_th.call(t("portfolio_holdings.columns.quantity"), "quantity") %>
+                <%= sort_th.call(t("portfolio_holdings.columns.price"), "price", css: "hidden @3xl:table-cell px-3 py-2 font-medium") %>
+                <%= sort_th.call(t("portfolio_holdings.columns.avg_cost"), "avg_cost", css: "hidden @3xl:table-cell px-3 py-2 font-medium") %>
+                <%= sort_th.call(t("portfolio_holdings.columns.cost_basis"), "cost_basis") %>
+                <%= sort_th.call(t("portfolio_holdings.columns.market_value"), "market_value") %>
+                <%= sort_th.call(t("portfolio_holdings.columns.gain"), "gain") %>
+                <%= sort_th.call(t("portfolio_holdings.columns.day_gain"), "day_gain") %>
+                <%= sort_th.call(t("portfolio_holdings.columns.weight"), "weight", css: "hidden @3xl:table-cell px-4 py-2 font-medium") %>
               </tr>
             </thead>
             <tbody class="divide-y divide-tertiary">

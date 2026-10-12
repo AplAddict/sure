@@ -141,7 +141,11 @@ class PortfolioHoldingsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-testid=holdings-account]", count: 1
     assert_select "[data-testid=holdings-chart]"
-    assert_select "th a[aria-sort=ascending]", text: /Gain/
+    # aria-sort is read from the header cell, so it sits on the <th>: the active
+    # column says which way, every other sortable column says "none".
+    assert_select "th[aria-sort=ascending] a", text: /Gain/, count: 1
+    assert_select "th[aria-sort=none] a", minimum: 7
+    assert_select "th a[aria-sort]", count: 0
     assert_select "[data-testid=holding-row]", count: 3
   end
 
@@ -251,7 +255,7 @@ class PortfolioHoldingsTest < ActionDispatch::IntegrationTest
     get portfolio_holdings_path(account: @account.id, sort: "day_gain", dir: "desc")
 
     assert_response :success
-    assert_select "th a[aria-sort=descending]", text: /Day gain/
+    assert_select "th[aria-sort=descending] a", text: /Day gain/
     assert_select "[data-testid=day-gain-cell][title]", minimum: 1
     assert_no_match(/Unavailable\. The source did not provide this figure\.<\/span>.*day-gain/m, response.body)
   end

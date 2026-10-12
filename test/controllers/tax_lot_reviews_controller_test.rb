@@ -123,7 +123,9 @@ class TaxLotReviewsControllerTest < ActionDispatch::IntegrationTest
     get tax_lot_review_path(sort: "gain", dir: "desc")
     tickers = css_select("table[data-testid=lots-table] tbody tr td:first-child").map { |c| c.text.strip }
     assert_equal %w[LOTPG LOTZZ], tickers
-    assert_select "th a[aria-sort=descending]"
+    assert_select "th[aria-sort=descending] a", count: 1
+    assert_select "th[aria-sort=none] a", minimum: 7
+    assert_select "th a[aria-sort]", count: 0
 
     get tax_lot_review_path(sort: "gain", dir: "asc")
     tickers = css_select("table[data-testid=lots-table] tbody tr td:first-child").map { |c| c.text.strip }

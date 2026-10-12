@@ -53,6 +53,27 @@ module InvestmentsHelper
     render DS::Pill.new(label: status.to_s.humanize, tone: tone, marker: false, size: :sm)
   end
 
+  # A sortable column header cell. aria-sort is announced from the <th>, not
+  # from a link inside it, so it lives on the cell: "ascending"/"descending"
+  # for the active column and "none" for every other sortable column. The link
+  # flips the active column's direction and starts other columns on their
+  # natural direction; the block maps (key, direction) to the path.
+  def sortable_header(label, key, sort:, direction:, default_direction: "desc", align: :left, css: nil, link_data: {}, &path)
+    active = sort == key
+    ascending = direction == "asc"
+    next_direction = active ? (ascending ? "desc" : "asc") : default_direction
+    arrow = active ? (ascending ? "↑" : "↓") : ""
+
+    tag.th(scope: "col", class: class_names(align == :right ? "text-right" : "text-left", css),
+           "aria-sort": active ? (ascending ? "ascending" : "descending") : "none") do
+      link_to(path.call(key, next_direction),
+              class: class_names("inline-flex items-center gap-1 rounded hover:text-primary focus-ring", "justify-end" => align == :right, "text-primary" => active),
+              data: link_data) do
+        safe_join([ label, tag.span(arrow, class: "w-3 text-xs", "aria-hidden": true) ])
+      end
+    end
+  end
+
   # Label / value / optional hint tile used by the review pages.
   def investment_stat(label, value, hint: nil, tone: "text-primary")
     tag.div(class: "rounded-lg bg-container-inset p-4") do

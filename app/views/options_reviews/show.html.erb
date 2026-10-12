@@ -1,14 +1,10 @@
 <% content_for :page_title, t(".title") %>
 
 <% review = @review %>
-<% sort_link = lambda do |label, key, align: "left"|
-     active = review.sort == key
-     next_dir = active ? (review.direction == "asc" ? "desc" : "asc") : "asc"
-     arrow = active ? (review.direction == "asc" ? "↑" : "↓") : ""
-     link_to(options_review_path(sort: key, dir: next_dir),
-             class: "inline-flex items-center gap-1 #{align == "right" ? "justify-end" : ""} hover:text-primary #{active ? "text-primary" : ""}",
-             aria: { sort: (active ? (review.direction == "asc" ? "ascending" : "descending") : nil) }.compact) do
-       safe_join([ label, tag.span(arrow, class: "w-3", "aria-hidden": true) ])
+<% sort_th = lambda do |label, key, align: :left, css: "px-4 py-3"|
+     sortable_header(label, key, sort: review.sort, direction: review.direction, default_direction: "asc",
+                     align: align, css: css, link_data: { turbo_action: "advance" }) do |sort_key, dir|
+       options_review_path(sort: sort_key, dir: dir)
      end
    end %>
 
@@ -34,16 +30,16 @@
         <caption class="sr-only"><%= t(".caption") %></caption>
         <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary">
           <tr>
-            <th scope="col" class="sticky left-0 z-10 bg-container px-4 py-3"><%= sort_link.call(t(".columns.contract"), "contract") %></th>
-            <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.account"), "account") %></th>
-            <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.underlying"), "underlying") %></th>
+            <%= sort_th.call(t(".columns.contract"), "contract", css: "sticky left-0 z-10 bg-container px-4 py-3") %>
+            <%= sort_th.call(t(".columns.account"), "account") %>
+            <%= sort_th.call(t(".columns.underlying"), "underlying") %>
             <th scope="col" class="px-4 py-3"><%= t(".columns.type") %></th>
-            <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.expiry"), "expiry") %></th>
+            <%= sort_th.call(t(".columns.expiry"), "expiry") %>
             <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.strike") %></th>
             <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.quantity") %></th>
             <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.mark") %></th>
             <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.cost_basis") %></th>
-            <th scope="col" class="px-4 py-3 text-right"><%= sort_link.call(t(".columns.gain"), "gain", align: "right") %></th>
+            <%= sort_th.call(t(".columns.gain"), "gain", align: :right) %>
             <th scope="col" class="px-4 py-3"><%= t(".columns.snapshot") %></th>
           </tr>
         </thead>
