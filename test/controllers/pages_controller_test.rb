@@ -28,6 +28,8 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
       end
     end
     assert_select "[class*=\"group-hover:opacity-100\"]:not([class*=\"group-focus-within:opacity-100\"])", count: 0
+    assert_select "section[role=listitem][tabindex='0'].focus-ring[aria-label=?]",
+                  I18n.t("pages.dashboard.section_label", title: I18n.t("pages.dashboard.net_worth_chart.title")), count: 1
   end
 
   test "dashboard investment summary lists balance-only investment accounts as positions" do
