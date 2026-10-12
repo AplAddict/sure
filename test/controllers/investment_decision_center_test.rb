@@ -201,6 +201,16 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_select "[aria-current='true']", text: I18n.t("investment_decision_center.switch.decision")
   end
 
+  test "the decision center links to the options review and research watchlist" do
+    sign_in @owner
+    get root_path(view: "decision")
+
+    assert_response :success
+    assert_select "a[href=?]", options_review_path
+    assert_select "a[href=?]", investment_income_path
+    assert_select "a[href=?]", research_watchlist_entries_path
+  end
+
   test "the overview shows the switch when the member has investments" do
     sign_in @owner
     get root_path

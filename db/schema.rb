@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_12_030000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -108,9 +108,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
     t.datetime "disabled_at"
     t.boolean "enable_category_matcher", default: true, null: false
     t.boolean "exclude_from_reports", default: false, null: false
-    t.boolean "include_pending_in_balance", default: false, null: false
     t.uuid "family_id", null: false
     t.uuid "import_id"
+    t.boolean "include_pending_in_balance", default: false, null: false
     t.string "institution_domain"
     t.string "institution_name"
     t.jsonb "locked_attributes", default: {}
@@ -1923,6 +1923,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "physical_metals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "auto_price_enabled", default: false, null: false
+    t.decimal "cost_basis", precision: 19, scale: 4
+    t.datetime "created_at", null: false
+    t.jsonb "locked_attributes", default: {}, null: false
+    t.decimal "manual_price_per_troy_ounce", precision: 19, scale: 4
+    t.string "metal_type", null: false
+    t.string "price_symbol"
+    t.string "storage_label", null: false
+    t.decimal "troy_ounces", precision: 18, scale: 6, null: false
+    t.datetime "updated_at", null: false
+    t.date "valuation_date"
+    t.string "valuation_source"
+    t.string "valuation_state", default: "unpriced", null: false
+    t.check_constraint "cost_basis IS NULL OR cost_basis >= 0::numeric", name: "physical_metals_nonnegative_cost_basis"
+    t.check_constraint "metal_type::text = ANY (ARRAY['gold'::character varying::text, 'silver'::character varying::text])", name: "physical_metals_metal_type"
+    t.check_constraint "price_symbol IS NULL OR (price_symbol::text = ANY (ARRAY['GC=F'::character varying::text, 'SI=F'::character varying::text]))", name: "physical_metals_price_symbol"
+    t.check_constraint "troy_ounces > 0::numeric", name: "physical_metals_positive_troy_ounces"
+    t.check_constraint "valuation_state::text = 'unpriced'::text AND manual_price_per_troy_ounce IS NULL AND valuation_source IS NULL AND valuation_date IS NULL OR valuation_state::text = 'manually_valued'::text AND manual_price_per_troy_ounce > 0::numeric AND valuation_source IS NOT NULL AND valuation_date IS NOT NULL", name: "physical_metals_complete_manual_valuation"
+    t.check_constraint "valuation_state::text = ANY (ARRAY['unpriced'::character varying::text, 'manually_valued'::character varying::text])", name: "physical_metals_valuation_state"
+  end
+
   create_table "plaid_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.decimal "available_balance", precision: 19, scale: 4
     t.datetime "created_at", null: false
@@ -1965,28 +1987,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
     t.index ["family_id"], name: "index_plaid_items_on_family_id"
     t.index ["owner_id"], name: "index_plaid_items_on_owner_id"
     t.index ["plaid_id"], name: "index_plaid_items_on_plaid_id", unique: true
-  end
-
-  create_table "physical_metals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.boolean "auto_price_enabled", default: false, null: false
-    t.decimal "cost_basis", precision: 19, scale: 4
-    t.datetime "created_at", null: false
-    t.decimal "manual_price_per_troy_ounce", precision: 19, scale: 4
-    t.string "metal_type", null: false
-    t.jsonb "locked_attributes", default: {}, null: false
-    t.string "price_symbol"
-    t.string "storage_label", null: false
-    t.decimal "troy_ounces", precision: 18, scale: 6, null: false
-    t.datetime "updated_at", null: false
-    t.date "valuation_date"
-    t.string "valuation_source"
-    t.string "valuation_state", default: "unpriced", null: false
-    t.check_constraint "cost_basis IS NULL OR cost_basis >= 0", name: "physical_metals_nonnegative_cost_basis"
-    t.check_constraint "((valuation_state::text = 'unpriced'::text) AND (manual_price_per_troy_ounce IS NULL) AND (valuation_source IS NULL) AND (valuation_date IS NULL)) OR ((valuation_state::text = 'manually_valued'::text) AND (manual_price_per_troy_ounce > (0)::numeric) AND (valuation_source IS NOT NULL) AND (valuation_date IS NOT NULL))", name: "physical_metals_complete_manual_valuation"
-    t.check_constraint "metal_type::text = ANY (ARRAY['gold'::character varying, 'silver'::character varying]::text[])", name: "physical_metals_metal_type"
-    t.check_constraint "price_symbol IS NULL OR price_symbol::text = ANY (ARRAY['GC=F'::character varying, 'SI=F'::character varying]::text[])", name: "physical_metals_price_symbol"
-    t.check_constraint "troy_ounces > (0)::numeric", name: "physical_metals_positive_troy_ounces"
-    t.check_constraint "valuation_state::text = ANY (ARRAY['unpriced'::character varying, 'manually_valued'::character varying]::text[])", name: "physical_metals_valuation_state"
   end
 
   create_table "properties", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2277,6 +2277,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
     t.index ["outflow_transaction_id"], name: "index_rejected_transfers_on_outflow_transaction_id"
   end
 
+  create_table "research_watchlist_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "priority", default: 3, null: false
+    t.uuid "security_id", null: false
+    t.string "status", default: "watching", null: false
+    t.text "thesis"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["security_id"], name: "index_research_watchlist_entries_on_security_id"
+    t.index ["user_id", "security_id"], name: "index_research_watchlist_entries_on_user_id_and_security_id", unique: true
+    t.index ["user_id"], name: "index_research_watchlist_entries_on_user_id"
+    t.check_constraint "priority >= 1 AND priority <= 5", name: "research_watchlist_entries_priority"
+    t.check_constraint "status::text = ANY (ARRAY['watching'::character varying, 'researching'::character varying, 'ready'::character varying, 'archived'::character varying]::text[])", name: "research_watchlist_entries_status"
+  end
+
   create_table "rule_actions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "action_type", null: false
     t.datetime "created_at", null: false
@@ -2391,18 +2406,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
     t.index ["security_id"], name: "index_security_headline_analyses_on_security_id", unique: true
   end
 
-  create_table "security_research_snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.datetime "generated_at"
-    t.datetime "imported_at"
-    t.string "last_error"
-    t.jsonb "payload", default: {}, null: false
-    t.uuid "security_id", null: false
-    t.string "status", default: "unavailable", null: false
-    t.datetime "updated_at", null: false
-    t.index ["security_id"], name: "index_security_research_snapshots_on_security_id", unique: true
-  end
-
   create_table "security_prices", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "currency", default: "USD", null: false
@@ -2413,6 +2416,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
     t.datetime "updated_at", null: false
     t.index ["security_id", "date", "currency"], name: "index_security_prices_on_security_id_and_date_and_currency", unique: true
     t.index ["security_id"], name: "index_security_prices_on_security_id"
+  end
+
+  create_table "security_research_snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "generated_at"
+    t.datetime "imported_at"
+    t.string "last_error"
+    t.jsonb "payload", default: {}, null: false
+    t.uuid "security_id", null: false
+    t.string "status", default: "unavailable", null: false
+    t.datetime "updated_at", null: false
+    t.index ["security_id"], name: "index_security_research_snapshots_on_security_id", unique: true
   end
 
   create_table "sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2546,7 +2561,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
     t.datetime "updated_at", null: false
     t.index ["family_id"], name: "index_snaptrade_items_on_family_id"
     t.index ["status"], name: "index_snaptrade_items_on_status"
-    t.check_constraint "connection_mode::text = ANY (ARRAY['oauth'::character varying, 'personal_profile'::character varying]::text[])", name: "snaptrade_items_connection_mode"
+    t.check_constraint "connection_mode::text = ANY (ARRAY['oauth'::character varying::text, 'personal_profile'::character varying::text])", name: "snaptrade_items_connection_mode"
   end
 
   create_table "sophtron_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3158,6 +3173,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
   add_foreign_key "redbark_items", "families"
   add_foreign_key "rejected_transfers", "transactions", column: "inflow_transaction_id", on_delete: :cascade
   add_foreign_key "rejected_transfers", "transactions", column: "outflow_transaction_id", on_delete: :cascade
+  add_foreign_key "research_watchlist_entries", "securities"
+  add_foreign_key "research_watchlist_entries", "users"
   add_foreign_key "rule_actions", "rules"
   add_foreign_key "rule_conditions", "rule_conditions", column: "parent_id"
   add_foreign_key "rule_conditions", "rules"
@@ -3165,8 +3182,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_170000) do
   add_foreign_key "rules", "families"
   add_foreign_key "security_fundamentals", "securities"
   add_foreign_key "security_headline_analyses", "securities"
-  add_foreign_key "security_research_snapshots", "securities"
   add_foreign_key "security_prices", "securities"
+  add_foreign_key "security_research_snapshots", "securities"
   add_foreign_key "sessions", "impersonation_sessions", column: "active_impersonator_session_id", on_delete: :nullify
   add_foreign_key "sessions", "users"
   add_foreign_key "simplefin_accounts", "simplefin_items"

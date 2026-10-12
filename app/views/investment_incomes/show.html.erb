@@ -1,0 +1,63 @@
+<% content_for :page_title, "Income & Performance" %>
+<% review = @review %>
+<% currency = review.currency %>
+<% unavailable = tag.span("Unavailable", class: "text-secondary", title: "Required source data or exchange rates are missing") %>
+<% money = ->(value) { value.nil? ? unavailable : tag.span(format_money(Money.new(value, currency)), class: "privacy-sensitive") } %>
+<% card = lambda do |label, body, hint = nil|
+     tag.div(class: "rounded-lg bg-container-inset p-4") do
+       safe_join([ tag.p(label, class: "text-sm text-secondary"), tag.p(body, class: "mt-2 text-xl font-semibold text-primary"), (hint ? tag.p(hint, class: "mt-1 text-xs text-secondary") : nil) ].compact)
+     end
+   end %>
+
+<% content_for :page_header do %>
+  <div class="mb-6 space-y-1">
+    <h1 class="text-xl lg:text-3xl font-medium text-primary">Income &amp; Performance</h1>
+    <p class="max-w-3xl text-sm text-secondary">Income and cash flows are summed separately from explicitly labeled ledger entries for <%= @period.label.downcase %> (<%= l(@period.start_date) %> – <%= l(@period.end_date) %>). Buys and sells are not treated as cash flows.</p>
+    <nav class="flex flex-wrap gap-2 pt-2" aria-label="Period">
+      <% %w[current_month last_month last_90_days current_year].each do |key| %>
+        <%= link_to Period.from_key(key).label_short, investment_income_path(period: key), class: "rounded-lg border border-tertiary px-3 py-1 text-xs font-medium #{@period.key == key ? "text-primary bg-container-inset" : "text-secondary"}", aria: { current: (@period.key == key ? "true" : nil) } %>
+      <% end %>
+    </nav>
+  </div>
+<% end %>
+
+<div class="space-y-6 pb-6 lg:pb-12">
+  <% if review.accounts.none? %>
+    <%= render DS::EmptyState.new(icon: "briefcase", title: "No investment accounts", description: "No investment accounts you can access are included in reports.") %>
+  <% else %>
+    <% if review.missing_fx_count.positive? %>
+      <p class="rounded-lg bg-container-inset px-4 py-3 text-sm text-secondary" role="status"><%= review.missing_fx_count %> entr<%= review.missing_fx_count == 1 ? "y is" : "ies are" %> in another currency with no exchange rate on its date, so the affected totals are shown as Unavailable instead of a partial sum.</p>
+    <% end %>
+
+    <section aria-labelledby="inc-income" class="space-y-3">
+      <h2 id="inc-income" class="text-lg font-medium text-primary">Income</h2>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <%= card.call("Dividends", money.call(review.total(:dividends))) %>
+        <%= card.call("Interest", money.call(review.total(:interest))) %>
+        <%= card.call("Total labeled income", money.call(review.income_total)) %>
+      </div>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <%= card.call("Option premium", unavailable, "No verified premium label exists in the ledger, so none is estimated.") %>
+      </div>
+    </section>
+
+    <section aria-labelledby="inc-flows" class="space-y-3">
+      <h2 id="inc-flows" class="text-lg font-medium text-primary">Cash flows</h2>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <%= card.call("Contributions", money.call(review.total(:contributions))) %>
+        <%= card.call("Withdrawals", money.call(review.total(:withdrawals))) %>
+        <%= card.call("Net contributions", money.call(review.net_contributions)) %>
+      </div>
+    </section>
+
+    <section aria-labelledby="inc-perf" class="space-y-3">
+      <h2 id="inc-perf" class="text-lg font-medium text-primary">Performance</h2>
+      <% trend = review.period_return_trend %>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <%= card.call("Period market return",
+                      (trend ? safe_join([ tag.span(format_money(Money.new(trend.value, currency)), class: "privacy-sensitive", style: "color: #{trend.color}"), tag.span(" (#{trend.percent_formatted})", class: "text-sm", style: "color: #{trend.color}") ]) : unavailable),
+                      "Market movement only; excludes contributions and withdrawals. Unavailable without a prior balance.") %>
+      </div>
+    </section>
+  <% end %>
+</div>

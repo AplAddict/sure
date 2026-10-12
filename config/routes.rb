@@ -533,6 +533,8 @@ Rails.application.routes.draw do
   get "tax-loss-harvest", to: "tax_loss_harvests#show", as: :tax_loss_harvest
   get "portfolio/holdings", to: "portfolio_holdings#show", as: :portfolio_holdings
   get "portfolio/options", to: "options_reviews#show", as: :options_review
+  get "portfolio/income", to: "investment_incomes#show", as: :investment_income
+  resources :research_watchlist_entries, only: %i[index create update destroy]
 
   resources :holdings, only: %i[index new show update destroy] do
     member do

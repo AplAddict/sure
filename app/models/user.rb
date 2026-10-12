@@ -26,6 +26,7 @@ class User < ApplicationRecord
   belongs_to :default_account, class_name: "Account", optional: true
   has_many :sessions, dependent: :destroy
   has_many :chats, dependent: :destroy
+  has_many :research_watchlist_entries, dependent: :destroy
   has_many :api_keys, dependent: :destroy
   has_many :push_subscriptions, dependent: :destroy
   has_many :webauthn_credentials, dependent: :destroy
