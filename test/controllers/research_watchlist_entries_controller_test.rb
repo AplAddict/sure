@@ -317,4 +317,15 @@ class ResearchWatchlistEntriesControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_select "[data-testid=watchlist-row-#{@entry.id}] details[open]"
   end
+
+  test "watchlist add form and saved list are draggable sections" do
+    sign_in @owner
+    get research_watchlist_entries_path
+
+    assert_response :success
+    assert_equal %w[add saved], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
+    assert_select "[data-section-key=add] [data-testid=watchlist-add]"
+    assert_select "[data-section-key=saved] [data-testid=watchlist-row-#{@entry.id}]"
+  end
+
 end

@@ -2,6 +2,9 @@
 en:
   options_reviews:
     show:
+      sections:
+        summary: Summary
+        contracts: Contracts
       title: Options Review
       subtitle: Read-only brokerage contract snapshots. Gain / loss is unrealized against the broker's last mark, using its per-share cost basis (net of opening fees) times contracts times multiplier. Options are excluded from equity holdings, performance, cost basis and net-worth totals.
       empty_title: No option contracts available

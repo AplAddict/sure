@@ -8,6 +8,8 @@
       <%= render DS::EmptyState.new(icon: "landmark", title: t("tax_loss_harvests.show.no_accounts.title"), description: t("tax_loss_harvests.show.no_accounts.description")) %>
     </div>
   <% else %>
+    <% contents = {} %>
+    <% contents["summary"] = capture do %>
     <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
       <div class="rounded-xl bg-container p-3 shadow-border-xs">
         <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.summary.candidates") %></p>
@@ -44,12 +46,14 @@
       <% end %>
     </div>
 
+    <% end %>
+    <% contents["candidates"] = capture do %>
     <% if harvest.rows.empty? %>
-      <div class="rounded-xl bg-container shadow-border-xs">
+      <div>
         <%= render DS::EmptyState.new(icon: "circle-check", title: t("tax_loss_harvests.show.empty.title"), description: t("tax_loss_harvests.show.empty.description")) %>
       </div>
     <% else %>
-      <div class="overflow-hidden rounded-xl bg-container shadow-border-xs">
+      <div class="overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <caption class="sr-only"><%= t("tax_loss_harvests.show.table.caption") %></caption>
@@ -105,9 +109,10 @@
         </div>
       </div>
     <% end %>
-
+    <% end %>
     <% if harvest.unavailable.any? %>
-      <div class="rounded-xl bg-container shadow-border-xs">
+    <% contents["unavailable"] = capture do %>
+      <div>
         <div class="border-b border-tertiary px-4 py-3">
           <h2 class="text-sm font-medium text-primary"><%= t("tax_loss_harvests.show.unavailable.title") %> · <%= harvest.unavailable.size %></h2>
           <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.unavailable.description") %></p>
@@ -125,4 +130,13 @@
         </ul>
       </div>
     <% end %>
+    <% end %>
+    <%= render "investments/sections",
+          sections: InvestmentSections.new(namespace: "tax_harvest", user: Current.user, definitions: [
+            { key: "summary", title: t("tax_loss_harvests.show.summary.title") },
+            { key: "candidates", title: t("tax_loss_harvests.show.table.title") },
+            { key: "unavailable", title: t("tax_loss_harvests.show.unavailable.title"), visible: harvest.unavailable.any? }
+          ]),
+          contents: contents, namespace: "tax_harvest",
+          url: investment_section_preferences_path("tax_harvest"), preference_key: "investments_tax_harvest" %>
   <% end %>

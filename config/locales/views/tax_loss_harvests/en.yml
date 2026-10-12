@@ -8,6 +8,7 @@ en:
       research_link: Ticker research
       events_link: Wash-sale windows
       summary:
+        title: Summary
         candidates: Harvest candidates
         candidates_hint: "Loss of %{pct}% or more of cost"
         total_loss: Unrealized loss
@@ -26,6 +27,7 @@ en:
         title: How to read this
         body: Estimates from recorded cost basis and trades. Holding period is rebuilt first-in, first-out from trades Sure has recorded, so your broker's tax lots are the authority. Wash-sale flags are checks to review, not tax advice.
       table:
+        title: Positions at a loss
         caption: Positions at a loss
         security: Security
         account: Account

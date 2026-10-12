@@ -46,7 +46,7 @@ class InvestmentSectionsTest < ActionDispatch::IntegrationTest
   test "holdings page shows allocation and data quality sections that can be reordered" do
     get portfolio_holdings_path(by: "sector")
     assert_response :success
-    assert_equal %w[allocation data_quality], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
+    assert_equal %w[allocation data_quality accounts], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
     assert_select "[data-testid=allocation-section] a[aria-current=true]", text: "Sector"
   end
 
@@ -128,4 +128,22 @@ class InvestmentSectionsTest < ActionDispatch::IntegrationTest
     assert_select "[data-section-key=monthly_income] [data-testid=monthly-chart][role=img][aria-label]"
     assert_select "[data-section-key=monthly_income] [data-testid=monthly-chart] [data-month]", minimum: 1
   end
+
+  test "every investment page namespace validates its own keys and is stored per member" do
+    {
+      "decision" => %w[pulse source_health actions monitor],
+      "options" => %w[summary contracts],
+      "tax_lots" => %w[totals soon lots],
+      "tax_harvest" => %w[summary candidates unavailable],
+      "watchlist" => %w[add saved]
+    }.each do |namespace, keys|
+      patch investment_section_preferences_path(namespace), params: { preferences: { "investments_#{namespace}_section_order" => keys.reverse + %w[hacked], "investments_#{namespace}_collapsed_sections" => { keys.first => true, "hacked" => true } } }, as: :json
+      assert_response :ok, namespace
+
+      assert_equal keys.reverse, @owner.reload.investment_section_order(namespace), namespace
+      assert @owner.investment_section_collapsed?(namespace, keys.first), namespace
+      assert_empty @other.reload.investment_section_order(namespace), namespace
+    end
+  end
+
 end

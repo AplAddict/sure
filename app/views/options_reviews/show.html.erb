@@ -18,14 +18,18 @@
   <% if review.rows.empty? %>
     <%= render DS::EmptyState.new(icon: "chart-no-axes-combined", title: t(".empty_title"), description: t(".empty_description")) %>
   <% else %>
+    <% contents = {} %>
+    <% contents["summary"] = capture do %>
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="options-summary">
       <%= investment_stat(t(".summary.contracts"), review.rows.size) %>
       <%= investment_stat(t(".summary.expiring"), review.expiring_soon_count, tone: review.expiring_soon_count.positive? ? "text-warning" : "text-primary") %>
       <%= investment_stat(t(".summary.expired"), review.expired_count, hint: (review.expired_count.positive? ? t(".summary.expired_hint") : nil), tone: review.expired_count.positive? ? "text-destructive" : "text-primary") %>
       <%= investment_stat(t(".summary.total_gain"), investment_gain(review.total_gain, review.currency, title: t(".summary.total_gain_unavailable")), hint: (review.total_gain.nil? ? t(".summary.total_gain_unavailable") : nil)) %>
     </div>
+    <% end %>
 
-    <div class="overflow-x-auto rounded-xl bg-container shadow-border-xs">
+    <% contents["contracts"] = capture do %>
+    <div class="overflow-x-auto">
       <table class="w-full min-w-[56rem] text-sm">
         <caption class="sr-only"><%= t(".caption") %></caption>
         <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary">
@@ -87,6 +91,15 @@
         <% end %>
       </table>
     </div>
+    <% end %>
+
+    <%= render "investments/sections",
+          sections: InvestmentSections.new(namespace: "options", user: Current.user, definitions: [
+            { key: "summary", title: t(".sections.summary") },
+            { key: "contracts", title: t(".sections.contracts") }
+          ]),
+          contents: contents, namespace: "options",
+          url: investment_section_preferences_path("options"), preference_key: "investments_options" %>
   <% end %>
 </div>
 <% end %>

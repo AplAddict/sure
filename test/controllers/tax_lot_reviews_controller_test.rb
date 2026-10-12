@@ -188,4 +188,35 @@ class TaxLotReviewsControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=realized-ytd]", text: /\$/, count: 0
     assert_match I18n.t("tax_loss_harvests.show.summary.realized_hint", count: 1), response.body
   end
+
+  test "tax lot totals, approaching long-term and lots are draggable sections" do
+    sign_in @owner
+    get tax_lot_review_path
+
+    assert_response :success
+    assert_equal %w[totals soon lots], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
+    assert_select "[data-section-key=lots] [data-testid=lots-table]"
+    assert_select "[data-section-key=lots] a[href*='format=csv']", text: /Download CSV/
+  end
+
+  test "the harvest tab has its own reorderable sections" do
+    sign_in @owner
+    get tax_lot_review_path(tab: "harvest")
+
+    assert_response :success
+    assert_includes css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }, "summary"
+    assert_not_includes css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }, "totals"
+  end
+
+  test "tax lot layout does not leak into the harvest layout or another member" do
+    sign_in @owner
+    patch investment_section_preferences_path("tax_lots"), params: { preferences: { investments_tax_lots_section_order: %w[lots totals] } }, as: :json
+    assert_response :ok
+    get tax_lot_review_path
+    assert_equal %w[lots totals soon], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
+    get tax_lot_review_path(tab: "harvest")
+    assert_not_includes css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }, "lots"
+    assert_empty users(:family_member).investment_section_order("tax_lots")
+  end
+
 end

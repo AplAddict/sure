@@ -52,10 +52,10 @@
     <% end %>
   </div>
   <div class="space-y-6 pb-6 lg:pb-12" data-controller="holding-lots">
-  <%= render "investments/sections", sections: @sections, namespace: "holdings", url: investment_section_preferences_path("holdings"), preference_key: "investments_holdings" %>
-  <% if blocks.empty? %>
-    <%= render DS::EmptyState.new(icon: "briefcase", title: t("portfolio_holdings.empty_title"), description: t("portfolio_holdings.empty_description")) %>
-  <% else %>
+  <% contents = {} %>
+  <% if blocks.any? %>
+    <% contents["accounts"] = capture do %>
+    <div class="space-y-6 p-4">
     <% if portfolio.lots_available? %>
       <div class="flex items-center justify-end gap-3 text-xs text-secondary">
         <span><%= t("portfolio_holdings.lots_hint") %></span>
@@ -189,6 +189,13 @@
     <% end %>
 
     <p class="text-xs text-secondary"><%= t("portfolio_holdings.footnote") %></p>
+  
+    </div>
+    <% end %>
+  <% end %>
+  <%= render "investments/sections", sections: @sections, contents: contents, namespace: "holdings", url: investment_section_preferences_path("holdings"), preference_key: "investments_holdings" %>
+  <% if blocks.empty? %>
+    <%= render DS::EmptyState.new(icon: "briefcase", title: t("portfolio_holdings.empty_title"), description: t("portfolio_holdings.empty_description")) %>
   <% end %>
 </div>
 <% end %>

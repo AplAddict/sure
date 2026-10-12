@@ -311,4 +311,28 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "overview", @owner.reload.dashboard_view
   end
+
+  test "decision center sections are draggable, collapsible and keep the page's data" do
+    sign_in @owner
+    get root_path(view: "decision")
+
+    assert_response :success
+    assert_equal %w[pulse source_health actions monitor], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
+    assert_select "[data-testid=idc-source-health]", text: /Holdings snapshot/
+    assert_select "h2", text: I18n.t("investment_decision_center.actions.heading"), count: 1
+  end
+
+  test "decision center layout is saved per member and reset per page" do
+    sign_in @owner
+    patch investment_section_preferences_path("decision"), params: { preferences: { investments_decision_section_order: %w[monitor pulse] } }, as: :json
+    assert_response :ok
+    get root_path(view: "decision")
+    assert_equal %w[monitor pulse source_health actions], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
+    assert_nil @member.reload.preferences&.dig("investments_decision_section_order")
+
+    delete investment_section_preferences_path("decision")
+    get root_path(view: "decision")
+    assert_equal %w[pulse source_health actions monitor], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
+  end
+
 end

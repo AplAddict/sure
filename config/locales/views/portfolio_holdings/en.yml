@@ -53,6 +53,7 @@ en:
       new_position: Opened after the previous close, so there is no earlier price to compare with.
       quantity_changed: The share count changed since the previous close, so a day move would mix trades with price.
     allocation_section: Allocation
+    accounts_section: Accounts and positions
     data_quality_section: Data quality
     group_by: Group allocation by
     groupings:

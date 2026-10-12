@@ -50,18 +50,26 @@
   <% if review.lots.empty? %>
     <%= render DS::EmptyState.new(icon: "briefcase", title: t(".empty_title"), description: t(".empty_description")) %>
   <% else %>
-    <section aria-labelledby="tl-totals" class="space-y-3">
-      <h2 id="tl-totals" class="text-lg font-medium text-primary"><%= t(".totals_heading") %></h2>
+    <% sort_th = lambda do |label, key, align: :left|
+         sortable_header(label, key, sort: review.sort, direction: review.direction,
+                         default_direction: (%w[ticker account acquired term].include?(key) ? "asc" : "desc"),
+                         align: align, css: "px-4 py-3", link_data: { turbo_frame: "investment_workspace", turbo_action: "advance" }) do |sort_key, dir|
+           tax_lot_review_path(request.query_parameters.merge("sort" => sort_key, "dir" => dir).except("format"))
+         end
+       end %>
+    <% contents = {} %>
+    <% contents["totals"] = capture do %>
+    <div class="space-y-3">
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <%= investment_stat t(".short_gains"), investment_money(totals[:short_gain], currency), tone: gain_tone_class(totals[:short_gain]) %>
         <%= investment_stat t(".short_losses"), investment_money(totals[:short_loss], currency), tone: (totals[:short_loss].positive? ? "text-destructive" : "text-primary") %>
         <%= investment_stat t(".long_gains"), investment_money(totals[:long_gain], currency), tone: gain_tone_class(totals[:long_gain]) %>
         <%= investment_stat t(".long_losses"), investment_money(totals[:long_loss], currency), tone: (totals[:long_loss].positive? ? "text-destructive" : "text-primary") %>
       </div>
-    </section>
-
-    <section aria-labelledby="tl-soon" class="space-y-3">
-      <h2 id="tl-soon" class="text-lg font-medium text-primary"><%= t(".soon_heading", days: review.window_days) %></h2>
+    </div>
+    <% end %>
+    <% contents["soon"] = capture do %>
+    <div class="space-y-3">
       <% soon = review.approaching_long_term %>
       <% if soon.empty? %>
         <p class="text-sm text-secondary"><%= t(".soon_empty") %></p>
@@ -92,18 +100,11 @@
           </table>
         </div>
       <% end %>
-    </section>
-
-    <% sort_th = lambda do |label, key, align: :left|
-         sortable_header(label, key, sort: review.sort, direction: review.direction,
-                         default_direction: (%w[ticker account acquired term].include?(key) ? "asc" : "desc"),
-                         align: align, css: "px-4 py-3", link_data: { turbo_frame: "investment_workspace", turbo_action: "advance" }) do |sort_key, dir|
-           tax_lot_review_path(request.query_parameters.merge("sort" => sort_key, "dir" => dir).except("format"))
-         end
-       end %>
-    <section aria-labelledby="tl-lots" class="space-y-3">
-      <div class="flex flex-wrap items-end justify-between gap-3">
-        <h2 id="tl-lots" class="text-lg font-medium text-primary"><%= t(".lots_heading") %></h2>
+    </div>
+    <% end %>
+    <% contents["lots"] = capture do %>
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-end justify-end gap-3">
         <%= link_to t(".filter.download"), tax_lot_review_path(request.query_parameters.except("tab", "format", "sort", "dir").merge(format: :csv)), class: "text-sm font-medium text-link hover:underline focus-ring rounded", data: { turbo: false } %>
       </div>
       <%= form_with url: tax_lot_review_path, method: :get, class: "flex flex-wrap items-end gap-3", data: { turbo_frame: "investment_workspace" } do |f| %>
@@ -154,7 +155,16 @@
           </tbody>
         </table>
       </div>
-    </section>
+    </div>
+    <% end %>
+    <%= render "investments/sections",
+          sections: InvestmentSections.new(namespace: "tax_lots", user: Current.user, definitions: [
+            { key: "totals", title: t(".totals_heading") },
+            { key: "soon", title: t(".soon_heading", days: review.window_days) },
+            { key: "lots", title: t(".lots_heading") }
+          ]),
+          contents: contents, namespace: "tax_lots",
+          url: investment_section_preferences_path("tax_lots"), preference_key: "investments_tax_lots" %>
   <% end %>
   <% end %>
 </div>

@@ -275,4 +275,15 @@ class PortfolioHoldingsTest < ActionDispatch::IntegrationTest
     assert_select "table caption", text: /Positions for Holdings Brokerage/
     assert_select "h3", text: "Positions"
   end
+
+  test "the account holdings tables are a draggable section after allocation and data quality" do
+    sign_in @owner
+    get portfolio_holdings_path
+
+    assert_response :success
+    assert_equal %w[allocation data_quality accounts], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
+    assert_select "[data-section-key=accounts] [data-testid=holdings-account]"
+    assert_select "[data-section-key=accounts] [data-testid=prices-freshness]"
+  end
+
 end

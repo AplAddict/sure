@@ -9,6 +9,9 @@ en:
       aria_label: Homepage view
       overview: Overview
       decision: Investments
+    source_health:
+      heading: Data health
+      description: Freshness and availability for the evidence already shown above.
     pulse:
       heading: Portfolio pulse
       portfolio_value: Portfolio value

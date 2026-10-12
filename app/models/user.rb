@@ -693,7 +693,7 @@ class User < ApplicationRecord
   # "investments_<namespace>_section_order" / "_collapsed_sections", so pages
   # never read or write each other's keys and nothing else in preferences can
   # be reached through this API.
-  INVESTMENT_SECTION_NAMESPACES = %w[income holdings].freeze
+  INVESTMENT_SECTION_NAMESPACES = %w[income holdings decision options tax_lots tax_harvest watchlist].freeze
 
   def investment_section_order(namespace)
     Array(preferences&.[]("investments_#{investment_section_namespace!(namespace)}_section_order")).map(&:to_s)

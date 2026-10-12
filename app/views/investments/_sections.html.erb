@@ -1,4 +1,4 @@
-<%# locals: (sections:, namespace:, url:, preference_key:) %>
+<%# locals: (sections:, namespace:, url:, preference_key:, contents: {}) %>
 <%# Drag-to-reorder + collapsible sections for an Investments page. Order and
     collapsed state are saved per member. Reuses the Reports section controllers
     (their names are historical), so keyboard and touch reordering come with it. %>
@@ -45,8 +45,12 @@
           <%= icon("grip-vertical", size: "sm") %>
         </button>
       </div>
-      <div class="p-4" data-reports-section-target="content">
-        <%= render partial: section[:partial], locals: section[:locals] %>
+      <div class="<%= section[:flush] ? "" : "p-4" %>" data-reports-section-target="content">
+        <% if contents.key?(section[:key]) %>
+          <%= contents[section[:key]] %>
+        <% else %>
+          <%= render partial: section[:partial], locals: section[:locals] %>
+        <% end %>
       </div>
     </section>
   <% end %>

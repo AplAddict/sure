@@ -41,6 +41,11 @@ class InvestmentSections
 
   KEYS = {
     "income" => %w[income monthly_income cash_flows performance realized_gains],
-    "holdings" => %w[allocation data_quality]
+    "holdings" => %w[allocation data_quality accounts],
+    "decision" => %w[pulse source_health actions monitor],
+    "options" => %w[summary contracts],
+    "tax_lots" => %w[totals soon lots],
+    "tax_harvest" => %w[summary candidates unavailable],
+    "watchlist" => %w[add saved]
   }.freeze
 end

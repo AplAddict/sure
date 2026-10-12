@@ -93,4 +93,23 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
     get options_review_path
     assert_select "[data-testid=options-summary]"
   end
+
+  test "options summary and contracts are draggable sections" do
+    sign_in @owner
+    get options_review_path
+
+    assert_response :success
+    assert_equal %w[summary contracts], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
+    assert_select "[data-section-key=summary] [data-testid=options-summary]"
+    assert_select "[data-section-key=contracts] table"
+  end
+
+  test "an empty options page shows the empty state instead of sections" do
+    sign_in users(:family_member)
+    get options_review_path
+
+    assert_response :success
+    assert_empty css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
+  end
+
 end
