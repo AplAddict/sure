@@ -18,6 +18,19 @@ class ImportsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # The Operation column used to derive its text from the Ruby class name,
+  # which can never be translated; the locale file already carries a label per
+  # import type.
+  test "index names each import's operation from the locale file" do
+    get imports_url
+
+    assert_response :success
+    @user.family.imports.ordered.each do |import|
+      assert_select "##{dom_id(import)} a[href=?]", import_path(import),
+                    text: /#{Regexp.escape(I18n.t("imports.table.row.type_labels.#{import.type.underscore}"))}/
+    end
+  end
+
   test "gets new" do
     get new_import_url
 
