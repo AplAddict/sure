@@ -116,6 +116,36 @@ class InvestmentStatement
       end
   end
 
+  # Investment accounts that carry a balance but no current holding rows (a
+  # pension feed, a balance-only brokerage, a manually valued fund). They are
+  # part of portfolio_value, so without a row of their own the listed weights
+  # could never reach 100%. Value is nil (never 1:1) when the rate is missing;
+  # unknown values rank last.
+  def account_positions
+    @account_positions ||= begin
+      total = weight_denominator(holdings_rolled_up_by_security.sum { |_, value, _| value })
+
+      balance_only_accounts
+        .map do |account|
+          value = convert_to_family_currency(account.balance, account.currency)
+          AccountPosition.new(
+            account: account,
+            amount: value.nil? ? nil : Money.new(value, family.currency),
+            weight: value && total ? (value / total * 100).round(2) : nil
+          )
+        end
+        .sort_by { |position| [ position.amount.nil? ? 1 : 0, -(position.amount&.amount || 0) ] }
+    end
+  end
+
+  # Top holdings and account positions together, ranked by family-currency
+  # value, for surfaces that list "where the portfolio is".
+  def top_positions(limit: 5)
+    (top_holdings(limit: limit) + account_positions)
+      .sort_by { |position| [ position.amount_money.nil? ? 1 : 0, -(position.amount_money&.amount || 0) ] }
+      .first(limit)
+  end
+
   # Portfolio allocation by security (rolled up across accounts). Shares the
   # weight denominator with top_holdings so the same security never reports two
   # different percentages. Weights therefore sum to the invested share of the
@@ -342,6 +372,14 @@ class InvestmentStatement
       def ticker = security.ticker
       def name = security.name.presence || ticker
       def amount_money = amount
+      def account_position? = false
+    end
+
+    AccountPosition = Data.define(:account, :amount, :weight) do
+      def name = account.name
+      def amount_money = amount
+      def trend = nil
+      def account_position? = true
     end
 
     # Groups current holdings by security and sums family-currency value.
@@ -358,7 +396,21 @@ class InvestmentStatement
     # Account#balance lags behind the Holding rows.
     def weight_denominator(holdings_total)
       total = portfolio_value
-      total.nil? ? nil : [ total, holdings_total ].max
+      total.nil? ? nil : [ total, holdings_total + balance_only_accounts_total ].max
+    end
+
+    # Investment accounts with a positive balance and no current holding rows.
+    def balance_only_accounts
+      @balance_only_accounts ||= begin
+        held_account_ids = current_holdings.map(&:account_id).to_set
+        investment_accounts.reject { |account| held_account_ids.include?(account.id) || account.balance.to_d <= 0 }
+      end
+    end
+
+    # Floor for the weight denominator. A missing rate makes portfolio_value
+    # (and so every weight) nil anyway, so an unconvertible balance counts 0.
+    def balance_only_accounts_total
+      balance_only_accounts.sum(0.to_d) { |account| convert_to_family_currency(account.balance, account.currency) || 0 }
     end
 
     def holdings_rolled_up_by_security

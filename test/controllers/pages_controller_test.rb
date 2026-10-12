@@ -30,6 +30,23 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_select "[class*=\"group-hover:opacity-100\"]:not([class*=\"group-focus-within:opacity-100\"])", count: 0
   end
 
+  test "dashboard investment summary lists balance-only investment accounts as positions" do
+    pension = @family.accounts.create!(
+      name: "Workplace Pension", balance: 4000, cash_balance: 0, currency: "USD",
+      accountable: Investment.new, owner: @user
+    )
+
+    get root_path
+
+    assert_response :ok
+    assert_select "#investment-summary table tbody tr" do |rows|
+      row = rows.find { |r| r.text.include?("Workplace Pension") }
+      assert row, "expected a row for the balance-only account"
+      assert_select row, "a[href=?]", account_path(pension)
+      assert_includes row.text, I18n.t("pages.dashboard.investment_summary.account_position")
+    end
+  end
+
   test "dashboard renders the net worth chart as drag-selectable, opting it out of card drag-and-drop" do
     get root_path
 

@@ -202,6 +202,42 @@ class InvestmentStatementTest < ActiveSupport::TestCase
     assert_in_delta 100.0, top.first.weight, 0.01
   end
 
+  test "account_positions lists balance-only investment accounts so weights add up to 100" do
+    held = create_investment_account(balance: 6000, cash_balance: 0, currency: "USD")
+    pension = create_investment_account(balance: 4000, cash_balance: 0, currency: "USD")
+    security = Security.create!(ticker: "VOO", name: "Vanguard S&P 500")
+    Holding.create!(
+      account: held, security: security, date: Date.current,
+      qty: 30, price: 200, amount: 6000, currency: "USD"
+    )
+
+    positions = @statement.account_positions
+
+    assert_equal [ pension ], positions.map(&:account)
+    assert_equal Money.new(4000, "USD"), positions.first.amount_money
+    assert_in_delta 40.0, positions.first.weight, 0.01
+    assert positions.first.account_position?
+
+    top = @statement.top_positions(limit: 5)
+
+    assert_equal [ "Vanguard S&P 500", pension.name ], top.map(&:name)
+    assert_in_delta 100.0, top.sum(&:weight), 0.01
+  end
+
+  test "account_positions skips accounts with a zero balance and ranks unknown values last" do
+    create_investment_account(balance: 0, cash_balance: 0, currency: "USD")
+    foreign = create_investment_account(balance: 1_000_000, cash_balance: 0, currency: "EUR")
+    local = create_investment_account(balance: 500, cash_balance: 0, currency: "USD")
+
+    positions = @statement.account_positions
+
+    assert_equal [ local, foreign ], positions.map(&:account)
+    assert_equal Money.new(500, "USD"), positions.first.amount_money
+    assert_nil positions.first.weight
+    assert_nil positions.last.amount_money
+    assert_nil positions.last.weight
+  end
+
   test "top_holdings ignores a negative holding row when weighting" do
     # Holding validates amount >= 0, but Holding::Materializer writes via
     # upsert_all, which skips validations — an over-sell can land a negative row.

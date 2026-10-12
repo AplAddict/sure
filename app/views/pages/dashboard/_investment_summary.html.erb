@@ -25,7 +25,7 @@
       </div>
     </div>
 
-    <% holdings = investment_statement.top_holdings(limit: 5) %>
+    <% holdings = investment_statement.top_positions(limit: 5) %>
     <% if holdings.any? %>
       <div class="bg-container-inset rounded-xl p-1 mx-4 overflow-x-auto">
         <div class="rounded-lg shadow-border-xs bg-container overflow-hidden">
@@ -43,17 +43,27 @@
               <tr class="<%= idx < holdings.size - 1 ? "table-divider" : "" %>">
                 <td class="p-4">
                   <div class="flex items-center gap-3">
-                    <% if holding.security.logo_url.present? %>
-                      <img src="<%= holding.security.logo_url %>" alt="<%= holding.ticker %>" class="w-8 h-8 rounded-full border border-secondary">
+                    <% if holding.account_position? %>
+                      <div class="w-8 h-8 shrink-0 flex items-center justify-center">
+                        <%= render "accounts/logo", account: holding.account, size: "sm" %>
+                      </div>
+                      <div class="max-w-32">
+                        <p class="font-medium truncate"><%= link_to holding.name, account_path(holding.account), class: "hover:underline" %></p>
+                        <p class="text-xs text-secondary"><%= t(".account_position") %></p>
+                      </div>
                     <% else %>
-                      <div class="w-8 h-8 rounded-full bg-container-inset flex items-center justify-center text-xs font-medium text-secondary">
-                        <%= holding.ticker.to_s.first(2).presence || "—" %>
+                      <% if holding.security.logo_url.present? %>
+                        <img src="<%= holding.security.logo_url %>" alt="<%= holding.ticker %>" class="w-8 h-8 rounded-full border border-secondary">
+                      <% else %>
+                        <div class="w-8 h-8 rounded-full bg-container-inset flex items-center justify-center text-xs font-medium text-secondary">
+                          <%= holding.ticker.to_s.first(2).presence || "—" %>
+                        </div>
+                      <% end %>
+                      <div class="max-w-32">
+                        <p class="font-medium truncate"><%= link_to holding.ticker, research_ticker_path(holding.ticker), class: "hover:underline" %></p>
+                        <p class="text-xs text-secondary"><%= truncate(holding.name, length: 20) %></p>
                       </div>
                     <% end %>
-                    <div class="max-w-32">
-                      <p class="font-medium truncate"><%= link_to holding.ticker, research_ticker_path(holding.ticker), class: "hover:underline" %></p>
-                      <p class="text-xs text-secondary"><%= truncate(holding.name, length: 20) %></p>
-                    </div>
                   </div>
                 </td>
 
@@ -62,7 +72,7 @@
                 </td>
 
                 <td class="p-4 text-right privacy-sensitive">
-                  <%= format_money(holding.amount_money) %>
+                  <%= holding.amount_money ? format_money(holding.amount_money) : "—" %>
                 </td>
 
                 <td class="p-4 text-right">
