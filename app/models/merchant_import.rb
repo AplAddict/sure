@@ -60,9 +60,9 @@ class MerchantImport < Import
     csv_rows.each.with_index(1) do |row, index|
       rows.create!(
         source_row_number: index,
-        name: row[name_header].to_s.strip,
-        merchant_color: row[color_header].to_s.strip,
-        merchant_website: row[website_header].to_s.strip,
+        name: SpreadsheetSafe.decode(row[name_header].to_s).strip,
+        merchant_color: SpreadsheetSafe.decode(row[color_header].to_s).strip,
+        merchant_website: SpreadsheetSafe.decode(row[website_header].to_s).strip,
         currency: default_currency
       )
     end

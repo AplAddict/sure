@@ -591,7 +591,7 @@ class Import < ApplicationRecord
         next if header.blank?
 
         value = row[header]
-        return value if value.present?
+        return SpreadsheetSafe.decode(value) if value.present?
       end
 
       nil

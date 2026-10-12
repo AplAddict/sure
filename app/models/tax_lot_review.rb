@@ -69,11 +69,8 @@ class TaxLotReview
     end
   end
 
-  FORMULA_START = /\A[=+\-@\t\r]/
-
   def self.csv_safe(value)
-    text = value.to_s
-    text.match?(FORMULA_START) ? "'#{text}" : text
+    SpreadsheetSafe.encode(value.to_s)
   end
 
   def family = user.family
