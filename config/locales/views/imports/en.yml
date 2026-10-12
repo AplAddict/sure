@@ -324,6 +324,8 @@ en:
       title: Import failed
       description: Please check that your file format, for any errors and that all required fields are filled, then come back and try again.
       try_again: Try again
+      retrying: Retrying…
+      back: Back to imports
     success:
       title: Import successful
       description: Your imported data has been successfully added to the app and is now ready for use.
@@ -347,6 +349,8 @@ en:
       title: Reverting import failed
       description: Please try again
       try_again: Try again
+      retrying: Retrying…
+      back: Back to imports
     date_format:
       heading: Date format
       description: "The date format was auto-detected from your file. Change it if dates look incorrect."
