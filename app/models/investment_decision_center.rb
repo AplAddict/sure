@@ -149,10 +149,17 @@ class InvestmentDecisionCenter
         .sort_by { |action| [ -action.priority, action.kind.to_s ] }
     end
 
+    # The set of accounts this member can read right now. Part of the cache key so
+    # that granting or revoking a share changes the key immediately; the family
+    # data version alone does not move when only access changes.
+    def access_fingerprint
+      Digest::SHA256.hexdigest(user.accessible_accounts.visible.pluck(:id).sort.join(","))[0, 16]
+    end
+
     # Keyed to the member (their accounts decide what they see) and the day, and
     # to the family's last completed sync so fresh data is never hidden behind it.
     def actions_cache_key
-      [ family.build_cache_key("decision_center_actions_v1", invalidate_on_data_updates: true), user.id, @today.iso8601 ]
+      [ family.build_cache_key("decision_center_actions_v2", invalidate_on_data_updates: true), user.id, @today.iso8601, access_fingerprint ]
     end
 
     # Cached as plain values: a Money inside a Data object is not worth betting a

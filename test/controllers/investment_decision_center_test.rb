@@ -212,6 +212,20 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_select "a[href=?]", research_watchlist_entries_path
   end
 
+  test "revoking a shared account takes its positions out of the member's cached actions at once" do
+    original = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    @account.share_with!(@member, permission: "read_only")
+    harvest = ->(user) { InvestmentDecisionCenter.new(user: user).actions.any? { |a| a.kind == :harvest } }
+    assert harvest.call(@member), "member should see the shared loss before revocation (and this warms the cache)"
+
+    @account.unshare_with!(@member)
+
+    assert_not harvest.call(@member)
+  ensure
+    Rails.cache = original
+  end
+
   test "the overview shows the switch when the member has investments" do
     sign_in @owner
     get root_path

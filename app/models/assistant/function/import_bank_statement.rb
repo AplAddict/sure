@@ -53,7 +53,13 @@ class Assistant::Function::ImportBankStatement < Assistant::Function
   end
 
   def call(params = {})
-    pdf_import = family.imports.find_by(id: params["pdf_import_id"], type: "PdfImport")
+    # Imports are family-wide by design, but one linked to an account must not be
+    # readable by a member who cannot access that account (its text and the
+    # account holder's details would be extracted and returned). Unlinked
+    # imports follow the app-wide family policy.
+    pdf_import = family.imports.where(type: "PdfImport").where(
+      "imports.account_id IS NULL OR imports.account_id IN (?)", family.accounts.accessible_by(user).select(:id)
+    ).find_by(id: params["pdf_import_id"])
 
     unless pdf_import
       return {
@@ -78,7 +84,7 @@ class Assistant::Function::ImportBankStatement < Assistant::Function
         success: false,
         error: "account_required",
         message: "Please specify which account to import transactions into",
-        available_accounts: family.accounts.writable_by(user).visible.depository.map { |a| { id: a.id, name: a.name } }
+        available_accounts: family.accounts.writable_by(user).visible.where(accountable_type: "Depository").map { |a| { id: a.id, name: a.name } }
       }
     end
 
@@ -88,7 +94,7 @@ class Assistant::Function::ImportBankStatement < Assistant::Function
         success: false,
         error: "account_not_found",
         message: "Account not found",
-        available_accounts: family.accounts.writable_by(user).visible.depository.map { |a| { id: a.id, name: a.name } }
+        available_accounts: family.accounts.writable_by(user).visible.where(accountable_type: "Depository").map { |a| { id: a.id, name: a.name } }
       }
     end
 

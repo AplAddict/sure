@@ -35,10 +35,24 @@ class Insight::Generators::IdleCashGenerator < Insight::Generator
     # Ordered so the pick is stable between runs — an unordered relation could
     # nudge a different pair of accounts each night, churning the feed.
     def idle_accounts
-      family.accounts.visible
+      shared_account_scope
+        .visible
         .where(accountable_type: "Depository", currency: family.currency)
         .where("balance >= ?", MIN_BALANCE)
         .where.not(id: Entry.where("date >= ?", IDLE_DAYS.days.ago.to_date).select(:account_id))
         .order(balance: :desc)
+    end
+
+    # This insight is family-wide: every member sees it. So it may only name an
+    # account that every active member can already access. An account one member
+    # keeps private must never surface its name or balance to the others. The
+    # scope shrinks when access is revoked, and the job then expires the
+    # insight on its next run.
+    def shared_account_scope
+      members = family.users.select(&:active?)
+      return family.accounts.none if members.empty?
+
+      shared_ids = members.map { |member| family.accounts.accessible_by(member).pluck(:id) }.reduce(:&)
+      family.accounts.where(id: shared_ids)
     end
 end

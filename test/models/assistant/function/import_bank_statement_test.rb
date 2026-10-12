@@ -26,4 +26,28 @@ class Assistant::Function::ImportBankStatementTest < ActiveSupport::TestCase
       assert_nil @fn.send(:model_for, Provider::Anthropic.new("test-key"))
     end
   end
+
+  test "a PDF import linked to an account the user cannot access is not readable" do
+    family = @user.family
+    private_account = family.accounts.create!(name: "Someone Else Private", balance: 100, currency: family.currency, owner: users(:family_member),
+                                              status: "active", accountable: Depository.new)
+    destination = family.accounts.create!(name: "My Checking", balance: 100, currency: family.currency, owner: @user, status: "active", accountable: Depository.new)
+    pdf_import = PdfImport.create!(family: family, account: private_account, document_type: "bank_statement")
+    Provider::Registry.expects(:preferred_llm_provider).never
+
+    result = @fn.call("pdf_import_id" => pdf_import.id, "account_id" => destination.id)
+
+    assert_equal false, result[:success]
+    assert_equal "PDF import not found", result[:error]
+  end
+
+  test "a PDF import linked to an account the user can access is still found" do
+    family = @user.family
+    mine = family.accounts.create!(name: "My Statement Account", balance: 100, currency: family.currency, owner: @user, status: "active", accountable: Depository.new)
+    pdf_import = PdfImport.create!(family: family, account: mine, document_type: "bank_statement")
+
+    result = @fn.call("pdf_import_id" => pdf_import.id)
+
+    assert_equal "account_required", result[:error]
+  end
 end
