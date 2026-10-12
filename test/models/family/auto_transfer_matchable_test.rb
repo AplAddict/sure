@@ -244,7 +244,8 @@ class Family::AutoTransferMatchableTest < ActiveSupport::TestCase
 
   test "a zero direct rate does not mask a usable family currency cross rate" do
     load_family_currency_rates
-    ExchangeRate.create!(from_currency: "GBP", to_currency: "CAD", date: 1.day.ago.to_date, rate: 0)
+    # Simulate a legacy/corrupt row while bypassing the model validation that now rejects new zero rates.
+    ExchangeRate.insert!({ from_currency: "GBP", to_currency: "CAD", date: 1.day.ago.to_date, rate: 0 })
 
     outflow = create_transaction(date: 1.day.ago.to_date, account: @depository, amount: 400, currency: "GBP")
     inflow = create_transaction(date: Date.current, account: @credit_card, amount: -680, currency: "CAD")
