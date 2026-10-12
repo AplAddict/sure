@@ -14,8 +14,8 @@ class SnaptradeDataHelpersTest < ActiveSupport::TestCase
       parse_date(value)
     end
 
-    def test_resolve_security(symbol, symbol_data)
-      resolve_security(symbol, symbol_data)
+    def test_resolve_security(symbol, symbol_data, account: nil, account_provider_id: nil)
+      resolve_security(symbol, symbol_data, account: account, account_provider_id: account_provider_id)
     end
 
     def test_extract_currency(data, symbol_data = {}, fallback = nil)
@@ -124,6 +124,40 @@ class SnaptradeDataHelpersTest < ActiveSupport::TestCase
     result = @helper.test_resolve_security("lowercase", symbol_data)
 
     assert_equal "LOWERCASE", result.ticker
+  end
+
+  test "resolve_security prefers the reported exchange regardless of creation order" do
+    xnys_first = Security.create!(ticker: "DUPA", name: "Dup A", exchange_operating_mic: "XNYS")
+    Security.create!(ticker: "DUPA", name: "Dup A")
+    Security.create!(ticker: "DUPB", name: "Dup B")
+    xnys_last = Security.create!(ticker: "DUPB", name: "Dup B", exchange_operating_mic: "XNYS")
+    symbol_data = { "exchange" => { "mic_code" => "XNYS" } }
+
+    assert_equal xnys_first, @helper.test_resolve_security("DUPA", symbol_data)
+    assert_equal xnys_last, @helper.test_resolve_security("DUPB", symbol_data)
+  end
+
+  test "resolve_security without exchange deterministically prefers an online priced row" do
+    Security.create!(ticker: "DUPC", name: "Offline", exchange_operating_mic: "XASX", offline: true)
+    Security.create!(ticker: "DUPC", name: "Online unpriced", exchange_operating_mic: "XNAS")
+    priced = Security.create!(ticker: "DUPC", name: "Online priced", exchange_operating_mic: "XNYS", price_provider: "yahoo_finance")
+
+    assert_equal priced, @helper.test_resolve_security("DUPC", {})
+  end
+
+  test "resolve_security keeps the security already held by the account" do
+    account = accounts(:investment)
+    held = Security.create!(ticker: "DUPH", name: "Held")
+    Security.create!(ticker: "DUPH", name: "Reported", exchange_operating_mic: "XNYS", price_provider: "yahoo_finance")
+    account.holdings.create!(security: held, date: Date.current, qty: 1, price: 1, amount: 1, currency: account.currency)
+
+    result = @helper.test_resolve_security(
+      "DUPH",
+      { "exchange" => { "mic_code" => "XNYS" } },
+      account: account
+    )
+
+    assert_equal held, result
   end
 
   test "resolve_security returns nil for blank ticker" do
