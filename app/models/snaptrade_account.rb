@@ -24,6 +24,15 @@ class SnaptradeAccount < ApplicationRecord
   # Enqueue cleanup job after destruction to avoid blocking transaction with API call
   after_destroy :enqueue_connection_cleanup
 
+  # Provider accounts linked to the given Sure accounts, loaded with their link
+  # and the linked account in one query. Every read-only investment surface goes
+  # through this, so none of them scans other families' provider accounts.
+  scope :linked_to, ->(account_ids) {
+    joins(:account_provider)
+      .where(account_providers: { account_id: account_ids })
+      .includes(account_provider: :account)
+  }
+
   # Helper to get the linked Sure account
   def current_account
     linked_account
@@ -135,6 +144,15 @@ class SnaptradeAccount < ApplicationRecord
     )
   end
 
+  SNAPSHOT_STALE_AFTER = 30.hours
+
+  # "current", "stale" or "unavailable" for the broker snapshot's last sync.
+  def snapshot_freshness
+    return "unavailable" if last_holdings_sync.nil?
+
+    last_holdings_sync < SNAPSHOT_STALE_AFTER.ago ? "stale" : "current"
+  end
+
   # Options are a separate, read-only provider snapshot. Contract units and
   # prices must never flow through the equity-share holdings processor.
   def upsert_options_snapshot!(options_data)
@@ -233,6 +251,10 @@ class SnaptradeAccount < ApplicationRecord
   # derived figure is nil (shown as unavailable) when any input is missing:
   # a missing cost basis, mark, quantity or multiplier is never treated as zero.
   OptionPosition = Data.define(:contract, :underlying, :type, :expiration, :strike, :quantity, :mark, :cost_basis, :multiplier, :currency) do
+    def days_to_expiry(today = Date.current)
+      expiration ? (expiration - today).to_i : nil
+    end
+
     def cost_total
       return nil unless cost_basis && quantity && multiplier
 

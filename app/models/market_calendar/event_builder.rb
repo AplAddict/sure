@@ -99,11 +99,7 @@ class MarketCalendar::EventBuilder
     end
 
     def option_expirations
-      account_ids = @accounts.map(&:id).to_set
-      SnaptradeAccount.includes(:account_provider).filter_map do |provider_account|
-        account = provider_account.current_account
-        next unless account && account_ids.include?(account.id)
-
+      SnaptradeAccount.linked_to(@accounts.map(&:id)).filter_map do |provider_account|
         Array(provider_account.raw_options_payload).filter_map do |raw_position|
           position = raw_position.to_h.with_indifferent_access
           instrument = position[:instrument].to_h.with_indifferent_access
@@ -121,7 +117,7 @@ class MarketCalendar::EventBuilder
             end_date: expiration,
             details: contract,
             source: "Read-only brokerage options snapshot",
-            freshness: provider_account.last_holdings_sync && provider_account.last_holdings_sync < 30.hours.ago ? "stale" : "current"
+            freshness: provider_account.snapshot_freshness == "stale" ? "stale" : "current"
           )
         end
       end.flatten

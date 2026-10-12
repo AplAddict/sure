@@ -129,13 +129,9 @@ class InvestmentIncomeReview
 
   private
     def option_activities
-      account_ids = accounts.pluck(:id).to_set
       range = period.date_range
 
-      SnaptradeAccount.includes(:account_provider).flat_map do |provider_account|
-        linked = provider_account.current_account
-        next [] unless linked && account_ids.include?(linked.id)
-
+      SnaptradeAccount.linked_to(accounts.pluck(:id)).flat_map do |provider_account|
         Array(provider_account.raw_activities_payload).filter_map do |raw|
           activity = raw.respond_to?(:to_h) ? raw.to_h.with_indifferent_access : {}
           next unless OPTION_PREMIUM_TAGS.key?(activity[:option_type])

@@ -87,6 +87,10 @@ en:
     tags: Tags
     tax_loss_harvests: Tax loss harvest
     portfolio_holdings: Holdings
+    options_review: Options review
+    investment_income: Income & performance
+    tax_lot_review: Tax-aware lot review
+    research_watchlist: Research watchlist
     trades: Trades
     transactions: Transactions
     transfer_matches: Transfer matches

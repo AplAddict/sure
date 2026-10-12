@@ -1,0 +1,26 @@
+---
+en:
+  options_reviews:
+    show:
+      title: Options Review
+      subtitle: Read-only brokerage contract snapshots. Gain / loss is unrealized against the broker's last mark, using its per-share cost basis (net of opening fees) times contracts times multiplier. Options are excluded from equity holdings, performance, cost basis and net-worth totals.
+      empty_title: No option contracts available
+      empty_description: No read-only options snapshot is available for accounts you can access.
+      caption: Open option contracts by account
+      gain_unavailable: "Unavailable: the broker snapshot is missing a cost basis, mark, quantity or multiplier"
+      synced_ago: "%{time} ago"
+      dte:
+        one: 1 day
+        other: "%{count} days"
+      columns:
+        account: Account
+        contract: Contract
+        underlying: Underlying
+        type: Type
+        expiry: Expiry / DTE
+        strike: Strike
+        quantity: Quantity
+        mark: Mark
+        cost_basis: Cost basis
+        gain: Gain / loss
+        snapshot: Snapshot

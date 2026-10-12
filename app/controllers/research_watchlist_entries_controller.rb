@@ -54,7 +54,7 @@ class ResearchWatchlistEntriesController < ApplicationController
 
     def load_entries
       @entries = Current.user.research_watchlist_entries.includes(:security).order(:priority, created_at: :desc)
-      @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ "Research Watchlist", nil ] ]
+      @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("breadcrumbs.research_watchlist"), nil ] ]
     end
 
     def entry_params

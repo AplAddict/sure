@@ -129,33 +129,23 @@ class ResearchController < ApplicationController
     # calculations above. SnapTrade gives us an OCC-style contract symbol, so
     # match only contracts beginning with this exact ticker and a space.
     def option_positions_for_ticker
-      account_ids = accessible_accounts.pluck(:id).to_set
-
-      SnaptradeAccount.includes(:account_provider).filter_map do |provider_account|
+      SnaptradeAccount.linked_to(accessible_accounts.pluck(:id)).flat_map do |provider_account|
         account = provider_account.current_account
-        next unless account && account_ids.include?(account.id)
-
-        Array(provider_account.raw_options_payload).filter_map do |raw_position|
-          position = raw_position.to_h.with_indifferent_access
-          instrument = position[:instrument].to_h.with_indifferent_access
-          contract = instrument[:symbol].to_s
-          next unless contract.match?(/\A#{Regexp.escape(@ticker)}\s/)
-
-          expiration = Date.iso8601(instrument[:expiration_date].to_s) rescue nil
-          currency = position[:currency].is_a?(Hash) ? position[:currency].with_indifferent_access[:code] : position[:currency]
+        provider_account.option_positions_snapshot.filter_map do |position|
+          next unless position.underlying == @ticker
 
           {
             account: account,
-            contract: contract,
-            type: instrument[:option_type].presence || "Unavailable",
-            expiration: expiration,
-            strike: decimal_or_nil(instrument[:strike_price]),
-            quantity: decimal_or_nil(position[:units]),
-            mark: decimal_or_nil(position[:price]),
-            currency: currency.presence || account.currency
+            contract: position.contract,
+            type: position.type || "Unavailable",
+            expiration: position.expiration,
+            strike: position.strike,
+            quantity: position.quantity,
+            mark: position.mark,
+            currency: position.currency || account.currency
           }
         end
-      end.flatten
+      end
     end
 
     def decimal_or_nil(value)
