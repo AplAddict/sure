@@ -49,4 +49,22 @@ class Security::FundamentalsRefresherTest < ActiveSupport::TestCase
     assert result.skipped_for_rate_limit
     assert_equal 0, result.refreshed
   end
+
+  test "applies the provider's classification when it stores fundamentals" do
+    @provider.expects(:fetch_security_fundamentals).returns(response(success: true, data: { "quote_type" => "EQUITY", "sector" => "Technology" }))
+
+    Security::FundamentalsRefresher.new(provider: @provider, pause: 0).refresh(@security)
+
+    assert_equal "Technology", @security.reload.sector
+    assert_equal "equity", @security.asset_class
+  end
+
+  test "a failed refresh leaves the classification alone" do
+    @security.update!(sector: "Kept", classification_source: "provider")
+    @provider.expects(:fetch_security_fundamentals).returns(response(success: false, message: "boom"))
+
+    Security::FundamentalsRefresher.new(provider: @provider, pause: 0).refresh(@security)
+
+    assert_equal "Kept", @security.reload.sector
+  end
 end

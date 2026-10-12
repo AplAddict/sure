@@ -61,6 +61,7 @@ class Security::FundamentalsRefresher
       record.fetched_at = Time.current
       record.last_error = nil
       record.save!
+      Security::Classifier.apply(security, response.data)
       :ok
     else
       message = response.error&.message.to_s.truncate(200)

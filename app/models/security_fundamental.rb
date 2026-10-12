@@ -11,7 +11,7 @@ class SecurityFundamental < ApplicationRecord
     currency market_cap trailing_pe forward_pe beta dividend_yield dividend_rate payout_ratio
     ex_dividend_date fifty_two_week_high fifty_two_week_low profit_margin operating_margin
     revenue_growth earnings_growth return_on_equity recommendation target_mean_price target_low_price target_high_price analyst_count
-    strong_buy buy hold sell strong_sell next_earnings_date
+    strong_buy buy hold sell strong_sell next_earnings_date quote_type sector industry fund_sectors fund_mix
   ].freeze
 
   FIELDS.each do |field|

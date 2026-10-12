@@ -66,4 +66,57 @@ class InvestmentAllocationTest < ActiveSupport::TestCase
     assert_includes issues.select { |i| i.kind == :stale_price }.map { |i| i.security.id }, stale.id
     assert_empty InvestmentAllocation.new(user: users(:empty), by: "security").data_quality
   end
+
+  test "sector grouping looks through a fund using its reported sector weights, with the rest shown as not reported" do
+    fund = Security.create!(ticker: "ALF#{SecureRandom.hex(2).upcase}", name: "Fund", asset_class: "equity", asset_sub_class: "etf")
+    SecurityFundamental.create!(security: fund, fetched_at: 1.hour.ago, payload: { "fund_sectors" => { "Technology" => 0.5, "Health Care" => 0.3 }, "fund_mix" => { "stock" => 1.0 } })
+    Holding.create!(account: @account, security: fund, date: Date.current, qty: 1, price: 100, amount: 100, currency: "USD", cost_basis: 50)
+
+    segments = InvestmentAllocation.new(user: @user, by: "sector").segments.index_by(&:label)
+
+    assert_equal 250, segments["Technology"].amount.to_i      # 200 stock + 50 from the fund
+    assert_equal 130, segments["Health Care"].amount.to_i     # 100 stock + 30 from the fund
+    assert_equal 20, segments[InvestmentAllocation::FUND_UNREPORTED].amount.to_i
+    assert_equal 100, segments[InvestmentAllocation::UNCLASSIFIED].amount.to_i
+    assert_in_delta 100.0, InvestmentAllocation.new(user: @user, by: "sector").segments.sum(&:weight), 0.001
+  end
+
+  test "a fund with no reported sector weights stays one Unclassified block, never spread" do
+    fund = Security.create!(ticker: "ALG#{SecureRandom.hex(2).upcase}", name: "Fund", asset_sub_class: "etf")
+    Holding.create!(account: @account, security: fund, date: Date.current, qty: 1, price: 100, amount: 100, currency: "USD", cost_basis: 50)
+
+    segments = InvestmentAllocation.new(user: @user, by: "sector").segments.index_by(&:label)
+
+    assert_equal 200, segments[InvestmentAllocation::UNCLASSIFIED].amount.to_i
+    assert_nil segments[InvestmentAllocation::FUND_UNREPORTED]
+  end
+
+  test "weights that add up to more than the fund are not trusted" do
+    fund = Security.create!(ticker: "ALH#{SecureRandom.hex(2).upcase}", name: "Fund", asset_sub_class: "etf")
+    SecurityFundamental.create!(security: fund, fetched_at: 1.hour.ago, payload: { "fund_sectors" => { "Technology" => 0.9, "Health Care" => 0.4 } })
+    Holding.create!(account: @account, security: fund, date: Date.current, qty: 1, price: 100, amount: 100, currency: "USD", cost_basis: 50)
+
+    segments = InvestmentAllocation.new(user: @user, by: "sector").segments.index_by(&:label)
+
+    assert_equal 200, segments[InvestmentAllocation::UNCLASSIFIED].amount.to_i
+  end
+
+  test "asset class looks through a fund by its reported stock, bond and cash mix" do
+    fund = Security.create!(ticker: "ALI#{SecureRandom.hex(2).upcase}", name: "Balanced", asset_sub_class: "etf")
+    SecurityFundamental.create!(security: fund, fetched_at: 1.hour.ago, payload: { "fund_mix" => { "stock" => 0.6, "bond" => 0.3, "cash" => 0.1 } })
+    Holding.create!(account: @account, security: fund, date: Date.current, qty: 1, price: 100, amount: 100, currency: "USD", cost_basis: 50)
+
+    segments = InvestmentAllocation.new(user: @user, by: "asset_class").segments.index_by(&:label)
+
+    assert_equal 360, segments["Equity"].amount.to_i          # 300 stock + 60 from the fund
+    assert_equal 30, segments["Fixed Income"].amount.to_i
+    assert_equal 10, segments["Liquidity"].amount.to_i
+  end
+
+  test "look-through never reads another family's fund data" do
+    outsider = Security.create!(ticker: "ALJ#{SecureRandom.hex(2).upcase}", name: "Fund", asset_sub_class: "etf")
+    SecurityFundamental.create!(security: outsider, fetched_at: 1.hour.ago, payload: { "fund_sectors" => { "Energy" => 1.0 } })
+
+    assert_nil InvestmentAllocation.new(user: users(:empty), by: "sector").segments.find { |s| s.label == "Energy" }
+  end
 end

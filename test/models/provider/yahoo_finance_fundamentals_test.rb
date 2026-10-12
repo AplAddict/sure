@@ -44,4 +44,44 @@ class Provider::YahooFinanceFundamentalsTest < ActiveSupport::TestCase
     assert_not response.success?
     assert_match(/429/, response.error.message)
   end
+
+  test "reads a stock's quote type, sector and industry from the profile" do
+    data = @provider.send(:parse_fundamentals, {
+      "price" => { "quoteType" => "EQUITY" },
+      "assetProfile" => { "sector" => "Technology", "industry" => "Consumer Electronics" }
+    })
+
+    assert_equal "EQUITY", data["quote_type"]
+    assert_equal "Technology", data["sector"]
+    assert_equal "Consumer Electronics", data["industry"]
+    assert_nil data["fund_sectors"]
+    assert_nil data["fund_mix"]
+  end
+
+  test "reads a fund's sector weights and asset mix, naming sectors as stocks do" do
+    data = @provider.send(:parse_fundamentals, {
+      "price" => { "quoteType" => "ETF" },
+      "topHoldings" => {
+        "stockPosition" => raw(0.9987), "bondPosition" => raw(0.0), "cashPosition" => raw(0.0013),
+        "sectorWeightings" => [
+          { "technology" => raw(0.52) }, { "realestate" => raw(0.023) }, { "consumer_cyclical" => raw(0.101) }, { "something_new" => raw(0.01) }
+        ]
+      }
+    })
+
+    assert_equal({ "Technology" => 0.52, "Real Estate" => 0.023, "Consumer Cyclical" => 0.101 }, data["fund_sectors"])
+    assert_equal({ "stock" => 0.9987, "bond" => 0.0, "cash" => 0.0013 }, data["fund_mix"])
+  end
+
+  test "a fund without sector weights or mix has none rather than zero" do
+    data = @provider.send(:parse_fundamentals, { "price" => { "quoteType" => "ETF" }, "topHoldings" => { "sectorWeightings" => [] } })
+
+    assert_nil data["fund_sectors"]
+    assert_nil data["fund_mix"]
+  end
+
+  test "asks for the profile and top-holdings modules in the same request" do
+    assert_match(/assetProfile/, Provider::YahooFinance::FUNDAMENTAL_MODULES)
+    assert_match(/topHoldings/, Provider::YahooFinance::FUNDAMENTAL_MODULES)
+  end
 end

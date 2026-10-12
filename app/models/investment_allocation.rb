@@ -9,6 +9,8 @@
 class InvestmentAllocation
   GROUPINGS = %w[security asset_class asset_sub_class sector country region account currency kind].freeze
   UNCLASSIFIED = "Unclassified".freeze
+  FUND_UNREPORTED = "Fund holdings not reported".freeze
+  FUND_MIX_LABELS = { "stock" => "Equity", "bond" => "Fixed Income", "cash" => "Liquidity" }.freeze
   STALE_PRICE_AFTER_DAYS = 5
 
   Segment = Data.define(:label, :amount, :weight, :count)
@@ -28,9 +30,12 @@ class InvestmentAllocation
     @segments ||= begin
       sums = Hash.new { |hash, key| hash[key] = [ BigDecimal("0"), 0 ] }
       priced.each do |holding, value|
-        entry = sums[label_for(holding)]
-        entry[0] += value
-        entry[1] += 1
+        slices = look_through(holding, value) || [ [ label_for(holding), value ] ]
+        slices.each do |label, amount|
+          entry = sums[label]
+          entry[0] += amount
+          entry[1] += 1
+        end
       end
       total_value = total
       sums.map { |label, (amount, count)| Segment.new(label: label, amount: amount, weight: total_value.positive? ? amount / total_value * 100 : nil, count: count) }
@@ -102,6 +107,43 @@ class InvestmentAllocation
 
     def excluded
       @excluded ||= holdings.select { |holding| holding.amount.present? && holding.currency != currency && rates[holding.currency].nil? }
+    end
+
+    # A fund's value split by what the provider reports it holds, for the sector
+    # and asset-class views only. Returns nil (the fund stays one block under its
+    # own label) unless the provider gave weights that are plausible: each between
+    # 0 and 1 and summing to no more than 1. A sector list that sums to less than 1
+    # leaves the rest as an explicit "not reported" slice rather than spreading it
+    # over the names that were listed.
+    def look_through(holding, value)
+      return nil unless %w[sector asset_class].include?(by)
+      return nil unless holding.security.asset_sub_class.in?(%w[etf mutual_fund])
+
+      data = fundamentals[holding.security_id]
+      return nil unless data
+
+      weights = by == "sector" ? data["fund_sectors"] : fund_mix_labels(data["fund_mix"])
+      return nil unless weights.is_a?(Hash) && weights.any?
+      return nil unless weights.values.all? { |weight| weight.is_a?(Numeric) && weight.between?(0, 1) }
+
+      decimals = weights.transform_values { |weight| BigDecimal(weight.to_s) }
+      total = decimals.values.sum
+      return nil if total > BigDecimal("1.001") || total <= 0
+
+      slices = decimals.select { |_, weight| weight.positive? }.map { |label, weight| [ label, value * weight ] }
+      rest = [ BigDecimal("1") - total, BigDecimal("0") ].max
+      slices << [ FUND_UNREPORTED, value * rest ] if rest > BigDecimal("0.005")
+      slices
+    end
+
+    def fund_mix_labels(mix)
+      return nil unless mix.is_a?(Hash)
+
+      mix.each_with_object({}) { |(key, weight), out| out[FUND_MIX_LABELS[key]] = weight if FUND_MIX_LABELS[key] }
+    end
+
+    def fundamentals
+      @fundamentals ||= SecurityFundamental.where(security_id: holdings.map(&:security_id).uniq).index_by(&:security_id).transform_values(&:payload)
     end
 
     def label_for(holding)

@@ -290,7 +290,7 @@ class Provider::YahooFinance < Provider
     end
   end
 
-  FUNDAMENTAL_MODULES = "price,summaryDetail,defaultKeyStatistics,financialData,recommendationTrend,calendarEvents".freeze
+  FUNDAMENTAL_MODULES = "price,summaryDetail,defaultKeyStatistics,financialData,recommendationTrend,calendarEvents,assetProfile,topHoldings".freeze
 
   # Valuation, margins, analyst view and next earnings date for display. Every
   # figure is the source's own number or nil — a missing figure is never
@@ -1045,8 +1045,44 @@ class Provider::YahooFinance < Provider
         "hold" => trend["hold"],
         "sell" => trend["sell"],
         "strong_sell" => trend["strongSell"],
-        "next_earnings_date" => next_earnings&.iso8601
+        "next_earnings_date" => next_earnings&.iso8601,
+        "quote_type" => result.dig("price", "quoteType").presence,
+        "sector" => result.dig("assetProfile", "sector").presence,
+        "industry" => result.dig("assetProfile", "industry").presence,
+        "fund_sectors" => fund_sectors(result.dig("topHoldings", "sectorWeightings")),
+        "fund_mix" => fund_mix(result["topHoldings"])
       }
+    end
+
+    # Yahoo's fund sector keys mapped onto the sector names it uses for stocks, so
+    # a fund's slice lands in the same bucket as the same sector held directly.
+    # A key it does not recognise is dropped rather than guessed at.
+    FUND_SECTOR_NAMES = {
+      "technology" => "Technology", "healthcare" => "Healthcare", "financial_services" => "Financial Services",
+      "consumer_cyclical" => "Consumer Cyclical", "consumer_defensive" => "Consumer Defensive",
+      "industrials" => "Industrials", "energy" => "Energy", "utilities" => "Utilities",
+      "basic_materials" => "Basic Materials", "communication_services" => "Communication Services",
+      "realestate" => "Real Estate"
+    }.freeze
+
+    def fund_sectors(weightings)
+      pairs = Array(weightings).flat_map(&:to_a).filter_map do |key, value|
+        name = FUND_SECTOR_NAMES[key.to_s]
+        weight = value.is_a?(Hash) ? value["raw"] : value
+        [ name, weight.to_f ] if name && weight.is_a?(Numeric)
+      end
+      pairs.empty? ? nil : pairs.to_h
+    end
+
+    def fund_mix(top_holdings)
+      return nil unless top_holdings.is_a?(Hash)
+
+      mix = { "stock" => "stockPosition", "bond" => "bondPosition", "cash" => "cashPosition" }.filter_map do |name, key|
+        value = top_holdings[key]
+        value = value["raw"] if value.is_a?(Hash)
+        [ name, value.to_f ] if value.is_a?(Numeric)
+      end
+      mix.empty? ? nil : mix.to_h
     end
 
     def throttle_request
