@@ -20,11 +20,15 @@ class Security::IntradayPriceRefresher
   # 29 of 29 requests at 1.5s apart succeeded, while a 0.5s burst is cut off
   # after about 15. 80 securities therefore take about two minutes per run.
   PACE_SECONDS = 1.5
+  # Most requests a run may send to a non-Yahoo provider. Small on purpose: it
+  # is a safety net for securities Yahoo cannot price, not a second feed.
+  FALLBACK_LIMIT = 10
 
   def initialize(now: Time.current, limit: MAX_PER_RUN, pace: PACE_SECONDS)
     @now = now
     @limit = limit
     @pace = pace
+    @fallbacks_used = 0
   end
 
   def market_open?
@@ -42,14 +46,9 @@ class Security::IntradayPriceRefresher
 
     securities.first(@limit).each_with_index do |security, index|
       sleep(@pace) if index.positive? && @pace.positive?
-      provider = security.price_data_provider
-      next skipped += 1 if provider.nil?
-
-      response = provider.fetch_security_prices(symbol: security.ticker, exchange_operating_mic: security.exchange_operating_mic, start_date: today - 1.day, end_date: today)
-      unless response.success?
-        Rails.logger.warn("[IntradayPriceRefresher] #{security.ticker}: #{response.error&.message.to_s.truncate(120)}")
-        return Result.new(updated: updated, skipped: skipped, rate_limited: true)
-      end
+      response = fetch_quote(security, today)
+      return Result.new(updated: updated, skipped: skipped, rate_limited: true) if response == :rate_limited
+      next skipped += 1 if response.nil?
 
       quote = Array(response.data).find { |price| price.date == today }
       if quote.nil? || quote.price.to_d <= 0
@@ -78,6 +77,44 @@ class Security::IntradayPriceRefresher
       today = @now.in_time_zone(MARKET_ZONE).to_date
       rows = Security::Price.where(date: today, provisional: true, security_id: held).pluck(:security_id, :updated_at).to_h
       Security.online.where(id: rows.keys).to_a.sort_by { |security| [ rows[security.id], security.ticker ] }
+    end
+
+    # Yahoo is the polling source: free, keyless and not credit-limited. Keyed
+    # providers (Twelve Data 800/day, Tiingo 1,000/day) are listed first by the
+    # settings UI, but polling them every 20 minutes would exhaust their daily
+    # quota, so they are only a capped fallback for what Yahoo cannot price. A
+    # security pinned to one provider is polled through that provider alone.
+    # Returns the provider response, nil for "no usable quote", or :rate_limited.
+    def fetch_quote(security, today)
+      return request(security.price_data_provider, security, today) if security.price_provider.present?
+
+      primary, *others = enabled_providers.sort_by { |provider| provider.is_a?(Provider::YahooFinance) ? 0 : 1 }
+      response = request(primary, security, today)
+      return response if response.nil? || response.success?
+      return :rate_limited if rate_limited?(response)
+
+      fallback = others.first
+      return response if fallback.nil? || @fallbacks_used >= FALLBACK_LIMIT
+
+      @fallbacks_used += 1
+      request(fallback, security, today)
+    end
+
+    def request(provider, security, today)
+      return nil if provider.nil?
+
+      response = provider.fetch_security_prices(symbol: security.ticker, exchange_operating_mic: security.exchange_operating_mic, start_date: today - 1.day, end_date: today)
+      Rails.logger.warn("[IntradayPriceRefresher] #{security.ticker}: #{response.error&.message.to_s.truncate(120)}") unless response.success?
+      response
+    end
+
+    def rate_limited?(response)
+      error = response.error
+      error.is_a?(Provider::YahooFinance::RateLimitError) || error.to_s.match?(/429|rate limit|too many/i)
+    end
+
+    def enabled_providers
+      @enabled_providers ||= Security.providers.reject { |provider| provider.is_a?(Provider::BinancePublic) }
     end
 
     def write(security, date, quote)

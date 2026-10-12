@@ -13,7 +13,7 @@ class Security::IntradayPriceRefresherTest < ActiveSupport::TestCase
     Security::Price.create!(security: @security, date: Date.new(2026, 10, 9), price: 100, currency: "USD", provisional: false)
     Security::Price.create!(security: @security, date: Date.new(2026, 10, 12), price: 100, currency: "USD", provisional: true)
     @provider = mock("provider")
-    Security.any_instance.stubs(:price_data_provider).returns(@provider)
+    Security.stubs(:providers).returns([ @provider ])
   end
 
   teardown { travel_back }
@@ -85,6 +85,51 @@ class Security::IntradayPriceRefresherTest < ActiveSupport::TestCase
     Security::IntradayPriceRefresher.new(pace: 0).refresh
 
     assert_equal [ @security.ticker ], asked
+  end
+
+  test "polls Yahoo first even when a credit-limited provider is listed ahead of it" do
+    yahoo = Provider::YahooFinance.new
+    keyed = mock("keyed")
+    yahoo.stubs(:fetch_security_prices).returns(respond_with(Quote.new(date: Date.new(2026, 10, 12), price: 104, currency: "USD")))
+    keyed.expects(:fetch_security_prices).never
+    Security.stubs(:providers).returns([ keyed, yahoo ])
+
+    assert_equal 1, Security::IntradayPriceRefresher.new(pace: 0).refresh.updated
+  end
+
+  test "falls back to another enabled provider for a security Yahoo cannot price, within a small cap" do
+    yahoo = Provider::YahooFinance.new
+    backup = mock("backup")
+    yahoo.stubs(:fetch_security_prices).returns(Provider::Response.new(success?: false, data: nil, error: StandardError.new("No chart data found")))
+    backup.expects(:fetch_security_prices).once.returns(respond_with(Quote.new(date: Date.new(2026, 10, 12), price: 103, currency: "USD")))
+    Security.stubs(:providers).returns([ backup, yahoo ])
+
+    result = Security::IntradayPriceRefresher.new(pace: 0).refresh
+
+    assert_equal 1, result.updated
+    assert_equal BigDecimal("103"), Security::Price.find_by(security: @security, date: Date.new(2026, 10, 12)).price
+  end
+
+  test "does not fall back when Yahoo is rate limited, so a throttled run stops instead of spending another provider's quota" do
+    yahoo = Provider::YahooFinance.new
+    backup = mock("backup")
+    yahoo.stubs(:fetch_security_prices).returns(Provider::Response.new(success?: false, data: nil, error: Provider::YahooFinance::RateLimitError.new("Yahoo Finance rate limit (429)")))
+    backup.expects(:fetch_security_prices).never
+    Security.stubs(:providers).returns([ backup, yahoo ])
+
+    result = Security::IntradayPriceRefresher.new(pace: 0).refresh
+
+    assert result.rate_limited
+    assert_equal 0, result.updated
+  end
+
+  test "a security pinned to a provider uses that provider only" do
+    pinned = mock("pinned")
+    @security.update_columns(price_provider: "tiingo")
+    Security.any_instance.stubs(:price_data_provider).returns(pinned)
+    pinned.expects(:fetch_security_prices).once.returns(respond_with(Quote.new(date: Date.new(2026, 10, 12), price: 102, currency: "USD")))
+
+    assert_equal 1, Security::IntradayPriceRefresher.new(pace: 0).refresh.updated
   end
 
   test "waits between provider requests" do
