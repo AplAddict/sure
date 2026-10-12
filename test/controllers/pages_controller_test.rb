@@ -14,6 +14,22 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
   end
 
+  # The header controls fade in on hover, which keyboard users never trigger,
+  # so they must also appear when focus lands inside the section header.
+  test "dashboard section controls are reachable and visible for keyboard users" do
+    get root_path
+
+    assert_response :ok
+    assert_select "[data-dashboard-section-target=button].focus-ring", minimum: 1
+    assert_select "button[aria-label=?]", I18n.t("pages.dashboard.drag_to_reorder"), minimum: 1 do |handles|
+      handles.each do |handle|
+        assert_includes handle["class"].split, "group-focus-within:opacity-100"
+        assert_includes handle["class"].split, "focus-ring"
+      end
+    end
+    assert_select "[class*=\"group-hover:opacity-100\"]:not([class*=\"group-focus-within:opacity-100\"])", count: 0
+  end
+
   test "dashboard renders the net worth chart as drag-selectable, opting it out of card drag-and-drop" do
     get root_path
 
