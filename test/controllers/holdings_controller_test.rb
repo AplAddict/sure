@@ -12,6 +12,37 @@ class HoldingsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "the holdings view and metric a member picks are remembered for them" do
+    user = users(:family_admin)
+
+    get holdings_url(account_id: @account.id, view: "advanced", metric: "day_gain")
+    assert_response :success
+    assert_equal "advanced", user.reload.holdings_view
+    assert_equal "day_gain", user.holdings_metric
+
+    get holdings_url(account_id: @account.id)
+    assert_response :success
+    assert_select "a.button-bg-secondary", text: "Advanced table"
+  end
+
+  test "an invalid view or metric is ignored and never saved" do
+    user = users(:family_admin)
+
+    get holdings_url(account_id: @account.id, view: "bogus", metric: "<script>")
+
+    assert_response :success
+    assert_equal "compact", user.reload.holdings_view
+    assert_equal "total_gain", user.holdings_metric
+  end
+
+  test "a prefetch request does not change the remembered view" do
+    user = users(:family_admin)
+
+    get holdings_url(account_id: @account.id, view: "advanced"), headers: { "Sec-Purpose" => "prefetch" }
+
+    assert_equal "compact", user.reload.holdings_view
+  end
+
   test "gets holding" do
     get holding_path(@holding)
 

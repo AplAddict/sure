@@ -635,6 +635,19 @@ class User < ApplicationRecord
     preferences&.dig("dashboard_view") == "decision" ? "decision" : "overview"
   end
 
+  # Investment display preferences, remembered per member. Anything unknown
+  # falls back to the default, so a stale or hand-edited value can never break a page.
+  HOLDINGS_VIEWS = %w[compact advanced].freeze
+  HOLDINGS_METRICS = %w[total_value day_gain total_gain day_gain_pct total_gain_pct].freeze
+
+  def holdings_view
+    HOLDINGS_VIEWS.include?(preferences&.dig("holdings_view")) ? preferences["holdings_view"] : "compact"
+  end
+
+  def holdings_metric
+    HOLDINGS_METRICS.include?(preferences&.dig("holdings_metric")) ? preferences["holdings_metric"] : "total_gain"
+  end
+
   def dashboard_section_collapsed?(section_key)
     preferences&.dig("collapsed_sections", section_key) == true
   end

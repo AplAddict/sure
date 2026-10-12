@@ -4,13 +4,14 @@ class HoldingsController < ApplicationController
   before_action :set_holding, only: %i[show update destroy unlock_cost_basis remap_security reset_security sync_prices]
   before_action :require_holding_write_permission!, only: %i[update destroy unlock_cost_basis remap_security reset_security sync_prices]
 
-  HOLDING_VIEWS = %w[compact advanced].freeze
-  DISPLAY_METRICS = %w[total_value day_gain total_gain day_gain_pct total_gain_pct].freeze
+  HOLDING_VIEWS = User::HOLDINGS_VIEWS
+  DISPLAY_METRICS = User::HOLDINGS_METRICS
 
   def index
     @account = accessible_accounts.find(params[:account_id])
-    @holdings_view = params[:view].presence_in(HOLDING_VIEWS) || "compact"
-    @display_metric = params[:metric].presence_in(DISPLAY_METRICS) || "total_gain"
+    @holdings_view = params[:view].presence_in(HOLDING_VIEWS) || Current.user.holdings_view
+    @display_metric = params[:metric].presence_in(DISPLAY_METRICS) || Current.user.holdings_metric
+    remember_holdings_display(@holdings_view, @display_metric)
     @current_holdings = @account.current_holdings.includes(:security)
     @advanced_portfolio = PortfolioHoldings.new(user: Current.user, account_id: @account.id, sort: params[:sort], direction: params[:dir]) if @holdings_view == "advanced"
     @trade_republic_categories = trade_republic_categories_for(@account)
@@ -188,5 +189,16 @@ class HoldingsController < ApplicationController
 
     def holding_params
       params.require(:holding).permit(:cost_basis)
+    end
+
+    # Remember an explicit choice, but never on a hover prefetch (that would flip
+    # the saved choice before the member actually clicked) and only when it changed.
+    def remember_holdings_display(view, metric)
+      return if request.headers["X-Sec-Purpose"] == "prefetch" || request.headers["Sec-Purpose"].to_s.include?("prefetch")
+
+      explicit = {}
+      explicit["holdings_view"] = view if params[:view].presence_in(HOLDING_VIEWS) && view != Current.user.holdings_view
+      explicit["holdings_metric"] = metric if params[:metric].presence_in(DISPLAY_METRICS) && metric != Current.user.holdings_metric
+      Current.user.update_dashboard_preferences(explicit) if explicit.any?
     end
 end
