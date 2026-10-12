@@ -75,6 +75,18 @@ class Security::IntradayPriceRefresherTest < ActiveSupport::TestCase
     assert_equal 0, Security::IntradayPriceRefresher.new(pace: 0).refresh.updated
   end
 
+  test "does not spend a request on a held security with no provisional row for today" do
+    orphan = Security.create!(ticker: "LV6#{SecureRandom.hex(2).upcase}", name: "No row")
+    Holding.create!(account: @account, security: orphan, date: Date.current, qty: 1, price: 10, amount: 10, currency: "USD")
+    asked = []
+    @provider.stubs(:fetch_security_prices).with { |args| asked << args[:symbol]; true }
+             .returns(respond_with(Quote.new(date: Date.new(2026, 10, 12), price: 101, currency: "USD")))
+
+    Security::IntradayPriceRefresher.new(pace: 0).refresh
+
+    assert_equal [ @security.ticker ], asked
+  end
+
   test "waits between provider requests" do
     other = Security.create!(ticker: "LV5#{SecureRandom.hex(2).upcase}", name: "Pace")
     Holding.create!(account: @account, security: other, date: Date.current, qty: 1, price: 10, amount: 10, currency: "USD")

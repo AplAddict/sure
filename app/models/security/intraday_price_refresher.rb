@@ -68,13 +68,16 @@ class Security::IntradayPriceRefresher
 
     # Held now, tradable, and with a today row the nightly import owns (a row that
     # is missing or final is left alone).
-    # Stalest first: a row last written longest ago (or before the open) goes to
-    # the front, so a run cut short by a rate limit moves on to different
-    # securities next time instead of re-fetching the same few.
+    # Only securities with a provisional row for today: that is the only row
+    # write() may change, so asking the provider about any other is a wasted
+    # request against a limited quota. Stalest first: a row last written longest
+    # ago (or before the open) goes to the front, so a run cut short by a rate
+    # limit moves on to different securities next time instead of repeating.
     def securities
       held = Holding.where.not(qty: 0).where(date: Date.current - 3.days..).select(:security_id)
-      stale_since = Security::Price.where(date: @now.in_time_zone(MARKET_ZONE).to_date).group(:security_id).minimum(:updated_at)
-      Security.online.where(id: held).to_a.sort_by { |security| [ stale_since[security.id] || Time.at(0), security.ticker ] }
+      today = @now.in_time_zone(MARKET_ZONE).to_date
+      rows = Security::Price.where(date: today, provisional: true, security_id: held).pluck(:security_id, :updated_at).to_h
+      Security.online.where(id: rows.keys).to_a.sort_by { |security| [ rows[security.id], security.ticker ] }
     end
 
     def write(security, date, quote)
