@@ -17,6 +17,8 @@ class PortfolioHoldings
   end
 
   Position = Data.define(:account, :security, :quantity, :price, :avg_cost, :cost_basis, :market_value, :currency, :weight, :lots, :day_change, :day_change_reason) do
+    # Callers that predate the reason (and tests) build a Position without it.
+    def initialize(day_change_reason: nil, **attributes) = super
     def ticker = security.ticker
     def name = security.name.presence || security.ticker
     def gain = cost_basis && market_value ? market_value - cost_basis : nil

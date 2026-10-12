@@ -12,6 +12,28 @@ en:
       dte:
         one: 1 day
         other: "%{count} days"
+      summary:
+        contracts: Open contracts
+        expiring: Expiring within a week
+        expired: Past expiry
+        total_gain: Net unrealized gain / loss
+        total_gain_unavailable: Not totalled because a contract is missing a figure
+        expired_hint: Still listed by the broker; check the account
+      group:
+        contracts:
+          one: 1 contract
+          other: "%{count} contracts"
+        subtotal: Subtotal
+        unmeasured:
+          one: 1 contract is missing a figure, so no subtotal
+          other: "%{count} contracts are missing a figure, so no subtotal"
+      expires_in:
+        zero: Expires today
+        one: Expires tomorrow
+        other: "Expires in %{count} days"
+      expired_ago:
+        one: Expired 1 day ago
+        other: "Expired %{count} days ago"
       columns:
         account: Account
         contract: Contract

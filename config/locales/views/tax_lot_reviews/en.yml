@@ -14,6 +14,16 @@ en:
       no_lots:
         one: 1 open position in taxable accounts has no broker lot data that matches the held quantity, so it is not included in any figure below.
         other: "%{count} open positions in taxable accounts have no broker lot data that matches the held quantity, so they are not included in any figure below."
+      filter:
+        ticker: Ticker
+        ticker_placeholder: Filter by ticker
+        term: Holding period
+        any_term: Any
+        apply: Apply
+        clear: Clear
+        download: Download CSV
+        showing: "Showing %{shown} of %{total} lots. The totals above still cover every lot."
+        none_match: No lots match this filter.
       gaps_show: Which positions
       gaps_reason:
         provider_supplies_none: This account's connection does not send tax lots.

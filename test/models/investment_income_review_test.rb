@@ -212,6 +212,28 @@ class InvestmentIncomeReviewTest < ActiveSupport::TestCase
     assert_nil row.total
   end
 
+  test "monthly totals add every month and stay unavailable if any month is" do
+    period = Period.custom(start_date: 70.days.ago.to_date, end_date: Date.current)
+    add_entry("Dividend", -10, date: 65.days.ago.to_date)
+    add_entry("Interest", -2, date: 64.days.ago.to_date)
+    add_entry("Dividend", -7, date: 3.days.ago.to_date)
+
+    totals = InvestmentIncomeReview.new(user: @user, period: period).monthly_totals
+    assert_equal 17, totals.dividends.to_i
+    assert_equal 2, totals.interest.to_i
+    assert_equal 19, totals.total.to_i
+
+    add_entry("Dividend", -9, currency: "EUR", date: 3.days.ago.to_date)
+    totals = InvestmentIncomeReview.new(user: @user, period: period).monthly_totals
+    assert_nil totals.dividends
+    assert_nil totals.total
+    assert_equal 2, totals.interest.to_i
+  end
+
+  test "monthly totals of nothing are unavailable, not zero" do
+    assert_nil InvestmentIncomeReview.new(user: @user, period: Period.custom(start_date: 5.days.ago.to_date, end_date: Date.current)).monthly_totals
+  end
+
   private
     # Records the account's balance on a date, and zero for every other
     # investment account the user can see, so the review has complete evidence.

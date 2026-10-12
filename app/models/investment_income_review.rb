@@ -153,6 +153,20 @@ class InvestmentIncomeReview
     end
   end
 
+  MonthlyTotals = Data.define(:dividends, :interest) do
+    def total = dividends.nil? || interest.nil? ? nil : dividends + interest
+  end
+
+  # Column totals for the monthly table. A column with any unavailable month is
+  # unavailable as a whole, never a partial sum; nil when there is nothing.
+  def monthly_totals
+    rows = monthly_income
+    return nil if rows.empty?
+
+    sum = ->(values) { values.any?(&:nil?) ? nil : values.sum(BigDecimal("0")) }
+    MonthlyTotals.new(dividends: sum.call(rows.map(&:dividends)), interest: sum.call(rows.map(&:interest)))
+  end
+
   def accounts
     @accounts ||= begin
       scope = family.accounts.visible.included_in_reports.where(accountable_type: %w[Investment Crypto])

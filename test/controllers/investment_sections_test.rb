@@ -105,4 +105,14 @@ class InvestmentSectionsTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=allocation-section] [data-testid=allocation-legend]"
     assert_select "[data-testid=allocation-section] [data-testid=allocation-explainer]"
   end
+
+  test "monthly income shows a totals row and a chart with a text alternative" do
+    account = @owner.family.accounts.create!(name: "Income chart", balance: 100, cash_balance: 0, currency: "USD", owner: @owner, status: "active", accountable: Investment.new(subtype: "brokerage"))
+    entry = account.entries.create!(name: "Div", date: 20.days.ago.to_date, amount: -12, currency: "USD", entryable: Transaction.new(investment_activity_label: "Dividend"))
+    get investment_income_path
+    assert_response :success
+    assert_select "[data-section-key=monthly_income] tfoot [data-testid=monthly-totals]"
+    assert_select "[data-section-key=monthly_income] [data-testid=monthly-chart][role=img][aria-label]"
+    assert_select "[data-section-key=monthly_income] [data-testid=monthly-chart] [data-month]", minimum: 1
+  end
 end

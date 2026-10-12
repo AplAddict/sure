@@ -22,6 +22,22 @@ en:
       status_for: "Status for %{ticker}"
       priority_for: "Priority for %{ticker}"
       thesis_for: "Thesis for %{ticker}"
+      edit: Edit
+      all: All
+      filters_label: Filter by status
+      empty_filtered: Nothing with this status.
+      next_earnings: Next earnings
+      earnings_in:
+        zero: Today
+        one: Tomorrow
+        other: "in %{count} days"
+      earnings_soon: Within a week
+      analyst_target: Analyst target
+      range_52w: 52-week range
+      data_label: Research data
+      data_age: "Fetched %{time} ago"
+      data_stale: Older than a day
+      no_data: Data not fetched yet
       statuses:
         watching: Watching
         researching: Researching

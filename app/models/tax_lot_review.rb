@@ -25,12 +25,55 @@ class TaxLotReview
 
   CASH_SWEEP_NAME = /money\s*market/i
 
-  attr_reader :user, :today, :window_days
+  SORTS = %w[ticker account acquired term quantity cost_basis market_value gain].freeze
+  TERMS = %w[short long].freeze
+  CSV_HEADERS = [ "Ticker", "Account", "Acquired", "Term", "Quantity", "Cost basis", "Market value", "Unrealized gain/loss", "Currency" ].freeze
 
-  def initialize(user:, today: Date.current, window_days: DEFAULT_WINDOW_DAYS)
+  attr_reader :user, :today, :window_days, :ticker, :term, :sort, :direction
+
+  def initialize(user:, today: Date.current, window_days: DEFAULT_WINDOW_DAYS, ticker: nil, term: nil, sort: nil, direction: nil)
     @user = user
     @today = today
     @window_days = window_days
+    @ticker = ticker.to_s.strip.upcase.gsub(/[^A-Z0-9.\-]/, "").presence&.first(20)
+    @term = TERMS.include?(term.to_s) ? term.to_s : nil
+    @sort = SORTS.include?(sort.to_s) ? sort.to_s : "ticker"
+    @direction = direction.to_s == "desc" ? "desc" : "asc"
+  end
+
+  def filtered? = ticker.present? || term.present?
+
+  # The lots table: filtered by ticker and holding period, then sorted. The
+  # totals above it always cover every measured lot, so a filter narrows what
+  # is listed and never changes a headline figure.
+  def visible_lots
+    @visible_lots ||= begin
+      list = lots
+      list = list.select { |lot| lot.ticker.upcase.include?(ticker) } if ticker
+      list = list.select { |lot| lot.term.to_s == term } if term
+      ordered = list.sort_by { |lot| [ sort_value(lot), lot.ticker, lot.acquired_on ] }
+      direction == "desc" ? ordered.reverse : ordered
+    end
+  end
+
+  # Spreadsheet-safe CSV of the lots currently shown. Text that a spreadsheet
+  # would read as a formula is prefixed with an apostrophe.
+  def to_csv
+    require "csv"
+    CSV.generate do |csv|
+      csv << CSV_HEADERS
+      visible_lots.each do |lot|
+        csv << [ lot.ticker, lot.account.name, lot.acquired_on.iso8601, lot.term.to_s, lot.quantity.to_s("F"), lot.cost_basis.to_s("F"),
+                 lot.market_value.to_s("F"), lot.gain.to_s("F"), lot.currency ].map { |value| self.class.csv_safe(value) }
+      end
+    end
+  end
+
+  FORMULA_START = /\A[=+\-@\t\r]/
+
+  def self.csv_safe(value)
+    text = value.to_s
+    text.match?(FORMULA_START) ? "'#{text}" : text
   end
 
   def family = user.family
@@ -128,6 +171,19 @@ class TaxLotReview
             )
           end
         end
+      end
+    end
+
+    def sort_value(lot)
+      case sort
+      when "ticker" then lot.ticker
+      when "account" then lot.account.name.downcase
+      when "acquired" then lot.acquired_on
+      when "term" then lot.term.to_s
+      when "quantity" then lot.quantity
+      when "cost_basis" then lot.cost_basis
+      when "market_value" then lot.market_value
+      when "gain" then lot.gain
       end
     end
 

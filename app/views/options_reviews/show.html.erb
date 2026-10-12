@@ -8,51 +8,91 @@
   </div>
 <% end %>
 
+<% review = @review %>
+<% sort_link = lambda do |label, key, align: "left"|
+     active = review.sort == key
+     next_dir = active ? (review.direction == "asc" ? "desc" : "asc") : "asc"
+     arrow = active ? (review.direction == "asc" ? "↑" : "↓") : ""
+     link_to(options_review_path(sort: key, dir: next_dir),
+             class: "inline-flex items-center gap-1 #{align == "right" ? "justify-end" : ""} hover:text-primary #{active ? "text-primary" : ""}",
+             aria: { sort: (active ? (review.direction == "asc" ? "ascending" : "descending") : nil) }.compact) do
+       safe_join([ label, tag.span(arrow, class: "w-3", "aria-hidden": true) ])
+     end
+   end %>
+
 <%= turbo_frame_tag "investment_workspace" do %>
   <div class="space-y-4 pb-6 lg:pb-12">
   <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :options, title: t(".title"), subtitle: t(".subtitle") %><% end %>
-  <% if @review.rows.empty? %>
+  <% if review.rows.empty? %>
     <%= render DS::EmptyState.new(icon: "chart-no-axes-combined", title: t(".empty_title"), description: t(".empty_description")) %>
   <% else %>
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="options-summary">
+      <%= investment_stat(t(".summary.contracts"), review.rows.size) %>
+      <%= investment_stat(t(".summary.expiring"), review.expiring_soon_count, tone: review.expiring_soon_count.positive? ? "text-warning" : "text-primary") %>
+      <%= investment_stat(t(".summary.expired"), review.expired_count, hint: (review.expired_count.positive? ? t(".summary.expired_hint") : nil), tone: review.expired_count.positive? ? "text-destructive" : "text-primary") %>
+      <%= investment_stat(t(".summary.total_gain"), investment_gain(review.total_gain, review.currency, title: t(".summary.total_gain_unavailable")), hint: (review.total_gain.nil? ? t(".summary.total_gain_unavailable") : nil)) %>
+    </div>
+
     <div class="overflow-x-auto rounded-xl bg-container shadow-border-xs">
       <table class="w-full min-w-[56rem] text-sm">
         <caption class="sr-only"><%= t(".caption") %></caption>
         <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary">
           <tr>
-            <th scope="col" class="px-4 py-3"><%= t(".columns.account") %></th>
-            <th scope="col" class="px-4 py-3"><%= t(".columns.contract") %></th>
-            <th scope="col" class="px-4 py-3"><%= t(".columns.underlying") %></th>
+            <th scope="col" class="sticky left-0 z-10 bg-container px-4 py-3"><%= sort_link.call(t(".columns.contract"), "contract") %></th>
+            <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.account"), "account") %></th>
+            <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.underlying"), "underlying") %></th>
             <th scope="col" class="px-4 py-3"><%= t(".columns.type") %></th>
-            <th scope="col" class="px-4 py-3"><%= t(".columns.expiry") %></th>
+            <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.expiry"), "expiry") %></th>
             <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.strike") %></th>
             <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.quantity") %></th>
             <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.mark") %></th>
             <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.cost_basis") %></th>
-            <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.gain") %></th>
+            <th scope="col" class="px-4 py-3 text-right"><%= sort_link.call(t(".columns.gain"), "gain", align: "right") %></th>
             <th scope="col" class="px-4 py-3"><%= t(".columns.snapshot") %></th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-tertiary">
-          <% @review.rows.each do |row| %>
-            <% position = row.position %>
-            <tr>
-              <td class="px-4 py-3 font-medium text-primary"><%= row.account.name %></td>
-              <td class="px-4 py-3 font-mono text-primary whitespace-nowrap"><%= position.contract %></td>
-              <td class="px-4 py-3"><%= position.underlying || "—" %></td>
-              <td class="px-4 py-3"><%= position.type || "—" %></td>
-              <td class="px-4 py-3"><%= position.expiration ? "#{l(position.expiration)} · #{t(".dte", count: position.days_to_expiry)}" : "—" %></td>
-              <td class="px-4 py-3 text-right font-mono"><%= investment_money(position.strike, position.currency) %></td>
-              <td class="px-4 py-3 text-right font-mono"><%= investment_quantity(position.quantity) %></td>
-              <td class="px-4 py-3 text-right font-mono"><%= investment_money(position.mark, position.currency) %></td>
-              <td class="px-4 py-3 text-right font-mono"><%= investment_money(position.cost_total, position.currency) %></td>
-              <td class="px-4 py-3 text-right font-mono"><%= investment_gain(position.gain, position.currency, percent: position.gain_pct, title: t(".gain_unavailable")) %></td>
-              <td class="px-4 py-3 text-xs">
-                <%= freshness_pill(row.freshness) %>
-                <% if row.synced_at %><span class="ml-1 text-secondary"><%= t(".synced_ago", time: time_ago_in_words(row.synced_at)) %></span><% end %>
+        <% review.groups.each do |group| %>
+          <tbody class="divide-y divide-tertiary border-t border-tertiary" data-testid="options-group" data-underlying="<%= group.underlying %>">
+            <tr class="bg-container-inset">
+              <th scope="colgroup" colspan="9" class="sticky left-0 px-4 py-2 text-left text-sm font-semibold text-primary">
+                <%= group.underlying %> <span class="ml-1 text-xs font-normal text-secondary"><%= t(".group.contracts", count: group.rows.size) %></span>
+              </th>
+              <td colspan="2" class="px-4 py-2 text-right text-xs" data-testid="options-subtotal">
+                <span class="text-secondary"><%= t(".group.subtotal") %></span>
+                <span class="ml-1 font-mono"><%= investment_gain(group.gain, group.currency, title: t(".group.unmeasured", count: group.unmeasured_count)) %></span>
               </td>
             </tr>
-          <% end %>
-        </tbody>
+            <% group.rows.each do |row| %>
+              <% position = row.position %>
+              <% days = position.days_to_expiry %>
+              <tr>
+                <td class="sticky left-0 z-10 bg-container px-4 py-3 font-mono text-primary whitespace-nowrap"><%= position.contract %></td>
+                <td class="px-4 py-3 font-medium text-primary"><%= row.account.name %></td>
+                <td class="px-4 py-3"><%= position.underlying || "—" %></td>
+                <td class="px-4 py-3"><%= position.type || "—" %></td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <% if position.expiration %>
+                    <%= l(position.expiration) %> · <%= t(".dte", count: days) %>
+                    <% if row.expired? %>
+                      <span data-testid="option-expired"><%= render DS::Pill.new(label: t(".expired_ago", count: days.abs), tone: :error, marker: false, size: :sm) %></span>
+                    <% elsif row.expiring_soon? %>
+                      <span data-testid="option-expiry-soon"><%= render DS::Pill.new(label: t(".expires_in", count: days), tone: :warning, marker: false, size: :sm) %></span>
+                    <% end %>
+                  <% else %>—<% end %>
+                </td>
+                <td class="px-4 py-3 text-right font-mono"><%= investment_money(position.strike, position.currency) %></td>
+                <td class="px-4 py-3 text-right font-mono"><%= investment_quantity(position.quantity) %></td>
+                <td class="px-4 py-3 text-right font-mono"><%= investment_money(position.mark, position.currency) %></td>
+                <td class="px-4 py-3 text-right font-mono"><%= investment_money(position.cost_total, position.currency) %></td>
+                <td class="px-4 py-3 text-right font-mono"><%= investment_gain(position.gain, position.currency, percent: position.gain_pct, title: t(".gain_unavailable")) %></td>
+                <td class="px-4 py-3 text-xs">
+                  <%= freshness_pill(row.freshness) %>
+                  <% if row.synced_at %><span class="ml-1 text-secondary"><%= t(".synced_ago", time: time_ago_in_words(row.synced_at)) %></span><% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        <% end %>
       </table>
     </div>
   <% end %>

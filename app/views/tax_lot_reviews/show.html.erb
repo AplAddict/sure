@@ -98,25 +98,56 @@
       <% end %>
     </section>
 
+    <% sort_link = lambda do |label, key, align: "left"|
+         active = review.sort == key
+         next_dir = active ? (review.direction == "asc" ? "desc" : "asc") : (%w[ticker account acquired term].include?(key) ? "asc" : "desc")
+         arrow = active ? (review.direction == "asc" ? "↑" : "↓") : ""
+         link_to(tax_lot_review_path(request.query_parameters.merge("sort" => key, "dir" => next_dir).except("format")),
+                 class: "inline-flex items-center gap-1 #{align == "right" ? "justify-end" : ""} hover:text-primary #{active ? "text-primary" : ""}",
+                 data: { turbo_frame: "investment_workspace" },
+                 aria: { sort: (active ? (review.direction == "asc" ? "ascending" : "descending") : nil) }.compact) do
+           safe_join([ label, tag.span(arrow, class: "w-3", "aria-hidden": true) ])
+         end
+       end %>
     <section aria-labelledby="tl-lots" class="space-y-3">
-      <h2 id="tl-lots" class="text-lg font-medium text-primary"><%= t(".lots_heading") %></h2>
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <h2 id="tl-lots" class="text-lg font-medium text-primary"><%= t(".lots_heading") %></h2>
+        <%= link_to t(".filter.download"), tax_lot_review_path(request.query_parameters.except("tab", "format", "sort", "dir").merge(format: :csv)), class: "text-sm font-medium text-link hover:underline focus-ring rounded", data: { turbo: false } %>
+      </div>
+      <%= form_with url: tax_lot_review_path, method: :get, class: "flex flex-wrap items-end gap-3", data: { turbo_frame: "investment_workspace" } do |f| %>
+        <%= f.hidden_field :sort, value: review.sort %>
+        <%= f.hidden_field :dir, value: review.direction %>
+        <div>
+          <%= f.label :ticker, t(".filter.ticker"), class: "block text-xs text-secondary" %>
+          <%= f.text_field :ticker, value: review.ticker, placeholder: t(".filter.ticker_placeholder"), maxlength: 20, class: "mt-1 w-40 rounded-lg border border-tertiary bg-container px-3 py-2 text-sm text-primary focus-ring" %>
+        </div>
+        <div>
+          <%= f.label :term, t(".filter.term"), class: "block text-xs text-secondary" %>
+          <%= f.select :term, [ [ t(".filter.any_term"), "" ], [ t(".term.short"), "short" ], [ t(".term.long"), "long" ] ], { selected: review.term.to_s }, class: "mt-1 rounded-lg border border-tertiary bg-container px-3 py-2 text-sm text-primary focus-ring" %>
+        </div>
+        <%= f.submit t(".filter.apply"), class: "rounded-lg border border-tertiary px-4 py-2 text-sm font-medium text-primary cursor-pointer" %>
+        <% if review.filtered? %><%= link_to t(".filter.clear"), tax_lot_review_path, class: "py-2 text-sm text-secondary hover:underline", data: { turbo_frame: "investment_workspace" } %><% end %>
+      <% end %>
+      <% if review.filtered? %>
+        <p class="text-xs text-secondary" data-testid="lots-filter-note" role="status"><%= review.visible_lots.empty? ? t(".filter.none_match") : t(".filter.showing", shown: review.visible_lots.size, total: review.lots.size) %></p>
+      <% end %>
       <div class="overflow-x-auto rounded-xl bg-container shadow-border-xs">
-        <table class="w-full min-w-[52rem] text-sm">
+        <table class="w-full min-w-[52rem] text-sm" data-testid="lots-table">
           <caption class="sr-only"><%= t(".lots_caption") %></caption>
           <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary">
             <tr>
-              <th scope="col" class="px-4 py-3"><%= t(".columns.ticker") %></th>
-              <th scope="col" class="px-4 py-3"><%= t(".columns.account") %></th>
-              <th scope="col" class="px-4 py-3"><%= t(".columns.acquired") %></th>
-              <th scope="col" class="px-4 py-3"><%= t(".columns.term") %></th>
-              <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.quantity") %></th>
-              <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.cost_basis") %></th>
-              <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.value") %></th>
-              <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.gain") %></th>
+              <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.ticker"), "ticker") %></th>
+              <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.account"), "account") %></th>
+              <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.acquired"), "acquired") %></th>
+              <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.term"), "term") %></th>
+              <th scope="col" class="px-4 py-3 text-right"><%= sort_link.call(t(".columns.quantity"), "quantity", align: "right") %></th>
+              <th scope="col" class="px-4 py-3 text-right"><%= sort_link.call(t(".columns.cost_basis"), "cost_basis", align: "right") %></th>
+              <th scope="col" class="px-4 py-3 text-right"><%= sort_link.call(t(".columns.value"), "market_value", align: "right") %></th>
+              <th scope="col" class="px-4 py-3 text-right"><%= sort_link.call(t(".columns.gain"), "gain", align: "right") %></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-tertiary">
-            <% review.lots.sort_by { |lot| [ lot.ticker, lot.acquired_on ] }.each do |lot| %>
+            <% review.visible_lots.each do |lot| %>
               <tr>
                 <td class="px-4 py-3 font-mono font-medium"><%= link_to lot.ticker, research_ticker_path(lot.ticker), class: "hover:underline" %></td>
                 <td class="px-4 py-3"><%= lot.account.name %></td>

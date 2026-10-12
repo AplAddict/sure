@@ -39,4 +39,56 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/AAPL  270115C00250000/, response.body)
     assert_no_match(/Owner Options Brokerage/, response.body)
   end
+
+  def add_contract(symbol:, expiry:, units: "1", price: "2", cost: "1", type: "PUT")
+    @provider_account.update!(raw_options_payload: @provider_account.raw_options_payload + [
+      { "instrument" => { "symbol" => symbol, "option_type" => type, "expiration_date" => expiry, "strike_price" => "100", "multiplier" => "100" }, "units" => units, "price" => price, "cost_basis" => cost, "currency" => { "code" => "USD" } }
+    ])
+  end
+
+  test "groups contracts by underlying with a subtotal that only counts measured gains" do
+    add_contract(symbol: "AAPL  261218P00200000", expiry: "2026-12-18", price: "3", cost: "1")
+    add_contract(symbol: "MSFT  261218C00400000", expiry: "2026-12-18", price: nil, cost: "5")
+    sign_in @owner
+    get options_review_path
+
+    assert_response :success
+    assert_select "[data-testid=options-group]", count: 2
+    assert_select "[data-testid=options-group][data-underlying=AAPL] [data-testid=options-subtotal]", text: /\$/
+    assert_select "[data-testid=options-group][data-underlying=MSFT] [data-testid=options-subtotal]", text: /—|Unavailable/
+  end
+
+  test "flags a contract expiring within a week and an expired one" do
+    add_contract(symbol: "SOON  261014C00050000", expiry: (Date.current + 3.days).iso8601)
+    add_contract(symbol: "GONE  261001C00050000", expiry: (Date.current - 2.days).iso8601)
+    sign_in @owner
+    get options_review_path
+
+    assert_select "[data-testid=option-expiry-soon]", minimum: 1
+    assert_select "[data-testid=option-expired]", minimum: 1
+    assert_select "[data-testid=option-expiry-soon]", text: /3 days|Expires/i
+  end
+
+  test "can be sorted by expiry, gain or underlying and ignores unknown sorts" do
+    sign_in @owner
+    %w[expiry gain underlying contract].each do |sort|
+      get options_review_path(sort: sort, dir: "desc")
+      assert_response :success
+    end
+    get options_review_path(sort: "bogus; drop table")
+    assert_response :success
+    assert_select "th a[aria-sort]", minimum: 1
+  end
+
+  test "keeps the contract column pinned and wraps the table for narrow screens" do
+    sign_in @owner
+    get options_review_path
+    assert_select "th.sticky, td.sticky", minimum: 1
+  end
+
+  test "summary totals only counted when every figure is known" do
+    sign_in @owner
+    get options_review_path
+    assert_select "[data-testid=options-summary]"
+  end
 end

@@ -38,6 +38,8 @@ en:
       money_weighted_unavailable: "Unavailable without an opening and closing balance for every account and complete, same-currency cash flows."
       monthly_income: Income by month
       month: Month
+      month_unavailable: Unavailable
+      period_total: Period total
       total: Total
       monthly_income_empty: No labeled dividends or interest in this period.
       realized_gains: Realized gains and losses

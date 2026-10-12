@@ -78,4 +78,97 @@ class TaxLotReviewsControllerTest < ActionDispatch::IntegrationTest
     get tax_lot_review_path
     assert_no_match "LOTGAP", response.body
   end
+
+  def add_second_ticker(ticker:, account: @account, qty: 5, price: 20, basis: 30, bought: 500.days.ago.to_date)
+    security = Security.create!(ticker: ticker, exchange_mic: "XNAS", name: "#{ticker} Co")
+    account.holdings.create!(security: security, date: Date.current, qty: qty, price: price, amount: qty * price, currency: "USD", cost_basis: basis, cost_basis_source: "provider")
+    existing = PortfolioHoldings.any_instance.stubs(:provider_lots)
+    @lots_by_account ||= { @account.id => { "LOTPG" => [ { "quantity" => 10, "cost_basis" => 1000, "current_value" => 1500, "original_purchase_date" => (Date.current - 350.days).iso8601 }.with_indifferent_access ] } }
+    @lots_by_account[account.id] ||= {}
+    @lots_by_account[account.id][ticker] = [ { "quantity" => qty, "cost_basis" => qty * basis, "current_value" => qty * price, "original_purchase_date" => bought.iso8601 }.with_indifferent_access ]
+    PortfolioHoldings.any_instance.stubs(:provider_lots).returns(@lots_by_account)
+  end
+
+  test "filters the lots table by ticker and by term without changing the page totals" do
+    add_second_ticker(ticker: "LOTZZ")
+    sign_in @owner
+
+    get tax_lot_review_path(ticker: "lotzz")
+    assert_response :success
+    assert_select "table[data-testid=lots-table] tbody tr", count: 1
+    assert_select "table[data-testid=lots-table] tbody", text: /LOTZZ/
+    assert_select "table[data-testid=lots-table] tbody", text: /LOTPG/, count: 0
+    assert_select "[data-testid=lots-filter-note]", text: /1 of 2/
+
+    get tax_lot_review_path(term: "long")
+    assert_select "table[data-testid=lots-table] tbody tr", count: 1
+    assert_select "table[data-testid=lots-table] tbody", text: /Long-term/
+
+    get tax_lot_review_path(term: "bogus")
+    assert_response :success
+    assert_select "table[data-testid=lots-table] tbody tr", count: 2
+
+    get tax_lot_review_path(ticker: "<script>alert(1)</script>")
+    assert_response :success
+    assert_no_match(/<script>alert/, response.body)
+    assert_select "table[data-testid=lots-table] tbody tr", count: 0
+  end
+
+  test "sorts lots by gain either way and ignores unknown sorts" do
+    add_second_ticker(ticker: "LOTZZ")
+    sign_in @owner
+
+    get tax_lot_review_path(sort: "gain", dir: "desc")
+    tickers = css_select("table[data-testid=lots-table] tbody tr td:first-child").map { |c| c.text.strip }
+    assert_equal %w[LOTPG LOTZZ], tickers
+    assert_select "th a[aria-sort=descending]"
+
+    get tax_lot_review_path(sort: "gain", dir: "asc")
+    tickers = css_select("table[data-testid=lots-table] tbody tr td:first-child").map { |c| c.text.strip }
+    assert_equal %w[LOTZZ LOTPG], tickers
+
+    get tax_lot_review_path(sort: "nope")
+    assert_response :success
+  end
+
+  test "exports the measured lots as a CSV of the signed-in member's own accounts only" do
+    sign_in @owner
+    get tax_lot_review_path(format: :csv)
+
+    assert_response :success
+    assert_equal "text/csv", response.media_type
+    assert_match(/attachment; filename="tax-lots-\d{4}-\d{2}-\d{2}\.csv"/, response.headers["Content-Disposition"])
+    rows = CSV.parse(response.body, headers: true)
+    assert_equal [ "Ticker", "Account", "Acquired", "Term", "Quantity", "Cost basis", "Market value", "Unrealized gain/loss", "Currency" ], rows.headers
+    assert_equal 1, rows.size
+    assert_equal "LOTPG", rows.first["Ticker"]
+    assert_equal "short", rows.first["Term"]
+    assert_equal "500.0", rows.first["Unrealized gain/loss"]
+
+    sign_in users(:family_member)
+    get tax_lot_review_path(format: :csv)
+    assert_equal 0, CSV.parse(response.body, headers: true).size
+  end
+
+  test "the CSV follows the current filter and neutralises spreadsheet formulas" do
+    @account.update!(name: "=HYPERLINK(\"http://evil.test\")")
+    add_second_ticker(ticker: "LOTZZ")
+    sign_in @owner
+
+    get tax_lot_review_path(format: :csv, ticker: "LOTZZ")
+    rows = CSV.parse(response.body, headers: true)
+    assert_equal [ "LOTZZ" ], rows.map { |row| row["Ticker"] }
+    assert rows.first["Account"].start_with?("'="), "formula-leading text must be escaped, got #{rows.first["Account"].inspect}"
+  end
+
+  test "the CSV needs sign in and offers a download link on the lots tab only" do
+    get tax_lot_review_path(format: :csv)
+    assert_redirected_to new_session_path
+
+    sign_in @owner
+    get tax_lot_review_path
+    assert_select "a[href*='format=csv']", text: /Download CSV/
+    get tax_lot_review_path(tab: "harvest")
+    assert_select "a[href*='format=csv']", count: 0
+  end
 end

@@ -68,7 +68,12 @@ class ResearchWatchlistEntriesController < ApplicationController
     end
 
     def load_entries
-      @entries = Current.user.research_watchlist_entries.active.includes(:security).order(:priority, created_at: :desc)
+      active = Current.user.research_watchlist_entries.active
+      @status_counts = ResearchWatchlistEntry::STATUSES.index_with { |status| active.where(status: status).count }
+      @status_filter = ResearchWatchlistEntry::STATUSES.include?(params[:status].to_s) ? params[:status].to_s : nil
+      scoped = @status_filter ? active.where(status: @status_filter) : active
+      @entries = scoped.includes(:security).order(:priority, created_at: :desc)
+      @fundamentals = SecurityFundamental.where(security_id: @entries.map(&:security_id)).index_by(&:security_id)
       @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("breadcrumbs.research_watchlist"), nil ] ]
     end
 

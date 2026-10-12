@@ -237,4 +237,84 @@ class ResearchWatchlistEntriesControllerTest < ActionDispatch::IntegrationTest
     def letters_ticker
       Array.new(5) { ("A".."Z").to_a.sample }.join
     end
+
+  def fundamentals_for(security, payload, fetched_at: Time.current)
+    SecurityFundamental.create!(security: security, payload: payload, fetched_at: fetched_at)
+  end
+
+  test "shows next earnings, analyst target and 52-week range from cached fundamentals with their age" do
+    fundamentals_for(@security, { "next_earnings_date" => (Date.current + 9).iso8601, "target_mean_price" => 150.5, "fifty_two_week_low" => 90, "fifty_two_week_high" => 160, "currency" => "USD" }, fetched_at: 3.hours.ago)
+    sign_in @owner
+    get research_watchlist_entries_path
+
+    assert_select "[data-testid=watchlist-row-#{@entry.id}] [data-testid=watchlist-earnings]", text: /in 9 days|Oct|Nov/
+    assert_select "[data-testid=watchlist-row-#{@entry.id}] [data-testid=watchlist-target]", text: /150\.50/
+    assert_select "[data-testid=watchlist-row-#{@entry.id}] [data-testid=watchlist-range]", text: /90.*160/
+    assert_select "[data-testid=watchlist-row-#{@entry.id}] [data-testid=watchlist-data-age]", text: /3 hours/
+  end
+
+  test "missing fundamentals show an unavailable dash, never zero" do
+    sign_in @owner
+    get research_watchlist_entries_path
+
+    assert_select "[data-testid=watchlist-row-#{@entry.id}] [data-testid=watchlist-earnings]", text: /—/
+    assert_select "[data-testid=watchlist-row-#{@entry.id}] [data-testid=watchlist-target]", text: /—/
+    assert_no_match(/\$0\.00/, css_select("[data-testid=watchlist-row-#{@entry.id}]").to_s)
+  end
+
+  test "earnings within a week are flagged and a past date is not shown as upcoming" do
+    soon = Security.create!(ticker: letters_ticker, exchange_mic: "XNAS", name: "Soon")
+    past = Security.create!(ticker: letters_ticker, exchange_mic: "XNAS", name: "Past")
+    soon_entry = ResearchWatchlistEntry.create!(user: @owner, security: soon, status: "watching", priority: 3)
+    past_entry = ResearchWatchlistEntry.create!(user: @owner, security: past, status: "watching", priority: 3)
+    fundamentals_for(soon, { "next_earnings_date" => (Date.current + 3).iso8601 })
+    fundamentals_for(past, { "next_earnings_date" => (Date.current - 20).iso8601 })
+    sign_in @owner
+    get research_watchlist_entries_path
+
+    assert_select "[data-testid=watchlist-row-#{soon_entry.id}] [data-testid=watchlist-earnings-soon]"
+    assert_select "[data-testid=watchlist-row-#{past_entry.id}] [data-testid=watchlist-earnings-soon]", count: 0
+    assert_select "[data-testid=watchlist-row-#{past_entry.id}] [data-testid=watchlist-earnings]", text: /—/
+  end
+
+  test "filters by status and offers a filter for each status with counts" do
+    other = Security.create!(ticker: letters_ticker, exchange_mic: "XNAS", name: "Ready One")
+    ResearchWatchlistEntry.create!(user: @owner, security: other, status: "ready", priority: 1, thesis: "Ready thesis")
+    sign_in @owner
+
+    get research_watchlist_entries_path(status: "ready")
+    assert_response :success
+    assert_match "Ready thesis", response.body
+    assert_no_match "Owner-only thesis", response.body
+    assert_select "[data-testid=watchlist-filters] a[aria-current=true]", text: /Ready/
+    assert_select "[data-testid=watchlist-filters] a", minimum: 4
+
+    get research_watchlist_entries_path(status: "nonsense")
+    assert_match "Owner-only thesis", response.body
+    assert_match "Ready thesis", response.body
+  end
+
+  test "a filter never reveals another member's entries" do
+    sign_in @member
+    get research_watchlist_entries_path(status: "researching")
+    assert_response :success
+    assert_no_match "Owner-only thesis", response.body
+  end
+
+  test "the edit form sits behind a disclosure so rows stay compact" do
+    sign_in @owner
+    get research_watchlist_entries_path
+
+    assert_select "[data-testid=watchlist-row-#{@entry.id}] details summary", text: /Edit/
+    assert_select "[data-testid=watchlist-row-#{@entry.id}] details form"
+    assert_select "[data-testid=watchlist-row-#{@entry.id}] p[data-testid=watchlist-thesis]", text: /Owner-only thesis/
+  end
+
+  test "a row that failed validation opens its edit form" do
+    sign_in @owner
+    patch research_watchlist_entry_path(@entry), params: { research_watchlist_entry: { status: "bogus" } }
+
+    assert_response :unprocessable_entity
+    assert_select "[data-testid=watchlist-row-#{@entry.id}] details[open]"
+  end
 end
