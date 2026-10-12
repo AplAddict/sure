@@ -347,6 +347,18 @@ class Holding::ReverseCalculatorTest < ActiveSupport::TestCase
     assert_nil cost_basis_for(calc, security, Date.current)
   end
 
+  test "converts a foreign-currency trade at the trade-date rate" do
+    security = Security.create!(ticker: "SAP", name: "SAP SE")
+    ExchangeRate.create!(from_currency: "EUR", to_currency: "USD", date: 3.days.ago.to_date, rate: 1.1)
+    ExchangeRate.create!(from_currency: "EUR", to_currency: "USD", date: Date.current, rate: 1.5)
+
+    calc = calculator_with_trades(security) do
+      create_trade(security, account: @account, qty: 10, price: 100, currency: "EUR", date: 3.days.ago.to_date)
+    end
+
+    assert_in_delta 110.0, cost_basis_for(calc, security, Date.current).to_f, 1e-6
+  end
+
   private
     def assert_holdings(expected, calculated)
       expected.each do |expected_entry|

@@ -2,11 +2,11 @@
 # Expects the including class to expose an `account` reader.
 module Holding::TradeCalculatorHelpers
   private
-    # Converts a trade's price into the account's currency, or nil when no
-    # exchange rate is available.
-    def converted_trade_price(trade)
+    # Converts a trade's price into the account's currency at the trade-date
+    # rate, or nil when no exchange rate is available.
+    def converted_trade_price(trade, date:)
       Money.new(trade.price, trade.currency)
-        .exchange_to(account.currency, custom_rate: trade.exchange_rate)
+        .exchange_to(account.currency, date: date, custom_rate: trade.exchange_rate)
         .amount
     rescue Money::ConversionError
       nil
