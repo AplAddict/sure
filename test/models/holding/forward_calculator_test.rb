@@ -208,6 +208,18 @@ class Holding::ForwardCalculatorTest < ActiveSupport::TestCase
     assert_equal BigDecimal("480"), current.cost_basis
   end
 
+  test "a foreign purchase with no rate leaves calculated basis unknown" do
+    load_prices
+    ExchangeRate.stubs(:find_or_fetch_rate).returns(nil)
+
+    create_trade(@voo, qty: 10, date: 1.day.ago.to_date, price: 100, currency: "EUR", account: @account)
+
+    current = Holding::ForwardCalculator.new(@account).calculate
+      .find { |holding| holding.security_id == @voo.id && holding.date == Date.current }
+
+    assert_nil current.cost_basis
+  end
+
   test "offline tickers sync holdings based on most recent trade price" do
     offline_security = Security.create!(ticker: "OFFLINE", name: "Offline Ticker")
 
