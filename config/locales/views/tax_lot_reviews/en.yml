@@ -2,8 +2,12 @@
 en:
   tax_lot_reviews:
     show:
-      title: Tax-Aware Lot Review
-      subtitle: Unrealized gains and losses by broker tax lot in taxable accounts, split by holding period (long-term means held more than one year, by calendar anniversary). This is dates and arithmetic only — no tax rates, no tax owed, no advice. Gains and losses are not netted against each other.
+      title: Tax workspace
+      subtitle: Review broker tax lots, holding periods, loss candidates and wash-sale evidence in one place. This is dates and arithmetic only — no tax rates, no tax owed, no advice.
+      tabs:
+        label: Tax workspace
+        lots: Lots & holding period
+        harvest: Loss harvest review
       excluded:
         one: 1 tax-advantaged account left out, because gains there are not taxed when realized.
         other: "%{count} tax-advantaged accounts left out, because gains there are not taxed when realized."

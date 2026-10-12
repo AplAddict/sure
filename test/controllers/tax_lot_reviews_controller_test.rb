@@ -31,6 +31,30 @@ class TaxLotReviewsControllerTest < ActionDispatch::IntegrationTest
     assert_match "no tax owed, no advice", response.body
   end
 
+  test "is one tax workspace with in-page lot and harvest tabs" do
+    sign_in @owner
+
+    get tax_lot_review_path
+    assert_response :success
+    assert_select "nav[aria-label='Tax workspace'] a[aria-current=page]", text: "Lots & holding period"
+    assert_select "a[href=?]", tax_lot_review_path(tab: "harvest"), text: "Loss harvest review"
+    assert_no_match(/Tax-Loss Harvest/, response.body)
+
+    get tax_lot_review_path(tab: "harvest")
+    assert_response :success
+    assert_select "nav[aria-label='Tax workspace'] a[aria-current=page]", text: "Loss harvest review"
+    assert_match "Harvest candidates", response.body
+    assert_match "How to read this", response.body
+  end
+
+  test "ignores an unknown tax workspace tab" do
+    sign_in @owner
+    get tax_lot_review_path(tab: "not-real")
+
+    assert_response :success
+    assert_select "nav[aria-label='Tax workspace'] a[aria-current=page]", text: "Lots & holding period"
+  end
+
   test "a member without access to the account sees none of its lots" do
     sign_in users(:empty)
     get tax_lot_review_path

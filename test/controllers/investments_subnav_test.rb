@@ -12,7 +12,7 @@ class InvestmentsSubnavTest < ActionDispatch::IntegrationTest
 
   {
     portfolio_holdings: :holdings, investment_income: :income, tax_lot_review: :tax_lots,
-    tax_loss_harvest: :harvest, options_review: :options, market_events: :events, research_watchlist_entries: :watchlist
+    options_review: :options, market_events: :events, research_watchlist_entries: :watchlist
   }.each do |route, key|
     test "#{route} shows the investments sub-navigation with itself marked current" do
       get public_send("#{route}_path")
@@ -20,7 +20,7 @@ class InvestmentsSubnavTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label") do
         assert_select "a[aria-current=page]", text: I18n.t("investments.subnav.#{key}")
-        assert_select "a", minimum: 8
+        assert_select "a", minimum: 7
       end
     end
   end

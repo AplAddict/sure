@@ -95,7 +95,8 @@
       <ul class="divide-y divide-tertiary">
         <% actions.each do |action| %>
           <% href = case action.kind
-                    when :harvest, :cost_basis then tax_loss_harvest_path
+                    when :harvest then tax_lot_review_path(tab: "harvest")
+                    when :cost_basis then tax_lot_review_path
                     when :wash_sale then market_events_path(type: "wash_sale")
                     when :events then market_events_path
                     end %>

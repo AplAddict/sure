@@ -16,7 +16,7 @@ class TaxLossHarvestsControllerTest < ActionDispatch::IntegrationTest
 
   test "owner sees their own loss positions" do
     sign_in @owner
-    get tax_loss_harvest_path
+    get tax_lot_review_path(tab: "harvest")
 
     assert_response :success
     assert_select "td", text: /TLHPAGE/
@@ -25,11 +25,19 @@ class TaxLossHarvestsControllerTest < ActionDispatch::IntegrationTest
 
   test "a family member without access sees nothing from another member's account" do
     sign_in @member
-    get tax_loss_harvest_path
+    get tax_lot_review_path(tab: "harvest")
 
     assert_response :success
     assert_no_match(/TLHPAGE/, response.body)
     assert_no_match(/Owner Only Brokerage/, response.body)
+  end
+
+  test "legacy harvest links redirect to the harvest tab in the tax workspace" do
+    sign_in @owner
+
+    get tax_loss_harvest_path
+
+    assert_redirected_to tax_lot_review_path(tab: "harvest")
   end
 
   test "requires authentication" do
@@ -42,7 +50,7 @@ class TaxLossHarvestsControllerTest < ActionDispatch::IntegrationTest
     @account.holdings.create!(security: Security.create!(ticker: "TLHNOCB", exchange_mic: "XNAS"),
                               date: Date.current, qty: 5, price: 10, amount: 50, currency: "USD")
     sign_in @owner
-    get tax_loss_harvest_path
+    get tax_lot_review_path(tab: "harvest")
 
     assert_response :success
     assert_match "TLHNOCB", response.body

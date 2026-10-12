@@ -1,0 +1,128 @@
+<%# locals: (harvest:) %>
+<%# Tax-loss-harvest detail, embedded in the Tax workspace. %>
+<% totals = harvest.totals %>
+<% realized = harvest.realized_year_to_date %>
+<% unmeasured = realized[:unknown] %>
+  <% if harvest.accounts.empty? %>
+    <div class="rounded-xl bg-container shadow-border-xs">
+      <%= render DS::EmptyState.new(icon: "landmark", title: t("tax_loss_harvests.show.no_accounts.title"), description: t("tax_loss_harvests.show.no_accounts.description")) %>
+    </div>
+  <% else %>
+    <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      <div class="rounded-xl bg-container p-3 shadow-border-xs">
+        <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.summary.candidates") %></p>
+        <p class="mt-1 text-xl font-semibold text-primary"><%= totals.candidate_count %></p>
+        <p class="text-xs text-subdued"><%= t("tax_loss_harvests.show.summary.candidates_hint", pct: TaxLossHarvest::CANDIDATE_LOSS_PCT.to_i) %></p>
+      </div>
+      <div class="rounded-xl bg-container p-3 shadow-border-xs">
+        <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.summary.total_loss") %></p>
+        <p class="mt-1 text-xl font-semibold text-primary privacy-sensitive"><%= totals.loss.format %></p>
+        <p class="text-xs text-subdued"><%= t("tax_loss_harvests.show.summary.total_loss_hint") %></p>
+      </div>
+      <div class="rounded-xl bg-container p-3 shadow-border-xs">
+        <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.summary.short_term") %></p>
+        <p class="mt-1 text-xl font-semibold text-primary privacy-sensitive"><%= totals.short_term_loss.format %></p>
+        <p class="text-xs text-subdued"><%= t("tax_loss_harvests.show.summary.long_term") %>: <span class="privacy-sensitive"><%= totals.long_term_loss.format %></span></p>
+        <% if totals.unknown_term_loss.amount.positive? %>
+          <p class="text-xs text-warning"><%= t("tax_loss_harvests.show.summary.unknown_term") %>: <span class="privacy-sensitive"><%= totals.unknown_term_loss.format %></span></p>
+        <% end %>
+      </div>
+      <div class="rounded-xl bg-container p-3 shadow-border-xs">
+        <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.summary.realized") %></p>
+        <p class="mt-1 text-xl font-semibold text-primary privacy-sensitive"><%= realized[:amount].format %></p>
+        <p class="text-xs <%= unmeasured.positive? ? "text-warning" : "text-subdued" %>">
+          <%= unmeasured.positive? ? t("tax_loss_harvests.show.summary.realized_hint", count: unmeasured) : t("tax_loss_harvests.show.summary.realized_known") %>
+        </p>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm">
+      <p class="font-medium text-primary"><%= t("tax_loss_harvests.show.boundary.title") %></p>
+      <p class="mt-1 text-secondary"><%= t("tax_loss_harvests.show.boundary.body") %></p>
+      <% if harvest.excluded_account_count.positive? %>
+        <p class="mt-2 text-secondary"><%= t("tax_loss_harvests.show.scope_note", count: harvest.excluded_account_count) %></p>
+      <% end %>
+    </div>
+
+    <% if harvest.rows.empty? %>
+      <div class="rounded-xl bg-container shadow-border-xs">
+        <%= render DS::EmptyState.new(icon: "circle-check", title: t("tax_loss_harvests.show.empty.title"), description: t("tax_loss_harvests.show.empty.description")) %>
+      </div>
+    <% else %>
+      <div class="overflow-hidden rounded-xl bg-container shadow-border-xs">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <caption class="sr-only"><%= t("tax_loss_harvests.show.table.caption") %></caption>
+            <thead class="bg-container-inset text-xs uppercase tracking-wide text-secondary">
+              <tr>
+                <th scope="col" class="px-4 py-2 text-left font-medium"><%= t("tax_loss_harvests.show.table.security") %></th>
+                <th scope="col" class="hidden px-4 py-2 text-left font-medium lg:table-cell"><%= t("tax_loss_harvests.show.table.account") %></th>
+                <th scope="col" class="hidden px-4 py-2 text-right font-medium md:table-cell"><%= t("tax_loss_harvests.show.table.value") %></th>
+                <th scope="col" class="hidden px-4 py-2 text-right font-medium md:table-cell"><%= t("tax_loss_harvests.show.table.cost") %></th>
+                <th scope="col" class="px-4 py-2 text-right font-medium"><%= t("tax_loss_harvests.show.table.loss") %></th>
+                <th scope="col" class="hidden px-4 py-2 text-left font-medium md:table-cell"><%= t("tax_loss_harvests.show.table.term") %></th>
+                <th scope="col" class="hidden px-4 py-2 text-left font-medium md:table-cell"><%= t("tax_loss_harvests.show.table.status") %></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-tertiary">
+              <% harvest.rows.each do |row| %>
+                <tr class="align-top">
+                  <td class="px-4 py-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <%= link_to row.ticker, research_ticker_path(row.ticker), class: "font-semibold text-link hover:underline" %>
+                      <% if row.candidate %><%= render DS::Pill.new(label: t("tax_loss_harvests.show.table.candidate"), tone: :warning, marker: false, size: :sm) %><% end %>
+                    </div>
+                    <p class="max-w-[14rem] truncate text-xs text-secondary"><%= row.name %></p>
+                    <p class="mt-0.5 truncate text-xs text-subdued lg:hidden"><%= link_to row.account.name, account_path(row.account), class: "hover:underline" %></p>
+                    <p class="mt-1 text-xs text-secondary md:hidden"><%= t("tax_loss_harvests.show.term.#{row.term}") %></p>
+                    <div class="mt-1 text-xs md:hidden"><%= render "tax_loss_harvests/wash_flags", flags: row.wash_flags %></div>
+                  </td>
+                  <td class="hidden px-4 py-3 text-secondary lg:table-cell"><%= link_to row.account.name, account_path(row.account), class: "hover:underline" %></td>
+                  <td class="hidden px-4 py-3 text-right font-mono privacy-sensitive md:table-cell"><%= row.market_value.format %></td>
+                  <td class="hidden px-4 py-3 text-right font-mono privacy-sensitive md:table-cell"><%= row.cost_basis.format %></td>
+                  <td class="px-4 py-3 text-right font-mono text-primary">
+                    <span class="privacy-sensitive"><%= row.loss.format %></span>
+                    <% if row.loss_pct %><p class="text-xs text-secondary"><%= number_to_percentage(row.loss_pct, precision: 1) %></p><% end %>
+                  </td>
+                  <td class="hidden px-4 py-3 md:table-cell">
+                    <% if row.term == :unknown %>
+                      <%= render DS::Pill.new(label: t("tax_loss_harvests.show.term.unknown"), tone: :neutral, marker: false, size: :sm, title: t("tax_loss_harvests.show.term.unknown_hint")) %>
+                    <% elsif row.term == :mixed %>
+                      <%= render DS::Pill.new(label: t("tax_loss_harvests.show.term.mixed"), tone: :info, marker: false, size: :sm) %>
+                      <p class="mt-1 text-xs text-secondary"><%= t("tax_loss_harvests.show.term.mixed_detail", long: row.long_term_qty.round(4).to_s("F"), short: row.short_term_qty.round(4).to_s("F")) %></p>
+                    <% else %>
+                      <%= render DS::Pill.new(label: t("tax_loss_harvests.show.term.#{row.term}"), tone: row.term == :long ? :success : :neutral, marker: false, size: :sm) %>
+                    <% end %>
+                    <% if row.first_acquired %><p class="mt-1 text-xs text-subdued"><%= l(row.first_acquired, format: :long) %></p><% end %>
+                  </td>
+                  <td class="hidden px-4 py-3 text-xs md:table-cell">
+                    <%= render "tax_loss_harvests/wash_flags", flags: row.wash_flags %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+
+    <% if harvest.unavailable.any? %>
+      <div class="rounded-xl bg-container shadow-border-xs">
+        <div class="border-b border-tertiary px-4 py-3">
+          <h2 class="text-sm font-medium text-primary"><%= t("tax_loss_harvests.show.unavailable.title") %> · <%= harvest.unavailable.size %></h2>
+          <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.unavailable.description") %></p>
+        </div>
+        <ul class="divide-y divide-tertiary">
+          <% harvest.unavailable.each do |item| %>
+            <li class="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+              <span class="min-w-0 truncate">
+                <%= link_to item.ticker, research_ticker_path(item.ticker), class: "font-semibold text-link hover:underline" %>
+                <span class="text-secondary"> · <%= item.account.name %></span>
+              </span>
+              <span class="shrink-0 text-xs text-warning"><%= t("tax_loss_harvests.show.unavailable.#{item.reason}") %></span>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+  <% end %>

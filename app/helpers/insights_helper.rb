@@ -133,7 +133,7 @@ module InsightsHelper
       goal = insight.family.goals.find_by(id: metadata["goal_id"])
       goal && { text: t("insights.actions.maintained_goal_depleted"), href: goal_path(goal) }
     when "tax_loss_harvest", "cost_basis_gap"
-      { text: t("insights.actions.#{insight.insight_type}"), href: tax_loss_harvest_path }
+      { text: t("insights.actions.#{insight.insight_type}"), href: tax_lot_review_path(tab: "harvest") }
     when "wash_sale_window"
       { text: t("insights.actions.wash_sale_window"), href: market_events_path(type: "wash_sale") }
     when "position_events"

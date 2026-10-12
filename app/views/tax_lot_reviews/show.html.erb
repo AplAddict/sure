@@ -1,7 +1,4 @@
 <% content_for :page_title, t(".title") %>
-<% review = @review %>
-<% totals = review.totals %>
-<% currency = review.currency %>
 
 <% content_for :page_header do %>
   <div class="mb-6">
@@ -14,6 +11,20 @@
 <% end %>
 
 <div class="space-y-6 pb-6 lg:pb-12">
+  <nav aria-label="<%= t(".tabs.label") %>" class="flex gap-1 overflow-x-auto border-b border-tertiary" data-testid="tax-workspace-tabs">
+    <% [[ "lots", t(".tabs.lots") ], [ "harvest", t(".tabs.harvest") ]].each do |key, label| %>
+      <%= link_to label, tax_lot_review_path(tab: key),
+            class: "shrink-0 border-b-2 px-3 py-2 text-sm font-medium focus-ring #{@tab == key ? "border-primary text-primary" : "border-transparent text-secondary hover:text-primary"}",
+            aria: { current: (@tab == key ? "page" : nil) } %>
+    <% end %>
+  </nav>
+
+  <% if @tab == "harvest" %>
+    <%= render "harvest", harvest: @harvest %>
+  <% else %>
+    <% review = @review %>
+    <% totals = review.totals %>
+    <% currency = review.currency %>
   <% if review.excluded_account_count.positive? %>
     <p class="text-xs text-secondary"><%= t(".excluded", count: review.excluded_account_count) %></p>
   <% end %>
@@ -105,5 +116,6 @@
         </table>
       </div>
     </section>
+  <% end %>
   <% end %>
 </div>

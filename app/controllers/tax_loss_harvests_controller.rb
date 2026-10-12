@@ -1,8 +1,7 @@
+# Backwards-compatible entry point for saved links and insight actions. The
+# tax workspace now contains the harvest review alongside per-lot analysis.
 class TaxLossHarvestsController < ApplicationController
-  # Scoped to the signed-in user's accessible accounts, never the whole family:
-  # a member must not see what another member holds. Read-only, no params.
   def show
-    @harvest = TaxLossHarvest.new(user: Current.user)
-    @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("breadcrumbs.tax_loss_harvests"), nil ] ]
+    redirect_to tax_lot_review_path(tab: "harvest")
   end
 end
