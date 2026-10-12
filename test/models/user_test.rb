@@ -1307,4 +1307,13 @@ class UserTest < ActiveSupport::TestCase
     user.update!(preferences: user.preferences.merge("ai_watchlist_expiry_days" => 9999))
     assert_equal 30, user.ai_watchlist_expiry_days
   end
+
+  test "automatic AI watchlist additions require the base permission" do
+    user = users(:family_admin)
+    user.update!(preferences: (user.preferences || {}).merge("ai_watchlist_auto_add_enabled" => true))
+    assert_not user.ai_watchlist_auto_add_enabled?
+
+    user.update!(preferences: user.preferences.merge("ai_watchlist_enabled" => true))
+    assert user.ai_watchlist_auto_add_enabled?
+  end
 end

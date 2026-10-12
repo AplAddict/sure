@@ -20,6 +20,27 @@ class Assistant::Function::AddToResearchWatchlistTest < ActiveSupport::TestCase
     user.update!(preferences: (user.preferences || {}).merge("ai_watchlist_enabled" => true))
   end
 
+  test "automatic mode is separate opt-in and changes the assistant-facing instruction" do
+    enable!
+    assert_not @user.ai_watchlist_auto_add_enabled?
+    assert_match(/only when the user asks|agrees/i, @fn.description)
+
+    @user.update!(preferences: @user.preferences.merge("ai_watchlist_auto_add_enabled" => true))
+    automatic = Assistant::Function::AddToResearchWatchlist.new(@user.reload)
+    assert automatic.user_allows_automatic_adds?
+    assert_match(/automatically add/i, automatic.description)
+    assert_match(/substantive research candidate/i, automatic.description)
+    assert_not Assistant::Function::AddToResearchWatchlist.new(@other).user_allows_automatic_adds?
+  end
+
+  test "automatic mode is ignored unless the base watchlist permission is on" do
+    @user.update!(preferences: (@user.preferences || {}).merge("ai_watchlist_auto_add_enabled" => true))
+
+    assert_not @user.ai_watchlist_enabled?
+    assert_not @user.ai_watchlist_auto_add_enabled?
+    assert_not_includes Assistant.function_classes(@user), Assistant::Function::AddToResearchWatchlist
+  end
+
   test "is offered to the assistant only when the member turned the setting on" do
     assert_not_includes Assistant.function_classes(@user), Assistant::Function::AddToResearchWatchlist
     enable!

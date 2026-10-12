@@ -243,6 +243,8 @@ en:
         ai_watchlist:
           title: Let the AI assistant add to my research watchlist
           description: When on, the assistant can queue tickers on your private research watchlist when you ask it to or agree to its suggestion. It cannot trade, change holdings, edit or remove anything you already have, and adds at most 10 a day. Entries it adds are labeled, lapse on their own so the list never goes stale, and you can edit, keep or delete them.
+          auto_add_title: Allow automatic research suggestions
+          auto_add_description: The assistant may add a ticker without asking only when it finds a substantive candidate that fits your stated interests or current thesis. It never adds a passing mention or broad market context. The same daily limit, expiry, private scope, and no-trading rule apply.
           expiry_title: Assistant-added items expire after
           expiry_description: Editing or choosing Keep on an item makes it permanent. Your own entries never expire.
           days:

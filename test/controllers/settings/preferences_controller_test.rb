@@ -83,6 +83,21 @@ class Settings::PreferencesControllerTest < ActionDispatch::IntegrationTest
     assert_not user.ai_watchlist_enabled?, "choosing a duration does not turn the feature on"
   end
 
+  test "automatic AI watchlist additions are a separate per-member opt-in" do
+    user = users(:family_admin)
+
+    get settings_preferences_url
+    assert_select "input[name='user[ai_watchlist_auto_add_enabled]']"
+
+    patch settings_preferences_url, params: { user: { ai_watchlist_auto_add_enabled: "1" } }
+    assert user.reload.preferences["ai_watchlist_auto_add_enabled"]
+    assert_not user.ai_watchlist_auto_add_enabled?, "the base switch must still be on"
+
+    patch settings_preferences_url, params: { user: { ai_watchlist_enabled: "1", ai_watchlist_auto_add_enabled: "1" } }
+    assert user.reload.ai_watchlist_auto_add_enabled?
+    assert_not users(:family_member).ai_watchlist_auto_add_enabled?
+  end
+
   test "admin can toggle the family pending-balance master switch" do
     family = users(:family_admin).family
     assert_not family.include_pending_transactions_in_balances?

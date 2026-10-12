@@ -755,6 +755,12 @@ class User < ApplicationRecord
     preferences&.dig("ai_watchlist_enabled") == true
   end
 
+  # Separate opt-in for proactive additions. It can never turn on by itself:
+  # the member must also allow the assistant to add watchlist entries at all.
+  def ai_watchlist_auto_add_enabled?
+    ai_watchlist_enabled? && preferences&.dig("ai_watchlist_auto_add_enabled") == true
+  end
+
   # How long entries the assistant adds stay before they lapse (days). Only the
   # offered choices are honoured; anything else falls back to the default.
   AI_WATCHLIST_EXPIRY_CHOICES = [ 7, 14, 30, 60, 90 ].freeze

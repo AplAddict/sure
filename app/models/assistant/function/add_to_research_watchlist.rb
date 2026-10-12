@@ -28,6 +28,32 @@ class Assistant::Function::AddToResearchWatchlist < Assistant::Function
     end
   end
 
+  # Tool definitions are built for a particular user, so state the actual
+  # permission in the instructions rather than trusting the model to infer it.
+  def description
+    base = self.class.description
+    if user_allows_automatic_adds?
+      base + <<~INSTRUCTIONS
+
+        The user enabled automatic additions. You may automatically add a ticker when you identify a
+        substantive research candidate that directly fits the user's stated investment interests or a
+        concrete thesis already under discussion. Do not add a ticker merely because it was mentioned,
+        is a passing comparison, or is broad market/news context. Say clearly that you added it, why,
+        and when it will expire unless kept.
+      INSTRUCTIONS
+    else
+      base + <<~INSTRUCTIONS
+
+        The user did not enable automatic additions. Add a ticker only when the user explicitly asks
+        you to watch, track, or queue it, or explicitly agrees to your recommendation.
+      INSTRUCTIONS
+    end
+  end
+
+  def user_allows_automatic_adds?
+    user.ai_watchlist_auto_add_enabled?
+  end
+
   def strict_mode?
     false
   end
