@@ -316,4 +316,77 @@ class Security::ProvidedTest < ActiveSupport::TestCase
     assert_equal "TSLA", ranked[0].ticker
     assert_equal "US", ranked[0].country_code, "US Tesla should rank first for US user"
   end
+
+  # --- import_provider_prices fallback ---
+
+  test "import_provider_prices tries the next enabled provider when the first fails and the security is not pinned" do
+    @security.update!(price_provider: nil)
+    first = mock("first")
+    second = mock("second")
+    Security.stubs(:providers).returns([ first, second ])
+    failing = stub(import_provider_prices: 0, provider_error: "404 Not Found")
+    working = stub(import_provider_prices: 6, provider_error: nil)
+    Security::Price::Importer.expects(:new).with(has_entries(security_provider: first)).returns(failing)
+    Security::Price::Importer.expects(:new).with(has_entries(security_provider: second)).returns(working)
+
+    count, error = @security.import_provider_prices(start_date: 5.days.ago.to_date, end_date: Date.current)
+
+    assert_equal 6, count
+    assert_nil error
+  end
+
+  test "import_provider_prices does not fall back when the first provider simply has nothing new to fetch" do
+    @security.update!(price_provider: nil)
+    first = mock("first")
+    second = mock("second")
+    Security.stubs(:providers).returns([ first, second ])
+    Security::Price::Importer.expects(:new).with(has_entries(security_provider: first)).returns(stub(import_provider_prices: 0, provider_error: nil))
+    Security::Price::Importer.expects(:new).with(has_entries(security_provider: second)).never
+
+    count, error = @security.import_provider_prices(start_date: 5.days.ago.to_date, end_date: Date.current)
+
+    assert_equal 0, count
+    assert_nil error
+  end
+
+  test "import_provider_prices never falls back for a security pinned to a provider" do
+    @security.update!(price_provider: "tiingo")
+    pinned = mock("pinned")
+    other = mock("other")
+    Security.stubs(:provider_for).with("tiingo").returns(pinned)
+    Security.stubs(:providers).returns([ other ])
+    Security::Price::Importer.expects(:new).with(has_entries(security_provider: pinned)).returns(stub(import_provider_prices: 0, provider_error: "boom"))
+    Security::Price::Importer.expects(:new).with(has_entries(security_provider: other)).never
+
+    count, error = @security.import_provider_prices(start_date: 5.days.ago.to_date, end_date: Date.current)
+
+    assert_equal 0, count
+    assert_equal "boom", error
+  end
+
+  test "import_provider_prices reports the first provider's error when every provider fails" do
+    @security.update!(price_provider: nil)
+    first = mock("first")
+    second = mock("second")
+    Security.stubs(:providers).returns([ first, second ])
+    Security::Price::Importer.expects(:new).with(has_entries(security_provider: first)).returns(stub(import_provider_prices: 0, provider_error: "first failed"))
+    Security::Price::Importer.expects(:new).with(has_entries(security_provider: second)).returns(stub(import_provider_prices: 0, provider_error: "second failed"))
+
+    _count, error = @security.import_provider_prices(start_date: 5.days.ago.to_date, end_date: Date.current)
+
+    assert_equal "first failed", error
+  end
+
+  test "import_provider_prices stops at a rate limit instead of spending the next provider's allowance" do
+    @security.update!(price_provider: nil)
+    first = mock("first")
+    second = mock("second")
+    Security.stubs(:providers).returns([ first, second ])
+    Security::Price::Importer.expects(:new).with(has_entries(security_provider: first)).returns(stub(import_provider_prices: 0, provider_error: "Rate limit exceeded (429)"))
+    Security::Price::Importer.expects(:new).with(has_entries(security_provider: second)).never
+
+    _count, error = @security.import_provider_prices(start_date: 5.days.ago.to_date, end_date: Date.current)
+
+    assert_match(/429/, error)
+  end
 end

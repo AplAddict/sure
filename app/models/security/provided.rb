@@ -296,19 +296,46 @@ module Security::Provided
     nil
   end
 
+  # A rate limit means the provider is throttling us, not that it lacks the
+  # security. The next provider is not asked, so one throttled source does not
+  # drain another's daily allowance.
+  RATE_LIMIT_PATTERN = /\b429\b|rate.?limit|too many requests|quota|credits/i
+
   def import_provider_prices(start_date:, end_date:, clear_cache: false)
-    unless price_data_provider.present?
+    candidates = price_import_providers
+    unless candidates.any?
       Rails.logger.warn("No provider configured for Security.import_provider_prices")
       return 0
     end
 
-    importer = Security::Price::Importer.new(
-      security: self,
-      security_provider: price_data_provider,
-      start_date: start_date,
-      end_date: end_date,
-      clear_cache: clear_cache
-    )
-    [ importer.import_provider_prices, importer.provider_error ]
+    first_error = nil
+    candidates.each_with_index do |provider, index|
+      importer = Security::Price::Importer.new(
+        security: self,
+        security_provider: provider,
+        start_date: start_date,
+        end_date: end_date,
+        clear_cache: clear_cache
+      )
+      count = importer.import_provider_prices
+      error = importer.provider_error
+      return [ count, error ] if error.blank?
+
+      first_error ||= error
+      return [ count, first_error ] if count.to_i.positive? || error.to_s.match?(RATE_LIMIT_PATTERN) || index == candidates.size - 1
+
+      Rails.logger.info("#{ticker}: #{provider.class.name.demodulize} failed (#{error.to_s.truncate(80)}); trying the next enabled provider")
+    end
   end
+
+  private
+    # A security pinned to a provider uses only that provider. An unpinned one
+    # tries every enabled provider in order, so a single provider that cannot
+    # serve it (a missing exchange code, an unsupported symbol) no longer leaves
+    # it unpriced.
+    def price_import_providers
+      return [ price_data_provider ].compact if price_provider.present?
+
+      self.class.providers.presence || [ price_data_provider ].compact
+    end
 end
