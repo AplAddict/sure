@@ -484,9 +484,10 @@ class InvestmentStatementTest < ActiveSupport::TestCase
     assert_equal Money.new(0, "USD"), totals.withdrawals
     assert_equal 2, totals.trades_count
 
-    aggregate_queries = queries.grep(/SUM\(CASE WHEN trades\.investment_activity_label = 'Dividend'/)
+    aggregate_queries = queries.grep(/COALESCE\(trades\.investment_activity_label, transactions\.investment_activity_label\)/)
     assert_equal 1, aggregate_queries.size
-    assert_includes aggregate_queries.first, "FROM entries JOIN trades"
+    assert_includes aggregate_queries.first, "FROM entries"
+    assert_includes aggregate_queries.first, "LEFT JOIN trades"
     assert_includes aggregate_queries.first, "entries.entryable_type = 'Trade'"
     assert_includes aggregate_queries.first, "entries.account_id IN"
     assert_includes aggregate_queries.first, "entries.excluded = false"
@@ -505,6 +506,18 @@ class InvestmentStatementTest < ActiveSupport::TestCase
       account.entries.create!(name: label, amount: -amount, date: period.start_date, currency: "USD",
         entryable: Trade.new(security: security, qty: 0, price: 0, currency: "USD", investment_activity_label: label))
     end
+
+    totals = InvestmentStatement.new(@family).totals(period: period)
+
+    assert_equal Money.new(30, "USD"), totals.dividends
+    assert_equal Money.new(5, "USD"), totals.interest
+  end
+
+  test "totals aggregate explicitly labeled dividend and interest transactions" do
+    period = Period.custom(start_date: Date.current.beginning_of_month, end_date: Date.current.end_of_month)
+    account = create_investment_account(balance: 500)
+    account.entries.create!(name: "Dividend", amount: -30, date: period.start_date, currency: "USD", entryable: Transaction.new(investment_activity_label: "Dividend"))
+    account.entries.create!(name: "Interest", amount: -5, date: period.start_date, currency: "USD", entryable: Transaction.new(investment_activity_label: "Interest"))
 
     totals = InvestmentStatement.new(@family).totals(period: period)
 

@@ -48,11 +48,12 @@ class InvestmentStatement::Totals
     def aggregation_sql
       <<~SQL
         SELECT
-          COALESCE(SUM(CASE WHEN trades.investment_activity_label = 'Dividend' THEN ABS(entries.amount * COALESCE(er.rate, 1)) ELSE 0 END), 0) as dividends,
-          COALESCE(SUM(CASE WHEN trades.investment_activity_label = 'Interest' THEN ABS(entries.amount * COALESCE(er.rate, 1)) ELSE 0 END), 0) as interest,
+          COALESCE(SUM(CASE WHEN COALESCE(trades.investment_activity_label, transactions.investment_activity_label) = 'Dividend' THEN ABS(entries.amount * COALESCE(er.rate, 1)) ELSE 0 END), 0) as dividends,
+          COALESCE(SUM(CASE WHEN COALESCE(trades.investment_activity_label, transactions.investment_activity_label) = 'Interest' THEN ABS(entries.amount * COALESCE(er.rate, 1)) ELSE 0 END), 0) as interest,
           COUNT(trades.id) as trades_count
         FROM entries
-        JOIN trades ON trades.id = entries.entryable_id AND entries.entryable_type = 'Trade'
+        LEFT JOIN trades ON trades.id = entries.entryable_id AND entries.entryable_type = 'Trade'
+        LEFT JOIN transactions ON transactions.id = entries.entryable_id AND entries.entryable_type = 'Transaction'
         LEFT JOIN exchange_rates er ON (
           er.date = entries.date AND
           er.from_currency = entries.currency AND
