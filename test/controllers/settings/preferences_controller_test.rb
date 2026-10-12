@@ -98,6 +98,17 @@ class Settings::PreferencesControllerTest < ActionDispatch::IntegrationTest
     assert_not users(:family_member).ai_watchlist_auto_add_enabled?
   end
 
+  test "the balances section reads its copy from the locale file" do
+    get settings_preferences_url
+
+    assert_response :success
+    assert_select "h2", text: I18n.t("settings.preferences.show.balances_title"), count: 1
+    assert_select "label[for=family_include_pending_transactions_in_balances]" do
+      assert_select "p", text: I18n.t("settings.preferences.show.pending_balances.title"), count: 1
+      assert_select "p", text: I18n.t("settings.preferences.show.pending_balances.description"), count: 1
+    end
+  end
+
   test "admin can toggle the family pending-balance master switch" do
     family = users(:family_admin).family
     assert_not family.include_pending_transactions_in_balances?

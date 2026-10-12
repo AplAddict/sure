@@ -198,6 +198,10 @@ en:
         page_title: Preferences
         timezone: Timezone
         translations_notice: Please note, we are still working on translations for various languages.
+        balances_title: Balances
+        pending_balances:
+          title: Include pending transactions in selected account balances
+          description: Master switch. When enabled, only accounts you explicitly select add pending activity to their displayed balance and current total. Provider-reported balances, history, and reports stay unchanged.
         budget_title: Budget
         budget_subtitle: Configure how your budgets behave
         month_start_day: Budget month starts on

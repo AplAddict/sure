@@ -31,13 +31,13 @@
     <% end %>
   </div>
 <% end %>
-<%= settings_section title: "Balances" do %>
+<%= settings_section title: t(".balances_title") do %>
   <%= form_with url: settings_preferences_path, method: :patch,
         data: { controller: "auto-submit-form" } do |f| %>
     <label for="family_include_pending_transactions_in_balances" class="flex cursor-pointer items-center gap-4 justify-between">
       <div class="text-sm space-y-1">
-        <p class="text-primary font-medium">Include pending transactions in selected account balances</p>
-        <p class="text-secondary">Master switch. When enabled, only accounts you explicitly select add pending activity to their displayed balance and current total. Provider-reported balances, history, and reports stay unchanged.</p>
+        <p class="text-primary font-medium"><%= t(".pending_balances.title") %></p>
+        <p class="text-secondary"><%= t(".pending_balances.description") %></p>
       </div>
       <%= render DS::Toggle.new(
             id: "family_include_pending_transactions_in_balances",
