@@ -201,15 +201,18 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_select "[aria-current='true']", text: I18n.t("investment_decision_center.switch.decision")
   end
 
-  test "the decision center links to the options review and research watchlist" do
+  test "every investment page is reachable from the shared sub-navigation" do
     sign_in @owner
     get root_path(view: "decision")
 
     assert_response :success
-    assert_select "a[href=?]", options_review_path
-    assert_select "a[href=?]", investment_income_path
-    assert_select "a[href=?]", tax_lot_review_path
-    assert_select "a[href=?]", research_watchlist_entries_path
+    assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label") do
+      [ portfolio_holdings_path, investment_income_path, tax_lot_review_path, tax_loss_harvest_path,
+        options_review_path, market_events_path, research_watchlist_entries_path ].each do |path|
+        assert_select "a[href=?]", path
+      end
+      assert_select "a[aria-current=page]", text: I18n.t("investments.subnav.decision")
+    end
   end
 
   test "revoking a shared account takes its positions out of the member's cached actions at once" do

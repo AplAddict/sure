@@ -29,6 +29,7 @@
 
 <% content_for :page_header do %>
   <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <%= render "investments/subnav", current: :holdings %>
     <div class="space-y-1">
       <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t("portfolio_holdings.title") %></h1>
       <p class="text-sm text-secondary max-w-3xl"><%= t("portfolio_holdings.subtitle") %></p>

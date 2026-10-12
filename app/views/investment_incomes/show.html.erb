@@ -11,6 +11,7 @@
 
 <% content_for :page_header do %>
   <div class="mb-6 space-y-1">
+    <%= render "investments/subnav", current: :income %>
     <h1 class="text-xl lg:text-3xl font-medium text-primary">Income &amp; Performance</h1>
     <p class="max-w-3xl text-sm text-secondary">Income and cash flows are summed separately from explicitly labeled ledger entries for <%= @period.label.downcase %> (<%= l(@period.start_date) %> – <%= l(@period.end_date) %>). Buys and sells are not treated as cash flows.</p>
     <nav class="flex flex-wrap gap-2 pt-2" aria-label="Period">

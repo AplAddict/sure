@@ -4,6 +4,7 @@
 <% unmeasured = realized[:unknown] %>
 
 <div class="space-y-5 pb-8">
+  <%= render "investments/subnav", current: :harvest %>
   <div class="flex flex-wrap items-start justify-between gap-3">
     <div>
       <p class="text-xs font-medium uppercase tracking-wide text-secondary"><%= t(".eyebrow") %></p>

@@ -2,6 +2,7 @@
 
 <% content_for :page_header do %>
   <div class="mb-6 space-y-1">
+    <%= render "investments/subnav", current: :options %>
     <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t(".title") %></h1>
     <p class="max-w-3xl text-sm text-secondary"><%= t(".subtitle") %></p>
   </div>

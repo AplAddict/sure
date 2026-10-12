@@ -3,6 +3,7 @@
 <% field_class = "w-full rounded-lg border border-tertiary bg-container px-3 py-2 text-sm text-primary" %>
 <% content_for :page_header do %>
   <div class="mb-6">
+    <%= render "investments/subnav", current: :watchlist %>
     <h1 class="text-xl lg:text-3xl font-medium text-primary">Research Watchlist</h1>
     <p class="mt-1 max-w-3xl text-sm text-secondary">Your private thesis queue. Research context only; it does not change holdings, valuations, or trade authority.</p>
   </div>

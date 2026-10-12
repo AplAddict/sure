@@ -18,6 +18,7 @@
 <% end %>
 
 <div class="space-y-5 pb-6 lg:pb-12">
+  <%= render "investments/subnav", current: :decision %>
   <section class="rounded-xl bg-container shadow-border-xs p-4 space-y-4" aria-labelledby="idc-pulse">
     <% if pulse.nil? %>
       <h2 id="idc-pulse" class="text-base font-medium text-primary"><%= t("investment_decision_center.pulse.heading") %></h2>
@@ -175,13 +176,6 @@
   <section aria-labelledby="idc-links">
     <h2 id="idc-links" class="sr-only"><%= t("investment_decision_center.links.heading") %></h2>
     <div class="flex flex-wrap gap-2">
-      <%= render DS::Link.new(text: t("investment_decision_center.links.harvest"), href: tax_loss_harvest_path, variant: "outline", size: "sm") %>
-      <%= render DS::Link.new(text: t("investment_decision_center.links.events"), href: market_events_path, variant: "outline", size: "sm") %>
-      <%= render DS::Link.new(text: t("investment_decision_center.links.holdings"), href: portfolio_holdings_path, variant: "outline", size: "sm") %>
-      <%= render DS::Link.new(text: t("investment_decision_center.links.tax_lots"), href: tax_lot_review_path, variant: "outline", size: "sm") %>
-      <%= render DS::Link.new(text: t("investment_decision_center.links.income"), href: investment_income_path, variant: "outline", size: "sm") %>
-      <%= render DS::Link.new(text: t("investment_decision_center.links.options"), href: options_review_path, variant: "outline", size: "sm") %>
-      <%= render DS::Link.new(text: t("investment_decision_center.links.watchlist"), href: research_watchlist_entries_path, variant: "outline", size: "sm") %>
       <%= render DS::Link.new(text: t("investment_decision_center.links.research"), href: research_search_path, variant: "outline", size: "sm") %>
       <%= render DS::Link.new(text: t("investment_decision_center.links.reports"), href: reports_path, variant: "outline", size: "sm") %>
       <% if preview_features_enabled? %>

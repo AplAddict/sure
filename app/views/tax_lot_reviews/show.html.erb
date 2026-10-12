@@ -9,6 +9,7 @@
 
 <% content_for :page_header do %>
   <div class="mb-6 space-y-1">
+    <%= render "investments/subnav", current: :tax_lots %>
     <h1 class="text-xl lg:text-3xl font-medium text-primary">Tax-Aware Lot Review</h1>
     <p class="max-w-3xl text-sm text-secondary">Unrealized gains and losses by broker tax lot in taxable accounts, split by holding period (long-term means held more than one year, by calendar anniversary). This is dates and arithmetic only: no tax rates, no tax owed, no advice. Gains and losses are not netted against each other.</p>
   </div>

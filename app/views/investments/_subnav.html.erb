@@ -1,0 +1,18 @@
+<%# locals: (current:) %>
+<%# One navigation strip shared by every investment page, so none of them is reachable only from the Decision Center. %>
+<nav aria-label="<%= t("investments.subnav.label") %>" class="mb-4 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+  <% [
+       [ :decision, t("investments.subnav.decision"), root_path(view: "decision") ],
+       [ :holdings, t("investments.subnav.holdings"), portfolio_holdings_path ],
+       [ :income, t("investments.subnav.income"), investment_income_path ],
+       [ :tax_lots, t("investments.subnav.tax_lots"), tax_lot_review_path ],
+       [ :harvest, t("investments.subnav.harvest"), tax_loss_harvest_path ],
+       [ :options, t("investments.subnav.options"), options_review_path ],
+       [ :events, t("investments.subnav.events"), market_events_path ],
+       [ :watchlist, t("investments.subnav.watchlist"), research_watchlist_entries_path ]
+     ].each do |key, label, path| %>
+    <%= link_to label, path,
+          class: "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium focus-ring #{current == key ? "bg-container-inset text-primary" : "text-secondary hover:text-primary hover:bg-container-inset-hover"}",
+          aria: { current: (current == key ? "page" : nil) } %>
+  <% end %>
+</nav>
