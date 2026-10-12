@@ -19,6 +19,34 @@ class BudgetsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  # The month arrows are icon-only, so assistive technology needs a name for
+  # each; the end of the range stays a disabled, still-named control instead of
+  # an unlabelled decorative chevron.
+  test "show names the month arrows and keeps a disabled, named control at the end of the range" do
+    get budget_url(Budget.date_to_param(Date.current))
+
+    assert_response :success
+    assert_select "a[aria-label=?]", I18n.t("budgets.budget_header.previous_month"), count: 1
+    assert_select "a[aria-label=?], button[disabled][aria-label=?]",
+                  I18n.t("budgets.budget_header.next_month"), I18n.t("budgets.budget_header.next_month"), count: 1
+
+    get budget_url(Budget.date_to_param(Budget.send(:oldest_valid_budget_date, @user.family)))
+
+    assert_response :success
+    assert_select "button[disabled][aria-label=?]", I18n.t("budgets.budget_header.previous_month"), count: 1
+  end
+
+  test "edit renders localized wizard steps and marks the current one" do
+    budget = Budget.date_to_param(Date.current)
+
+    get edit_budget_url(budget)
+
+    assert_response :success
+    assert_select "a[aria-current=step]", text: /#{Regexp.escape(I18n.t("budgets.budget_nav.setup"))}/, count: 1
+    assert_select "a[href=?]", budget_budget_categories_path(budget), text: /#{Regexp.escape(I18n.t("budgets.budget_nav.categories"))}/, count: 1
+    assert_select "a[aria-current=step][href=?]", budget_budget_categories_path(budget), count: 0
+  end
+
   test "show reconciles parent overage without marking shared children over budget" do
     budget = budgets(:one)
     parent_category = Category.create!(
