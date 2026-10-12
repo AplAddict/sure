@@ -208,6 +208,33 @@ class Holding::ForwardCalculatorTest < ActiveSupport::TestCase
     assert_equal BigDecimal("480"), current.cost_basis
   end
 
+  test "converts a foreign-currency trade at the trade-date rate" do
+    sap = Security.create!(ticker: "SAP", name: "SAP SE")
+    Security::Price.create!(security: sap, date: 3.days.ago.to_date, price: 100)
+    Security::Price.create!(security: sap, date: Date.current, price: 100)
+    ExchangeRate.create!(from_currency: "EUR", to_currency: "USD", date: 3.days.ago.to_date, rate: 1.1)
+    ExchangeRate.create!(from_currency: "EUR", to_currency: "USD", date: Date.current, rate: 1.5)
+
+    create_trade(sap, qty: 10, date: 3.days.ago.to_date, price: 100, currency: "EUR", account: @account)
+
+    current = Holding::ForwardCalculator.new(@account).calculate
+      .find { |holding| holding.security_id == sap.id && holding.date == Date.current }
+
+    assert_equal BigDecimal("110"), current.cost_basis
+  end
+
+  test "a foreign purchase with no rate leaves calculated basis unknown" do
+    load_prices
+    ExchangeRate.stubs(:find_or_fetch_rate).returns(nil)
+
+    create_trade(@voo, qty: 10, date: 1.day.ago.to_date, price: 100, currency: "EUR", account: @account)
+
+    current = Holding::ForwardCalculator.new(@account).calculate
+      .find { |holding| holding.security_id == @voo.id && holding.date == Date.current }
+
+    assert_nil current.cost_basis
+  end
+
   test "offline tickers sync holdings based on most recent trade price" do
     offline_security = Security.create!(ticker: "OFFLINE", name: "Offline Ticker")
 

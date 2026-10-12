@@ -54,6 +54,33 @@ class Security::ResolverTest < ActiveSupport::TestCase
     end
   end
 
+  test "rejects a close provider result matching neither requested ticker nor exchange" do
+    unrelated = Security.new(ticker: "AGG", exchange_operating_mic: nil, country_code: nil)
+    Security.expects(:search_provider).returns([ unrelated ])
+
+    assert_difference "Security.count", 1 do
+      resolved = Security::Resolver.new("BOND", exchange_operating_mic: "MISX").resolve
+
+      assert_equal "BOND", resolved.ticker
+      assert_equal "MISX", resolved.exchange_operating_mic
+      assert resolved.offline
+    end
+
+    assert_nil Security.find_by(ticker: "AGG")
+  end
+
+  test "offline fallback does not demote an existing shared security" do
+    shared = Security.create!(ticker: "SAFE", exchange_operating_mic: "XNAS", country_code: "US", offline: false)
+    unrelated = Security.new(ticker: "OTHER", exchange_operating_mic: "XLON", country_code: "GB")
+    Security.expects(:search_provider).returns([ unrelated ])
+
+    resolved = Security::Resolver.new("SAFE", exchange_operating_mic: "XNAS", country_code: "GB").resolve
+
+    assert_equal shared, resolved
+    assert_not shared.reload.offline?
+    assert_equal "US", shared.country_code
+  end
+
   test "resolves offline security" do
     Security.expects(:search_provider).returns([])
 

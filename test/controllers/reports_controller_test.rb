@@ -485,6 +485,23 @@ class ReportsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match /Export Retirement Income/, @response.body
   end
 
+  test "export transactions escapes spreadsheet formulas in category names" do
+    category = @family.categories.create!(name: "=HYPERLINK(\"https://example.test\")", color: "#111111")
+    create_transaction(account: accounts(:depository), name: "Formula category", amount: 25, category: category)
+
+    get export_transactions_reports_path(
+      format: :csv,
+      period_type: :monthly,
+      start_date: Date.current.beginning_of_month,
+      end_date: Date.current.end_of_month
+    )
+
+    assert_response :ok
+    category_cells = CSV.parse(response.body).filter_map { |row| row.first }
+    assert_includes category_cells, "'=HYPERLINK(\"https://example.test\")"
+    assert_not_includes category_cells, "=HYPERLINK(\"https://example.test\")"
+  end
+
   test "export transactions swaps dates when end_date is before start_date" do
     start_date = Date.current
     end_date = 1.month.ago.to_date
@@ -740,6 +757,36 @@ class ReportsControllerTest < ActionDispatch::IntegrationTest
     # as one both inflates the number of sales and books a gain nobody made.
     assert_match I18n.t("reports.investment_performance.sells_count", count: 1), response.body
     assert_no_match(/#{Regexp.escape(I18n.t("reports.investment_performance.sells_count", count: 2))}/, response.body)
+  end
+
+  test "investment gains exclude another member's unshared trades" do
+    member = users(:family_member)
+    @family.accounts.create!(
+      name: "Member brokerage",
+      owner: member,
+      balance: 100,
+      cash_balance: 100,
+      currency: "USD",
+      accountable: Investment.new
+    )
+    private_security = Security.create!(ticker: "PRIVATE#{SecureRandom.hex(3)}", name: "Private holding")
+    private_account = accounts(:investment)
+    private_account.holdings.create!(
+      security: private_security,
+      date: Date.current,
+      qty: 2,
+      price: 100,
+      amount: 200,
+      currency: "USD",
+      cost_basis: 50
+    )
+    create_trade(private_security, account: private_account, qty: -1, date: Date.current, price: 100)
+    sign_in member
+
+    get reports_path(period_type: :custom, start_date: 1.day.ago.to_date, end_date: Date.current)
+
+    assert_response :success
+    assert_no_match private_security.ticker, response.body
   end
 
   private

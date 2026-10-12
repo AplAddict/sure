@@ -97,7 +97,7 @@ class RuleImport < Import
     end
 
     def normalized_rule_text(value, attribute:)
-      text = value.to_s
+      text = SpreadsheetSafe.decode(value.to_s)
       reject_invalid_text!(text, label: Rule.human_attribute_name(attribute))
 
       text.strip

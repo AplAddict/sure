@@ -68,11 +68,11 @@ class Family::DataExporter
         @family.accounts.includes(:accountable).find_each do |account|
           csv << [
             account.id,
-            account.name,
-            account.accountable_type,
-            account.subtype,
+            spreadsheet_safe(account.name),
+            spreadsheet_safe(account.accountable_type),
+            spreadsheet_safe(account.subtype),
             account.balance.to_s,
-            account.currency,
+            spreadsheet_safe(account.currency),
             account.created_at.iso8601
           ]
         end
@@ -90,16 +90,20 @@ class Family::DataExporter
           .find_each do |transaction|
             csv << [
               transaction.entry.date&.iso8601,
-              transaction.entry.account.name,
+              spreadsheet_safe(transaction.entry.account.name),
               transaction.entry.amount.to_s,
-              transaction.entry.name,
-              transaction.category&.name,
-              transaction.tags.map { |tag| escape_legacy_tag_name(tag.name) }.join(","),
-              transaction.entry.notes,
-              transaction.entry.currency
+              spreadsheet_safe(transaction.entry.name),
+              spreadsheet_safe(transaction.category&.name),
+              spreadsheet_safe(transaction.tags.map { |tag| escape_legacy_tag_name(tag.name) }.join(",")),
+              spreadsheet_safe(transaction.entry.notes),
+              spreadsheet_safe(transaction.entry.currency)
             ]
           end
       end
+    end
+
+    def spreadsheet_safe(value)
+      SpreadsheetSafe.encode(value)
     end
 
     def escape_legacy_tag_name(name)
@@ -116,12 +120,12 @@ class Family::DataExporter
           .find_each do |trade|
             csv << [
               trade.entry.date&.iso8601,
-              trade.entry.account.name,
-              trade.security.ticker,
+              spreadsheet_safe(trade.entry.account.name),
+              spreadsheet_safe(trade.security.ticker),
               trade.qty.to_s,
               trade.price.to_s,
               trade.entry.amount.to_s,
-              trade.currency
+              spreadsheet_safe(trade.currency)
             ]
           end
       end
@@ -134,10 +138,10 @@ class Family::DataExporter
         # Only export categories belonging to this family
         @family.categories.includes(:parent).find_each do |category|
           csv << [
-            category.name,
-            category.color,
-            category.parent&.name,
-            category.lucide_icon
+            spreadsheet_safe(category.name),
+            spreadsheet_safe(category.color),
+            spreadsheet_safe(category.parent&.name),
+            spreadsheet_safe(category.lucide_icon)
           ]
         end
       end
@@ -151,9 +155,9 @@ class Family::DataExporter
         # Only export family merchants belonging to this family
         @family.merchants.find_each do |merchant|
           csv << [
-            merchant.name,
-            merchant.color,
-            merchant.website_url
+            spreadsheet_safe(merchant.name),
+            spreadsheet_safe(merchant.color),
+            spreadsheet_safe(merchant.website_url)
           ]
         end
       end
@@ -166,12 +170,12 @@ class Family::DataExporter
         # Only export rules belonging to this family
         @family.rules.includes(conditions: :sub_conditions, actions: []).find_each do |rule|
           csv << [
-            rule.name,
-            rule.resource_type,
+            spreadsheet_safe(rule.name),
+            spreadsheet_safe(rule.resource_type),
             rule.active,
             rule.effective_date&.iso8601,
-            serialize_conditions_for_csv(rule.conditions),
-            serialize_actions_for_csv(rule.actions)
+            spreadsheet_safe(serialize_conditions_for_csv(rule.conditions)),
+            spreadsheet_safe(serialize_actions_for_csv(rule.actions))
           ]
         end
       end

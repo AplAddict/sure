@@ -138,7 +138,10 @@ class CategoriesController < ApplicationController
 
     def set_transaction
       if params[:transaction_id].present?
-        @transaction = Current.family.transactions.find(params[:transaction_id])
+        @transaction = Current.family.transactions
+          .joins(entry: :account)
+          .merge(Account.annotatable_by(Current.user))
+          .find(params[:transaction_id])
       end
     end
 

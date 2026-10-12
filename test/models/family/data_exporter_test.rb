@@ -250,6 +250,52 @@ class Family::DataExporterTest < ActiveSupport::TestCase
     end
   end
 
+  test "spreadsheet-escapes textual CSV cells and strips the guard when re-imported" do
+    @account.update!(name: "=Formula account")
+    formula_category = @family.categories.create!(name: "+Formula category", color: "#123456")
+    entry = @account.entries.create!(
+      name: "@Formula transaction",
+      amount: 12.34,
+      currency: "USD",
+      date: Date.parse("2024-05-15"),
+      notes: "-Formula notes",
+      entryable: Transaction.new(category: formula_category)
+    )
+
+    zip_data = @exporter.generate_export
+
+    Zip::File.open_buffer(zip_data) do |zip|
+      row = CSV.parse(zip.read("transactions.csv"), headers: true).find { |csv_row| csv_row["amount"] == "12.34" }
+
+      assert_equal "'=Formula account", row["account_name"]
+      assert_equal "'@Formula transaction", row["name"]
+      assert_equal "'+Formula category", row["category"]
+      assert_equal "'-Formula notes", row["notes"]
+      assert_equal "12.34", row["amount"], "numeric text must remain importable"
+
+      import = @other_family.imports.create!(
+        type: "TransactionImport",
+        raw_file_str: zip.read("transactions.csv"),
+        date_col_label: "date*",
+        amount_col_label: "amount*",
+        name_col_label: "name",
+        currency_col_label: "currency",
+        category_col_label: "category",
+        account_col_label: "account",
+        notes_col_label: "notes",
+        date_format: "%Y-%m-%d",
+        signage_convention: "inflows_negative"
+      )
+      import.generate_rows_from_csv
+      imported_row = import.rows.find_by!(amount: "12.34")
+
+      assert_equal "=Formula account", imported_row.account
+      assert_equal "@Formula transaction", imported_row.name
+      assert_equal "+Formula category", imported_row.category
+      assert_equal "-Formula notes", imported_row.notes
+    end
+  end
+
   test "exports transaction CSV rows with restored legacy ISO date stored amount account name and comma tags" do
     tag2 = @family.tags.create!(name: "Food, Dining|Cafe", color: "#0000FF")
     entry = @account.entries.create!(

@@ -22,7 +22,8 @@
                 <div class="flex flex-col">
                   <span class="text-sm text-primary font-medium"><%= eba.name.presence || eba.account_id %></span>
                   <span class="text-xs text-secondary">
-                    <%= eba.currency %> • <%= t(".balance") %>: <%= number_to_currency((eba.current_balance || 0), unit: eba.currency) %>
+                    <% balance = eba.current_balance %>
+                    <%= eba.currency %> • <%= t(".balance") %>: <%= balance.nil? ? t(".unavailable") : number_to_currency(balance, unit: eba.currency) %>
                   </span>
                 </div>
               </label>

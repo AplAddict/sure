@@ -42,6 +42,7 @@ class Security::Resolver
         ticker: symbol,
         exchange_operating_mic: exchange_operating_mic
       )
+      return security if security.persisted?
 
       security.assign_attributes(
         country_code: country_code,
@@ -79,15 +80,12 @@ class Security::Resolver
       # Without an exchange, we can never know if we have an exact match
       return nil unless exchange_operating_mic.present?
 
-      match = provider_search_result.find do |s|
-        ticker_matches = s.ticker&.upcase.to_s == symbol.upcase.to_s
-        exchange_matches = exchange_operating_mics_equivalent?(
-          s.exchange_operating_mic,
-          exchange_operating_mic
-        )
+      match = provider_search_result.find do |candidate|
+        ticker_matches = ticker_matches?(candidate)
+        exchange_matches = exchange_matches?(candidate)
 
         if country_code && exchange_operating_mic
-          ticker_matches && exchange_matches && country_matches?(s.country_code)
+          ticker_matches && exchange_matches && country_matches?(candidate.country_code)
         else
           ticker_matches && exchange_matches
         end
@@ -114,8 +112,8 @@ class Security::Resolver
       # 4. Rank by exchange_operating_mic relevance (lower index in the list is more relevant)
       sorted_candidates = filtered_candidates.sort_by do |s|
         [
-          s.ticker&.upcase.to_s == symbol.upcase.to_s ? 0 : 1,
-          exchange_operating_mic.present? && exchange_operating_mics_equivalent?(s.exchange_operating_mic, exchange_operating_mic) ? 0 : 1,
+          ticker_matches?(s) ? 0 : 1,
+          exchange_matches?(s) ? 0 : 1,
           sorted_country_codes_by_relevance.index(s.country_code&.upcase.to_s) || sorted_country_codes_by_relevance.length,
           sorted_exchange_operating_mics_by_relevance.index(Security.canonical_exchange_operating_mic(s.exchange_operating_mic)) || sorted_exchange_operating_mics_by_relevance.length
         ]
@@ -124,6 +122,7 @@ class Security::Resolver
       match = sorted_candidates.first
 
       return nil unless match
+      return nil if exchange_operating_mic.present? && !ticker_matches?(match) && !exchange_matches?(match)
 
       find_or_create_provider_match!(match)
     end
@@ -171,6 +170,14 @@ class Security::Resolver
     def country_matches?(candidate_country)
       return true if candidate_country.blank?
       candidate_country.upcase == country_code.upcase
+    end
+
+    def ticker_matches?(candidate)
+      candidate.ticker&.upcase.to_s == symbol
+    end
+
+    def exchange_matches?(candidate)
+      exchange_operating_mics_equivalent?(candidate.exchange_operating_mic, exchange_operating_mic)
     end
 
     def exchange_operating_mics_equivalent?(left, right)

@@ -318,6 +318,33 @@ class SimplefinItemsControllerTest < ActionDispatch::IntegrationTest
     assert_not @simplefin_item.scheduled_for_deletion?
   end
 
+  test "select_existing_account distinguishes missing and zero balances" do
+    account = accounts(:depository)
+    missing_balance = @simplefin_item.simplefin_accounts.create!(
+      name: "Missing balance",
+      account_id: "sf_missing_balance",
+      currency: "USD",
+      current_balance: 0,
+      available_balance: nil,
+      account_type: "depository"
+    )
+    missing_balance.update_columns(current_balance: nil, available_balance: nil)
+    @simplefin_item.simplefin_accounts.create!(
+      name: "Zero balance",
+      account_id: "sf_zero_balance",
+      currency: "USD",
+      current_balance: 0,
+      available_balance: nil,
+      account_type: "depository"
+    )
+
+    get select_existing_account_simplefin_items_url(account_id: account.id)
+
+    assert_response :success
+    assert_match(/Missing balance.*Unavailable/m, @response.body)
+    assert_match(/Zero balance.*USD0\.00/m, @response.body)
+  end
+
   test "select_existing_account renders empty-state modal when no simplefin accounts exist" do
     account = accounts(:depository)
 
