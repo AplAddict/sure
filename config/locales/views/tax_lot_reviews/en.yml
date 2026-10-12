@@ -1,0 +1,44 @@
+---
+en:
+  tax_lot_reviews:
+    show:
+      title: Tax-Aware Lot Review
+      subtitle: Unrealized gains and losses by broker tax lot in taxable accounts, split by holding period (long-term means held more than one year, by calendar anniversary). This is dates and arithmetic only — no tax rates, no tax owed, no advice. Gains and losses are not netted against each other.
+      excluded:
+        one: 1 tax-advantaged account left out, because gains there are not taxed when realized.
+        other: "%{count} tax-advantaged accounts left out, because gains there are not taxed when realized."
+      no_lots:
+        one: 1 open position in taxable accounts has no broker lot data that matches the held quantity, so it is not included in any figure below.
+        other: "%{count} open positions in taxable accounts have no broker lot data that matches the held quantity, so they are not included in any figure below."
+      unmeasured:
+        one: 1 lot could not be measured (the broker did not supply an acquisition date, cost basis or value, or the lot is in another currency) and is not included in any figure below.
+        other: "%{count} lots could not be measured (the broker did not supply an acquisition date, cost basis or value, or the lot is in another currency) and are not included in any figure below."
+      empty_title: No measurable tax lots
+      empty_description: No taxable account you can access has broker lots with a date, cost basis and value.
+      totals_heading: Unrealized by holding period
+      short_gains: Short-term gains
+      short_losses: Short-term losses
+      long_gains: Long-term gains
+      long_losses: Long-term losses
+      soon_heading: Turning long-term within %{days} days
+      soon_empty: No short-term lots reach the long-term threshold in this window.
+      soon_caption: Short-term lots about to become long-term
+      lots_heading: All measured lots
+      lots_caption: Every measured broker tax lot
+      days:
+        one: 1 day
+        other: "%{count} days"
+      term:
+        short: Short-term
+        long: Long-term
+      columns:
+        ticker: Ticker
+        account: Account
+        acquired: Acquired
+        long_term_in: Long-term in
+        unrealized: Unrealized
+        term: Term
+        quantity: Quantity
+        cost_basis: Cost basis
+        value: Value
+        gain: Gain / loss

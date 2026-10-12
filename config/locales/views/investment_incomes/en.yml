@@ -1,0 +1,34 @@
+---
+en:
+  investment_incomes:
+    show:
+      title: Income & Performance
+      subtitle: "Income and cash flows are summed separately from explicitly labeled ledger entries for %{period} (%{from} – %{to}). Buys and sells are not treated as cash flows."
+      period_label: Period
+      empty_title: No investment accounts
+      empty_description: No investment accounts you can access are included in reports.
+      missing_fx:
+        one: "1 entry is in another currency with no exchange rate on its date, so the affected totals are shown as Unavailable instead of a partial sum."
+        other: "%{count} entries are in another currency with no exchange rate on their date, so the affected totals are shown as Unavailable instead of a partial sum."
+      income: Income
+      dividends: Dividends
+      interest: Interest
+      total_income: Total labeled income
+      premium_net: Net option premium
+      premium_collected: Collected (sold to open)
+      premium_paid: Paid (bought to open)
+      premium_closing: Closing (net)
+      premium_closing_hint: Sold to close less bought to close.
+      premium_note:
+        one: Cash premium from 1 broker-tagged option trade, net of fees. Not realized profit while positions remain open.
+        other: Cash premium from %{count} broker-tagged option trades, net of fees. Not realized profit while positions remain open.
+      premium_unconverted:
+        one: 1 option trade could not be converted or lacks a currency, so no net is shown.
+        other: "%{count} option trades could not be converted or lack a currency, so no net is shown."
+      cash_flows: Cash flows
+      contributions: Contributions
+      withdrawals: Withdrawals
+      net_contributions: Net contributions
+      performance: Performance
+      market_return: Period market return
+      market_return_hint: Market movement only; excludes contributions and withdrawals. Unavailable without balance data in the period.
