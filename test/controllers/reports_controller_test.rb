@@ -742,6 +742,36 @@ class ReportsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/#{Regexp.escape(I18n.t("reports.investment_performance.sells_count", count: 2))}/, response.body)
   end
 
+  test "investment gains exclude another member's unshared trades" do
+    member = users(:family_member)
+    @family.accounts.create!(
+      name: "Member brokerage",
+      owner: member,
+      balance: 100,
+      cash_balance: 100,
+      currency: "USD",
+      accountable: Investment.new
+    )
+    private_security = Security.create!(ticker: "PRIVATE#{SecureRandom.hex(3)}", name: "Private holding")
+    private_account = accounts(:investment)
+    private_account.holdings.create!(
+      security: private_security,
+      date: Date.current,
+      qty: 2,
+      price: 100,
+      amount: 200,
+      currency: "USD",
+      cost_basis: 50
+    )
+    create_trade(private_security, account: private_account, qty: -1, date: Date.current, price: 100)
+    sign_in member
+
+    get reports_path(period_type: :custom, start_date: 1.day.ago.to_date, end_date: Date.current)
+
+    assert_response :success
+    assert_no_match private_security.ticker, response.body
+  end
+
   private
     # n EUR-priced disposals in a USD account, each on its own date with its
     # own rate row, so every one needs a distinct lookup.

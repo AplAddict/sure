@@ -520,8 +520,10 @@ class ReportsController < ApplicationController
       # Eager-load security, account, and accountable to avoid N+1
       sell_trades = Current.family.trades
         .joins(entry: :account)
-        .where(entries: { date: @period.date_range })
-        .merge(Account.included_in_reports)
+        .where(entries: {
+          account_id: investment_statement.investment_accounts.select(:id),
+          date: @period.date_range
+        })
         .where("trades.qty < 0")
         # A transfer out has the same negative quantity as a sale and would be
         # counted and listed as one. Nothing was sold, so it belongs in neither.
