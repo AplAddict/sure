@@ -182,6 +182,58 @@ class InvestmentIncomeReviewTest < ActiveSupport::TestCase
     assert_nil InvestmentIncomeReview.new(user: @user, period: period).money_weighted_return
   end
 
+  test "risk metrics treat contributions and withdrawals as flows, not returns" do
+    period = Period.custom(start_date: 30.days.ago.to_date, end_date: 5.days.ago.to_date)
+    (period.start_date - 1.day).upto(period.end_date) do |date|
+      value = if date < period.start_date + 5.days then 1000
+      elsif date < period.start_date + 12.days then 1500
+      else 1300
+      end
+      balance_row(date, value)
+    end
+    add_entry("Contribution", -500, date: period.start_date + 5.days)
+    add_entry("Withdrawal", 200, date: period.start_date + 12.days)
+
+    metrics = InvestmentIncomeReview.new(user: @user, period: period).risk_metrics
+
+    assert_equal 26, metrics.data_points
+    assert_in_delta 0, metrics.volatility.to_f, 0.000001
+    assert_in_delta 0, metrics.max_drawdown.to_f, 0.000001
+  end
+
+  test "risk metrics measure annualised volatility and the deepest peak-to-trough fall" do
+    period = Period.custom(start_date: 30.days.ago.to_date, end_date: 5.days.ago.to_date)
+    (period.start_date - 1.day).upto(period.end_date) do |date|
+      value = if date < period.start_date + 10.days then 1000
+      elsif date == period.start_date + 10.days then 1100
+      else 990
+      end
+      balance_row(date, value)
+    end
+
+    metrics = InvestmentIncomeReview.new(user: @user, period: period).risk_metrics
+
+    returns = [ 0.1, -0.1 ] + [ 0.0 ] * 24
+    mean = returns.sum / returns.size
+    daily_stdev = Math.sqrt(returns.sum { |r| (r - mean)**2 } / (returns.size - 1))
+    assert_equal 26, metrics.data_points
+    assert_in_delta daily_stdev * Math.sqrt(365), metrics.volatility.to_f, 0.0001
+    assert_in_delta 0.1, metrics.max_drawdown.to_f, 0.000001
+  end
+
+  test "risk metrics are unavailable with fewer than 20 daily points, a foreign flow, or no access" do
+    period = Period.custom(start_date: 30.days.ago.to_date, end_date: 5.days.ago.to_date)
+    (period.start_date - 1.day).upto(period.start_date + 15.days) { |date| balance_row(date, 1000) }
+    assert_nil InvestmentIncomeReview.new(user: @user, period: period).risk_metrics, "too few points"
+
+    (period.start_date + 16.days).upto(period.end_date) { |date| balance_row(date, 1000) }
+    assert InvestmentIncomeReview.new(user: @user, period: period).risk_metrics
+    assert_nil InvestmentIncomeReview.new(user: users(:empty), period: period).risk_metrics, "no access"
+
+    add_entry("Contribution", -50, currency: "EUR", date: period.start_date + 3.days)
+    assert_nil InvestmentIncomeReview.new(user: @user, period: period).risk_metrics, "foreign flow"
+  end
+
   test "money-weighted return ignores accounts the user cannot access" do
     period = Period.custom(start_date: 40.days.ago.to_date, end_date: 10.days.ago.to_date)
     balance_row(period.start_date - 1.day, 1000)

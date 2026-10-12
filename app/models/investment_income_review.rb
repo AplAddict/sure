@@ -125,6 +125,29 @@ class InvestmentIncomeReview
     !money_weighted_return.nil?
   end
 
+  RiskMetrics = Data.define(:volatility, :max_drawdown, :data_points)
+
+  # Minimum number of daily changes before volatility and drawdown mean anything.
+  RISK_MIN_DATA_POINTS = 20
+
+  # Annualised volatility and maximum drawdown of the portfolio's daily value,
+  # with explicit Contribution/Withdrawal entries removed from each day's change
+  # so money moving in or out is not read as a gain or loss. Built from the
+  # recorded daily balances of every account (a day counts only when all of
+  # them have one and the previous day is present too). nil (unavailable) with
+  # fewer than RISK_MIN_DATA_POINTS daily changes, a foreign-currency account
+  # or flow, or no accounts. Calendar days are used, so the annualisation
+  # factor is sqrt(365).
+  def risk_metrics
+    return @risk_metrics if defined?(@risk_metrics)
+
+    @risk_metrics = compute_risk_metrics
+  end
+
+  def risk_metrics_available?
+    !risk_metrics.nil?
+  end
+
   MonthlyIncome = Data.define(:month, :dividends, :interest) do
     def total = dividends.nil? || interest.nil? ? nil : dividends + interest
   end
@@ -223,6 +246,64 @@ class InvestmentIncomeReview
       MoneyWeightedReturn.new(rate: rate, ambiguous: xirr.ambiguous?, start_value: start_value, end_value: end_value, flow_count: flows.size - 2)
     rescue Portfolio::Xirr::NoSignChangeError, Portfolio::Xirr::NoDurationError, Portfolio::Xirr::ConvergenceError
       nil
+    end
+
+    def compute_risk_metrics
+      return nil if accounts.none?
+      return nil if accounts.where.not(currency: currency).exists?
+
+      account_ids = accounts.pluck(:id)
+      range = period.date_range
+      last_day = [ range.end, Date.current ].min
+      first_day = range.begin - 1.day
+      return nil unless last_day > first_day
+
+      rows = Balance.where(account_id: account_ids, date: first_day..last_day)
+                    .pluck(:date, :account_id, :end_balance, :currency)
+      return nil if rows.any? { |_, _, _, cur| cur != currency }
+
+      # Portfolio value by date, only on days where every account has a row.
+      values = rows.group_by(&:first).filter_map do |date, day_rows|
+        next unless day_rows.map { |_, account_id, _, _| account_id }.uniq.size == account_ids.size
+
+        [ date, day_rows.sum(BigDecimal("0")) { |_, _, balance, _| balance.to_d } ]
+      end.to_h
+
+      flow_rows = Entry.joins("INNER JOIN transactions ON transactions.id = entries.entryable_id AND entries.entryable_type = 'Transaction'")
+                       .where(account_id: account_ids, excluded: false, date: range.begin..last_day)
+                       .where(transactions: { investment_activity_label: %w[Contribution Withdrawal] })
+                       .pluck("entries.date", "entries.amount", "entries.currency")
+      return nil if flow_rows.any? { |_, _, cur| cur != currency }
+
+      # Ledger sign: a contribution is a negative entry, so negating gives the
+      # money that entered the portfolio that day.
+      flows = flow_rows.each_with_object(Hash.new(BigDecimal("0"))) { |(date, amount, _), map| map[date] -= amount.to_d }
+
+      # A day with no capital at the start (first contribution still to land)
+      # has no measurable return, so it is left out rather than divided by zero.
+      returns = values.keys.sort.filter_map do |date|
+        previous = values[date - 1.day]
+        next if previous.nil? || previous <= 0
+
+        (values[date] - previous - flows[date]) / previous
+      end
+      return nil if returns.size < RISK_MIN_DATA_POINTS
+
+      mean = returns.sum / returns.size
+      variance = returns.sum { |r| (r - mean)**2 } / (returns.size - 1)
+      volatility = BigDecimal(Math.sqrt(variance.to_f).to_s) * BigDecimal(Math.sqrt(365).to_s)
+
+      peak = BigDecimal("1")
+      index = BigDecimal("1")
+      max_drawdown = BigDecimal("0")
+      returns.each do |r|
+        index *= (1 + r)
+        peak = index if index > peak
+        drawdown = (peak - index) / peak
+        max_drawdown = drawdown if drawdown > max_drawdown
+      end
+
+      RiskMetrics.new(volatility: volatility, max_drawdown: max_drawdown, data_points: returns.size)
     end
 
     # How stale a recorded balance may be and still stand for a date. Beyond it

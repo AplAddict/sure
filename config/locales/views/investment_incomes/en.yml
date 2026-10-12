@@ -36,6 +36,15 @@ en:
       money_weighted_hint: "Return on the money actually invested, weighted by when contributions and withdrawals happened (XIRR). Measured over this period, not annualised."
       money_weighted_ambiguous: "More than one rate fits these cash flows, so treat this figure as approximate."
       money_weighted_unavailable: "Unavailable without an opening and closing balance for every account and complete, same-currency cash flows."
+      volatility: Volatility (annualised)
+      volatility_hint:
+        one: "Spread of the portfolio's daily changes, with contributions and withdrawals removed, from 1 day of recorded balances in this period."
+        other: "Spread of the portfolio's daily changes, with contributions and withdrawals removed, from %{count} days of recorded balances in this period."
+      max_drawdown: Max drawdown
+      max_drawdown_hint:
+        one: "Largest fall from a peak in the portfolio's flow-adjusted value, from 1 day of recorded balances in this period."
+        other: "Largest fall from a peak in the portfolio's flow-adjusted value, from %{count} days of recorded balances in this period."
+      risk_unavailable: "Unavailable without at least 20 consecutive days of recorded balances for every account and same-currency cash flows."
       monthly_income: Income by month
       month: Month
       month_unavailable: Unavailable

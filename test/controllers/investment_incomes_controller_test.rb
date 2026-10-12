@@ -25,6 +25,16 @@ class InvestmentIncomesControllerTest < ActionDispatch::IntegrationTest
     assert_match "Collected (sold to open)", response.body
   end
 
+  test "shows volatility and max drawdown as unavailable without enough daily balances" do
+    sign_in @owner
+    get investment_income_path
+
+    assert_response :success
+    assert_match I18n.t("investment_incomes.show.volatility"), response.body
+    assert_match I18n.t("investment_incomes.show.max_drawdown"), response.body
+    assert_select "span[title=?]", I18n.t("investment_incomes.show.risk_unavailable"), count: 2
+  end
+
   test "a member without access sees none of the owner's income" do
     sign_in users(:empty)
     get investment_income_path
