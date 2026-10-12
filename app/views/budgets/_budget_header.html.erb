@@ -7,11 +7,12 @@
         variant: "icon",
         icon: "chevron-left",
         href: budget_path(budget.previous_budget_param, **budget_owner_query),
+        aria: { label: t(".previous_month") },
       ) %>
     <% else %>
-      <span class="text-subdued">
+      <button type="button" disabled aria-label="<%= t(".previous_month") %>" class="text-subdued inline-flex items-center justify-center w-9 h-9 rounded-lg cursor-not-allowed">
         <%= icon "chevron-left", color: "current" %>
-      </span>
+      </button>
     <% end %>
 
     <% if budget.next_budget_param %>
@@ -19,11 +20,12 @@
         variant: "icon",
         icon: "chevron-right",
         href: budget_path(budget.next_budget_param, **budget_owner_query),
+        aria: { label: t(".next_month") },
       ) %>
     <% else %>
-      <span class="text-subdued">
+      <button type="button" disabled aria-label="<%= t(".next_month") %>" class="text-subdued inline-flex items-center justify-center w-9 h-9 rounded-lg cursor-not-allowed">
         <%= icon "chevron-right", color: "current" %>
-      </span>
+      </button>
     <% end %>
   </div>
 

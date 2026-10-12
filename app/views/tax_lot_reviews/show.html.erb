@@ -1,6 +1,6 @@
 <% content_for :page_title, t(".title") %>
 
-<% content_for :page_header do %>
+<%= turbo_frame_tag "investment_workspace", target: "_top" do %>
   <div class="mb-6">
     <%= render "investments/subnav", current: :tax_lots %>
     <div class="space-y-1">
@@ -8,11 +8,7 @@
       <p class="max-w-3xl text-sm text-secondary"><%= t(".subtitle") %></p>
     </div>
   </div>
-<% end %>
-
-<%= turbo_frame_tag "investment_workspace" do %>
   <div class="space-y-6 pb-6 lg:pb-12">
-  <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :tax_lots, title: t(".title"), subtitle: t(".subtitle") %><% end %>
   <nav aria-label="<%= t(".tabs.label") %>" class="flex gap-1 overflow-x-auto border-b border-tertiary" data-testid="tax-workspace-tabs">
     <% [[ "lots", t(".tabs.lots") ], [ "harvest", t(".tabs.harvest") ]].each do |key, label| %>
       <%= link_to label, tax_lot_review_path(tab: key),
@@ -98,15 +94,11 @@
       <% end %>
     </section>
 
-    <% sort_link = lambda do |label, key, align: "left"|
-         active = review.sort == key
-         next_dir = active ? (review.direction == "asc" ? "desc" : "asc") : (%w[ticker account acquired term].include?(key) ? "asc" : "desc")
-         arrow = active ? (review.direction == "asc" ? "↑" : "↓") : ""
-         link_to(tax_lot_review_path(request.query_parameters.merge("sort" => key, "dir" => next_dir).except("format")),
-                 class: "inline-flex items-center gap-1 #{align == "right" ? "justify-end" : ""} hover:text-primary #{active ? "text-primary" : ""}",
-                 data: { turbo_frame: "investment_workspace" },
-                 aria: { sort: (active ? (review.direction == "asc" ? "ascending" : "descending") : nil) }.compact) do
-           safe_join([ label, tag.span(arrow, class: "w-3", "aria-hidden": true) ])
+    <% sort_th = lambda do |label, key, align: :left|
+         sortable_header(label, key, sort: review.sort, direction: review.direction,
+                         default_direction: (%w[ticker account acquired term].include?(key) ? "asc" : "desc"),
+                         align: align, css: "px-4 py-3", link_data: { turbo_frame: "investment_workspace", turbo_action: "advance" }) do |sort_key, dir|
+           tax_lot_review_path(request.query_parameters.merge("sort" => sort_key, "dir" => dir).except("format"))
          end
        end %>
     <section aria-labelledby="tl-lots" class="space-y-3">
@@ -136,14 +128,14 @@
           <caption class="sr-only"><%= t(".lots_caption") %></caption>
           <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary">
             <tr>
-              <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.ticker"), "ticker") %></th>
-              <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.account"), "account") %></th>
-              <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.acquired"), "acquired") %></th>
-              <th scope="col" class="px-4 py-3"><%= sort_link.call(t(".columns.term"), "term") %></th>
-              <th scope="col" class="px-4 py-3 text-right"><%= sort_link.call(t(".columns.quantity"), "quantity", align: "right") %></th>
-              <th scope="col" class="px-4 py-3 text-right"><%= sort_link.call(t(".columns.cost_basis"), "cost_basis", align: "right") %></th>
-              <th scope="col" class="px-4 py-3 text-right"><%= sort_link.call(t(".columns.value"), "market_value", align: "right") %></th>
-              <th scope="col" class="px-4 py-3 text-right"><%= sort_link.call(t(".columns.gain"), "gain", align: "right") %></th>
+              <%= sort_th.call(t(".columns.ticker"), "ticker") %>
+              <%= sort_th.call(t(".columns.account"), "account") %>
+              <%= sort_th.call(t(".columns.acquired"), "acquired") %>
+              <%= sort_th.call(t(".columns.term"), "term") %>
+              <%= sort_th.call(t(".columns.quantity"), "quantity", align: :right) %>
+              <%= sort_th.call(t(".columns.cost_basis"), "cost_basis", align: :right) %>
+              <%= sort_th.call(t(".columns.value"), "market_value", align: :right) %>
+              <%= sort_th.call(t(".columns.gain"), "gain", align: :right) %>
             </tr>
           </thead>
           <tbody class="divide-y divide-tertiary">

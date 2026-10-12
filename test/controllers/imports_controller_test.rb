@@ -18,6 +18,19 @@ class ImportsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # The Operation column used to derive its text from the Ruby class name,
+  # which can never be translated; the locale file already carries a label per
+  # import type.
+  test "index names each import's operation from the locale file" do
+    get imports_url
+
+    assert_response :success
+    @user.family.imports.ordered.each do |import|
+      assert_select "##{dom_id(import)} a[href=?]", import_path(import),
+                    text: /#{Regexp.escape(I18n.t("imports.table.row.type_labels.#{import.type.underscore}"))}/
+    end
+  end
+
   test "gets new" do
     get new_import_url
 
@@ -563,6 +576,30 @@ class ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, I18n.t("imports.ready.provider_merchant_diff_title")
   end
 
+  # The revert route only accepts PUT, so the retry on the revert-failure
+  # screen must send PUT rather than the button_to default of POST, otherwise
+  # the only control on the page raises a routing error.
+  test "revert failure screen retries the revert over PUT and offers a way back" do
+    import = uploaded_sure_import(status: "revert_failed", error: "Disk full while rolling back")
+
+    get import_url(import)
+
+    assert_response :success
+    assert_select "form[action=?] input[name=_method][value=put]", revert_import_path(import)
+    assert_select "a[href=?]", imports_path, text: I18n.t("imports.revert_failure.back")
+  end
+
+  test "failed import screen shows the recorded error and offers a way back" do
+    import = uploaded_sure_import(status: "failed", error: "Row 3: amount is not a number")
+
+    get import_url(import)
+
+    assert_response :success
+    assert_select "[role=alert]", text: /Row 3: amount is not a number/
+    assert_select "form[action=?]", publish_import_path(import)
+    assert_select "a[href=?]", imports_path, text: I18n.t("imports.failure.back")
+  end
+
   test "import ready notices use singular and plural wording" do
     {
       "imports.ready.missing_merchant_warning_description" => [ "1 merchant reference in this file", "2 merchant references in this file" ],
@@ -591,4 +628,19 @@ class ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_select 'select[name="import[account_id]"] option', text: "IOU (personal debt to friend)", count: 0
     assert_select 'select[name="import[account_id]"] option', text: "Plaid Depository Account", count: 0
   end
+
+  private
+    # A Sure import that passes the show action's upload check, so the
+    # status-specific screens (failed, revert_failed) can be rendered.
+    def uploaded_sure_import(status:, error: nil)
+      import = @user.family.imports.create!(type: "SureImport")
+      ndjson = { type: "Account", data: {
+        id: "account-1", name: "Checking", balance: "1000.00", currency: "USD",
+        accountable_type: "Depository", accountable: { subtype: "checking" }
+      } }.to_json
+      import.ndjson_file.attach(io: StringIO.new(ndjson), filename: "all.ndjson", content_type: "application/x-ndjson")
+      import.sync_ndjson_rows_count!
+      import.update_columns(status: status, error: error)
+      import
+    end
 end

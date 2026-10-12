@@ -1,8 +1,8 @@
 <%# locals: (budget:) %>
 
 <% steps = [
-  { name: "Setup", path: edit_budget_path(budget, **budget_owner_query), is_complete: budget.initialized?, step_number: 1 },
-  { name: "Categories", path: budget_budget_categories_path(budget, **budget_owner_query), is_complete: budget.allocations_valid?, step_number: 2 },
+  { name: t(".setup"), path: edit_budget_path(budget, **budget_owner_query), is_complete: budget.initialized?, step_number: 1 },
+  { name: t(".categories"), path: budget_budget_categories_path(budget, **budget_owner_query), is_complete: budget.allocations_valid?, step_number: 2 },
 ] %>
 
 <ul class="flex items-center gap-2">
@@ -13,17 +13,17 @@
       <% text_class = if is_current
                   "text-primary"
                 else
-                  step[:is_complete] ? "text-green-600" : "text-secondary"
+                  step[:is_complete] ? "text-success" : "text-secondary"
                 end %>
       <% step_class = if is_current
                   "bg-inverse text-inverse"
                 else
-                  step[:is_complete] ? "bg-green-600/10 border-alpha-black-25" : "bg-container-inset"
+                  step[:is_complete] ? "bg-success/10 border-alpha-black-25" : "bg-container-inset"
                 end %>
 
-      <%= link_to step[:path], class: "flex items-center gap-3" do %>
+      <%= link_to step[:path], class: "flex items-center gap-3 rounded-md focus-ring", "aria-current": (is_current ? "step" : nil) do %>
         <div class="flex items-center gap-2 text-sm font-medium <%= text_class %>">
-          <span class="<%= step_class %> w-7 h-7 rounded-full shrink-0 inline-flex items-center justify-center border border-transparent">
+          <span class="<%= step_class %> w-7 h-7 rounded-full shrink-0 inline-flex items-center justify-center border border-transparent" aria-hidden="true">
             <%= step[:is_complete] && !is_current ? icon("check", size: "sm") : idx + 1 %>
           </span>
 

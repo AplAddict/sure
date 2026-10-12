@@ -11,6 +11,8 @@ en:
       unused: "Unused"
     budget_header:
       today: "Today"
+      previous_month: "Previous month"
+      next_month: "Next month"
     budget_nav:
       categories: Categories
       setup: Setup

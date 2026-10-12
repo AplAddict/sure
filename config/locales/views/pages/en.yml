@@ -42,6 +42,7 @@ en:
       subtitle: "Here's what's happening with your finances"
       new: "New"
       sections_aria_label: "Dashboard sections"
+      section_label: "%{title} section. Press Enter or Space to grab for reordering, then use arrow keys to move."
       drag_to_reorder: "Drag to reorder section"
       toggle_section: "Toggle section visibility"
       widget_size:
@@ -120,6 +121,7 @@ en:
         title: "Investments"
         total_return: "Total Return"
         holding: "Holding"
+        account_position: "Account balance"
         weight: "Weight"
         value: "Value"
         return: "Return"

@@ -1,18 +1,22 @@
 <%# locals: (chat:) %>
 
-<div id="<%= chat.error_target %>" class="px-3 py-2 bg-red-100 border border-red-500 rounded-lg">
-  <% if chat.debug_mode? %>
-    <div class="overflow-x-auto text-xs p-4 bg-red-200 rounded-md mb-2">
-      <code><%= chat.technical_error_message %></code>
+<div id="<%= chat.error_target %>" role="alert">
+  <%= render DS::Alert.new(variant: :error) do %>
+    <% if chat.debug_mode? %>
+      <div class="overflow-x-auto text-xs p-3 bg-container-inset rounded-md mb-2">
+        <code><%= chat.technical_error_message %></code>
+      </div>
+    <% end %>
+
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <p class="text-sm text-primary"><%= chat.presentable_error_message %></p>
+
+      <%= render DS::Button.new(
+        text: t(".retry"),
+        size: :sm,
+        href: retry_chat_path(chat),
+        data: { turbo_submits_with: t(".retrying") }
+      ) %>
     </div>
   <% end %>
-
-  <div class="flex items-center justify-between gap-2">
-    <p class="text-xs text-red-500"><%= chat.presentable_error_message %></p>
-
-    <%= render DS::Button.new(
-      text: t(".retry"),
-      href: retry_chat_path(chat),
-    ) %>
-  </div>
 </div>

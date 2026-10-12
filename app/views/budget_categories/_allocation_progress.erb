@@ -3,7 +3,7 @@
 <div id="<%= dom_id(budget, :allocation_progress) %>" class="space-y-2 mb-6">
   <div class="flex items-center gap-2">
     <% if budget.available_to_allocate.negative? %>
-      <div class="rounded-full w-1.5 h-1.5 bg-red-500"></div>
+      <div class="rounded-full w-1.5 h-1.5 bg-destructive"></div>
     <% else %>
       <div class="rounded-full w-1.5 h-1.5 <%= budget.allocated_spending > 0 ? "bg-inverse" : "bg-surface-inset" %>"></div>
     <% end %>
@@ -17,7 +17,7 @@
     <% end %>
 
     <p class="ml-auto text-sm space-x-1">
-      <span class="privacy-sensitive <%= budget.available_to_allocate.negative? ? "text-red-500" : "text-primary" %>"><%= format_money(budget.allocated_spending_money) %></span>
+      <span class="privacy-sensitive <%= budget.available_to_allocate.negative? ? "text-destructive" : "text-primary" %>"><%= format_money(budget.allocated_spending_money) %></span>
       <span class="text-secondary"> / </span>
       <span class="text-secondary privacy-sensitive"><%= format_money(budget.budgeted_spending_money) %></span>
     </p>
@@ -25,7 +25,7 @@
 
   <div class="relative h-1.5 rounded-2xl bg-surface-inset">
     <% if budget.available_to_allocate.negative? %>
-      <div class="absolute inset-0 bg-red-500 rounded-2xl" style="width: 100%;"></div>
+      <div class="absolute inset-0 bg-destructive rounded-2xl" style="width: 100%;"></div>
     <% else %>
       <div class="absolute inset-0 bg-inverse rounded-2xl" style="width: <%= budget.allocated_percent %>%;"></div>
     <% end %>

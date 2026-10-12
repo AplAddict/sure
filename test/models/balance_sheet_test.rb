@@ -174,6 +174,67 @@ class BalanceSheetTest < ActiveSupport::TestCase
     assert_equal 3000 + 5000, liability_groups.find { |ag| ag.name == OtherLiability.display_name }.total
   end
 
+  test "sorts accounts alphabetically ignoring case" do
+    user = users(:empty)
+    user.update!(default_account_order: "name_asc")
+    create_account(name: "cherry", balance: 0, accountable: Depository.new, owner: user)
+    create_account(name: "Banana", balance: 0, accountable: Depository.new, owner: user)
+    create_account(name: "apple", balance: 0, accountable: Depository.new, owner: user)
+
+    names = BalanceSheet.new(@family, user: user).assets.account_groups.first.accounts.map(&:name)
+
+    assert_equal %w[apple Banana cherry], names
+  end
+
+  test "sorts accounts by balance converted to the family currency" do
+    user = users(:empty)
+    user.update!(default_account_order: "balance_desc")
+    ExchangeRate.stubs(:rates_for).returns({ "EUR" => 2 })
+    create_account(name: "Dollars", balance: 150, currency: "USD", accountable: Depository.new, owner: user)
+    create_account(name: "Euros", balance: 100, currency: "EUR", accountable: Depository.new, owner: user)
+
+    names = BalanceSheet.new(@family, user: user).assets.account_groups.first.accounts.map(&:name)
+
+    assert_equal %w[Euros Dollars], names
+  end
+
+  test "sorts accounts with no exchange rate last in either balance direction" do
+    user = users(:empty)
+    ExchangeRate.stubs(:provider).returns(nil)
+    assert_nil ExchangeRate.find_or_fetch_rate(from: "EUR", to: "USD")
+    create_account(name: "Small", balance: 10, currency: "USD", accountable: Depository.new, owner: user)
+    create_account(name: "Euros", balance: 1_000_000, currency: "EUR", accountable: Depository.new, owner: user)
+    create_account(name: "Large", balance: 500, currency: "USD", accountable: Depository.new, owner: user)
+
+    user.update!(default_account_order: "balance_desc")
+    names = BalanceSheet.new(@family, user: user).assets.account_groups.first.accounts.map(&:name)
+    assert_equal %w[Large Small Euros], names
+
+    user.update!(default_account_order: "balance_asc")
+    names = BalanceSheet.new(@family, user: user).assets.account_groups.first.accounts.map(&:name)
+    assert_equal %w[Small Large Euros], names
+  end
+
+  test "breaks balance and name ties by id so the order stays fixed" do
+    user = users(:empty)
+    accounts = 3.times.map do
+      create_account(name: "Same", balance: 100, accountable: Depository.new, owner: user)
+    end
+    expected = accounts.map(&:id).sort
+
+    %w[name_asc balance_asc].each do |order|
+      user.update!(default_account_order: order)
+      ids = BalanceSheet.new(@family, user: user).assets.account_groups.first.accounts.map(&:id)
+      assert_equal expected, ids, "#{order} should tie-break by id"
+    end
+
+    %w[name_desc balance_desc].each do |order|
+      user.update!(default_account_order: order)
+      ids = BalanceSheet.new(@family, user: user).assets.account_groups.first.accounts.map(&:id)
+      assert_equal expected.reverse, ids, "#{order} should tie-break by id"
+    end
+  end
+
   private
     def create_account(attributes = {})
       account = @family.accounts.create! name: "Test", currency: "USD", **attributes

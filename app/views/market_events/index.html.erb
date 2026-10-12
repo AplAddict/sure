@@ -1,42 +1,49 @@
-<% content_for :page_title, "Market Events" %>
+<% content_for :page_title, t(".title") %>
+<% field_class = "rounded-lg border border-tertiary bg-container px-2 py-1.5 text-sm text-primary focus-ring" %>
 
-<%= turbo_frame_tag "investment_workspace" do %>
-  <div class="space-y-5 pb-8">
-  <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :events, title: "Market Events", subtitle: "Generated from holdings, cached market data, and read-only options snapshots. This does not import or copy your external calendar." %><% end %>
-  <%= render "investments/subnav", current: :events %>
-  <div class="flex flex-wrap items-start justify-between gap-3">
-    <div>
-      <p class="text-xs font-medium uppercase tracking-wide text-secondary">Holdings-derived calendar</p>
-      <h1 class="text-2xl font-semibold text-primary">Market Events</h1>
-      <p class="mt-1 max-w-3xl text-sm text-secondary">Generated from holdings, cached market data, and read-only options snapshots. This does not import or copy your external calendar.</p>
+<%= turbo_frame_tag "investment_workspace", target: "_top" do %>
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <%= render "investments/subnav", current: :events %>
+    <div class="space-y-1">
+      <p class="text-xs font-medium uppercase tracking-wide text-secondary"><%= t(".eyebrow") %></p>
+      <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t(".title") %></h1>
+      <p class="max-w-3xl text-sm text-secondary"><%= t(".subtitle") %></p>
     </div>
-    <%= link_to "Ticker research", research_search_path, class: "text-sm text-link hover:underline" %>
+    <%= link_to t(".research_link"), research_search_path, class: "text-sm font-medium text-link hover:underline focus-ring rounded", data: { turbo_frame: "_top" } %>
   </div>
+  <div class="space-y-5 pb-8">
 
-  <%= form_with url: market_events_path, method: :get, class: "flex flex-wrap gap-2 rounded-xl bg-container p-3 shadow-border-xs" do |form| %>
-    <%= form.date_field :from, value: @from, class: "rounded-lg border border-tertiary bg-container px-2 py-1.5 text-sm text-primary" %>
-    <%= form.date_field :to, value: @to, class: "rounded-lg border border-tertiary bg-container px-2 py-1.5 text-sm text-primary" %>
-    <%= form.select :type, [["All event types", ""], ["Earnings", "earnings"], ["Ex-dividend", "ex_dividend"], ["Options expiration", "options_expiration"], ["Wash sales", "wash_sale"]], { selected: @event_type }, class: "rounded-lg border border-tertiary bg-container px-2 py-1.5 text-sm text-primary" %>
-    <%= form.submit "Apply", class: "rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-inverse" %>
+  <%= form_with url: market_events_path, method: :get, class: "flex flex-wrap items-end gap-3 rounded-xl bg-container p-3 shadow-border-xs", data: { turbo_action: "advance" } do |form| %>
+    <div class="flex flex-col gap-1">
+      <%= form.label :from, t(".filter.from"), class: "text-xs text-secondary" %>
+      <%= form.date_field :from, value: @from, class: field_class %>
+    </div>
+    <div class="flex flex-col gap-1">
+      <%= form.label :to, t(".filter.to"), class: "text-xs text-secondary" %>
+      <%= form.date_field :to, value: @to, class: field_class %>
+    </div>
+    <div class="flex flex-col gap-1">
+      <%= form.label :type, t(".filter.type"), class: "text-xs text-secondary" %>
+      <%= form.select :type, [ [ t(".types.all"), "" ] ] + MarketEventsController::EVENT_TYPES.map { |type| [ t(".types.#{type}"), type ] }, { selected: @event_type }, class: field_class %>
+    </div>
+    <%= form.submit t(".filter.apply"), class: "rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-inverse focus-ring", data: { turbo_submits_with: t(".filter.applying") } %>
   <% end %>
 
-  <div class="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-primary">
-    <p class="font-medium">Wash sales: verification boundary</p>
-    <p class="mt-1 text-secondary"><%= @wash_sale_status[:reason] %></p>
-  </div>
+  <%= render DS::Alert.new(title: t(".wash_sales.boundary_title"), message: @wash_sale_status[:reason], variant: :warning) %>
 
   <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
-    <div class="rounded-xl bg-container p-3 shadow-border-xs"><p class="text-xs text-secondary">Open windows</p><p class="mt-1 text-xl font-semibold text-primary"><%= @wash_sale_insights[:open] %></p></div>
-    <div class="rounded-xl bg-container p-3 shadow-border-xs"><p class="text-xs text-secondary">Upcoming windows</p><p class="mt-1 text-xl font-semibold text-primary"><%= @wash_sale_insights[:upcoming] %></p></div>
-    <div class="rounded-xl bg-container p-3 shadow-border-xs"><p class="text-xs text-secondary">With replacement evidence</p><p class="mt-1 text-xl font-semibold text-primary"><%= @wash_sale_insights[:replacement_evidence] %></p></div>
-    <div class="rounded-xl bg-container p-3 shadow-border-xs"><p class="text-xs text-secondary">Next window end</p><p class="mt-1 text-sm font-semibold text-primary"><%= @wash_sale_insights[:next_deadline] ? l(@wash_sale_insights[:next_deadline], format: :long) : "None upcoming" %></p></div>
+    <%= investment_stat(t(".wash_sales.open"), @wash_sale_insights[:open]) %>
+    <%= investment_stat(t(".wash_sales.upcoming"), @wash_sale_insights[:upcoming]) %>
+    <%= investment_stat(t(".wash_sales.replacement_evidence"), @wash_sale_insights[:replacement_evidence]) %>
+    <%= investment_stat(t(".wash_sales.next_deadline"), @wash_sale_insights[:next_deadline] ? l(@wash_sale_insights[:next_deadline], format: :long) : t(".wash_sales.none_upcoming")) %>
   </div>
 
   <% if @events.empty? %>
-    <div class="rounded-xl bg-container p-8 text-center shadow-border-xs">
-      <p class="font-medium text-primary">No verified events in this range</p>
-      <p class="mt-1 text-sm text-secondary">Unavailable or stale source data is never shown as a fabricated market or tax event.</p>
-    </div>
+    <%= render DS::EmptyState.new(icon: "calendar", title: t(".empty.title"), description: t(".empty.description"), class: "rounded-xl bg-container shadow-border-xs") do |empty| %>
+      <% empty.with_action do %>
+        <%= render DS::Link.new(text: t(".empty.action"), href: research_search_path, variant: "outline", size: "sm", data: { turbo_frame: "_top" }) %>
+      <% end %>
+    <% end %>
   <% else %>
     <div class="overflow-hidden rounded-xl bg-container shadow-border-xs">
       <% @events.group_by(&:date).each do |date, events| %>
@@ -46,25 +53,23 @@
             <div class="flex items-center justify-between gap-4 px-4 py-3">
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
-                  <%= link_to event.ticker, research_ticker_path(event.ticker), class: "font-semibold text-link hover:underline" %>
-                  <span class="rounded bg-container-inset px-1.5 py-0.5 text-[11px] font-medium text-secondary"><%= event.event_type.humanize %></span>
-                  <% if event.freshness == "stale" %><span class="text-[11px] text-warning">Stale source</span><% end %>
+                  <%= link_to event.ticker, research_ticker_path(event.ticker), class: "font-semibold text-link hover:underline focus-ring rounded", data: { turbo_frame: "_top" } %>
+                  <span class="rounded bg-container-inset px-1.5 py-0.5 text-[11px] font-medium text-secondary"><%= t(".types.#{event.event_type}", default: event.event_type.humanize) %></span>
+                  <% if event.freshness == "stale" %><span class="text-[11px] text-warning"><%= t(".event.stale_source") %></span><% end %>
                 </div>
                 <p class="mt-1 text-sm text-primary"><%= event.title %></p>
                 <% if event.event_type == "wash_sale" %>
-                  <% days_remaining = (event.end_date - Date.current).to_i %>
-                  <% days_until_start = (event.date - Date.current).to_i %>
-                  <% window_state, timing = if event.end_date < Date.current
-                    [ "Ended", "ended #{(Date.current - event.end_date).to_i} days ago" ]
-                  elsif event.date > Date.current
-                    [ "Upcoming", "opens in #{days_until_start} #{'day'.pluralize(days_until_start)}" ]
-                  else
-                    [ "Open", "#{days_remaining} #{'day'.pluralize(days_remaining)} remaining" ]
-                  end %>
-                  <p class="mt-0.5 text-xs font-medium text-warning"><%= window_state %> wash-sale window — starts <%= l(event.date, format: :long) %>; ends <%= l(event.end_date, format: :long) %> (<%= timing %>).</p>
-                  <p class="mt-0.5 text-xs text-secondary">Recorded replacement-purchase evidence: <%= event.details.include?("replacement shares are recorded") ? "present — review the quantity below" : "none recorded in Sure" %>.</p>
+                  <% state, timing = if event.end_date < Date.current
+                       [ t(".event.state.ended"), t(".event.timing.ended", count: (Date.current - event.end_date).to_i) ]
+                     elsif event.date > Date.current
+                       [ t(".event.state.upcoming"), t(".event.timing.opens_in", count: (event.date - Date.current).to_i) ]
+                     else
+                       [ t(".event.state.open"), t(".event.timing.remaining", count: (event.end_date - Date.current).to_i) ]
+                     end %>
+                  <p class="mt-0.5 text-xs font-medium text-warning"><%= t(".event.wash_window", state: state, starts: l(event.date, format: :long), ends: l(event.end_date, format: :long), timing: timing) %></p>
+                  <p class="mt-0.5 text-xs text-secondary"><%= t(".event.replacement_evidence", evidence: (event.details.include?("replacement shares are recorded") ? t(".event.replacement_present") : t(".event.replacement_none"))) %></p>
                 <% elsif event.end_date > event.date %>
-                  <p class="mt-0.5 text-xs font-medium text-warning">Window starts <%= l(event.date, format: :long) %>; ends <%= l(event.end_date, format: :long) %>.</p>
+                  <p class="mt-0.5 text-xs font-medium text-warning"><%= t(".event.window", starts: l(event.date, format: :long), ends: l(event.end_date, format: :long)) %></p>
                 <% end %>
                 <p class="mt-0.5 truncate text-xs text-secondary"><%= event.details %></p>
               </div>

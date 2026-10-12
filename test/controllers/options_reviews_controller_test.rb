@@ -77,7 +77,9 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
     end
     get options_review_path(sort: "bogus; drop table")
     assert_response :success
-    assert_select "th a[aria-sort]", minimum: 1
+    assert_select "th[aria-sort=ascending], th[aria-sort=descending]", count: 1
+    assert_select "th[aria-sort=none] a", minimum: 4
+    assert_select "th a[aria-sort]", count: 0
   end
 
   test "keeps the contract column pinned and wraps the table for narrow screens" do

@@ -23,6 +23,7 @@ en:
       delete_chat: "Delete chat"
     error:
       retry: "Retry"
+      retrying: "Retrying…"
     destroy:
       notice: "Chat was successfully deleted"
     index:

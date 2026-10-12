@@ -9,6 +9,27 @@ class TransactionsControllerTest < ActionDispatch::IntegrationTest
     @entry = entries(:transaction)
   end
 
+  # The one-time marker was an orange asterisk explained only by a hover title,
+  # so touch and screen-reader users got colour alone. It is a labelled pill now.
+  test "a one-time transaction is marked with a labelled pill" do
+    @entry.entryable.update!(kind: "one_time")
+
+    get transactions_url
+
+    assert_response :success
+    assert_select "##{dom_id(@entry)} [data-testid=one-time-pill]", text: /#{I18n.t("transactions.transaction.one_time")}/, count: 1
+    assert_select "##{dom_id(@entry)} [data-testid=one-time-pill][title=?]", I18n.t("transactions.transaction.one_time_tooltip")
+  end
+
+  test "the bulk selection bar names its controls for assistive technology" do
+    get transactions_url
+
+    assert_response :success
+    assert_select "label[for=entry_selection].sr-only", text: I18n.t("transactions.selection_bar.deselect_all")
+    assert_select "button[data-bulk-select-scope-param=bulk_delete][aria-label=?]", I18n.t("transactions.selection_bar.delete")
+    assert_select "button[data-bulk-select-scope-param=bulk_delete][title]", count: 0
+  end
+
   # Bills has always linked out to transactions. Until now nothing linked back,
   # so a transaction that settled a bill was a dead end. The link-back is part
   # of the preview-gated bills surface, so the viewer needs the flag.
@@ -677,6 +698,34 @@ end
     assert_response :success
     assert_select "select[name='per_page'] option[value='20'][selected]"
     assert_equal 20, css_select("turbo-frame[id^='entry_']").count
+  end
+
+  test "pagination is navigable by assistive technology" do
+    family = families(:empty)
+    user = users(:empty)
+    sign_in user
+
+    family.accounts.each { |account| account.entries.delete_all }
+    account = family.accounts.create! name: "Test", balance: 0, currency: "USD", accountable: Depository.new
+    25.times do |i|
+      create_transaction(account: account, name: "Transaction #{i + 1}", amount: 100 + i, date: Date.current - i.days)
+    end
+
+    get transactions_url(per_page: 10, page: 2)
+    assert_response :success
+
+    assert_select "nav[aria-label=?]", I18n.t("shared.pagination.label") do
+      assert_select "a[aria-label=?]", I18n.t("shared.pagination.previous"), count: 1
+      assert_select "a[aria-label=?]", I18n.t("shared.pagination.next"), count: 1
+      assert_select "a[aria-current=page]", text: "2", count: 1
+      assert_select "label[for=per_page]", text: I18n.t("shared.pagination.per_page")
+      assert_select "select#per_page[name=per_page]"
+    end
+
+    # On the last page the next arrow is a disabled placeholder, not a link.
+    get transactions_url(per_page: 10, page: 3)
+    assert_select "a[aria-label=?]", I18n.t("shared.pagination.next"), count: 0
+    assert_select "[aria-disabled=true][aria-label=?]", I18n.t("shared.pagination.next"), count: 1
   end
 
   test "pagination does not duplicate or skip transactions with same date and timestamp" do

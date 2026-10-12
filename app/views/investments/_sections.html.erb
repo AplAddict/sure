@@ -30,10 +30,10 @@
       data-action="dragstart->reports-sortable#dragStart dragend->reports-sortable#dragEnd keydown->reports-sortable#handleKeyDown">
       <div class="px-4 py-2 flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <button type="button" class="text-secondary hover:text-primary transition-colors p-0.5"
+          <button type="button" class="text-secondary hover:text-primary transition-colors p-2 -m-1 rounded focus-ring"
                   data-action="click->reports-section#toggle keydown->reports-section#handleToggleKeydown"
                   data-reports-section-target="button"
-                  aria-label="<%= t("investments.sections.toggle") %>" aria-expanded="<%= !collapsed %>">
+                  aria-label="<%= t("investments.sections.toggle", title: section[:title]) %>" aria-expanded="<%= !collapsed %>">
             <%= icon("chevron-down", size: "sm", class: "transition-transform", data: { reports_section_target: "chevron" }) %>
           </button>
           <h2 class="text-base font-medium text-primary"><%= section[:title] %></h2>

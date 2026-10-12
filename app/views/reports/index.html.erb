@@ -30,7 +30,7 @@
 
     <%# Period Navigation Tabs %>
     <div class="flex items-center justify-between gap-4">
-      <%= render DS::SegmentedControl.new(aria_label: t("reports.index.period_aria", default: "Report period"), class: "overflow-x-auto no-scrollbar") do |sc| %>
+      <%= render DS::SegmentedControl.new(aria_label: t("reports.index.period_aria"), class: "overflow-x-auto no-scrollbar") do |sc| %>
         <% %i[monthly quarterly ytd last_6_months custom].each do |ptype| %>
           <% sc.with_segment(t("reports.index.periods.#{ptype}"),
                active: @period_type == ptype,
@@ -46,7 +46,7 @@
         <%= f.hidden_field :period_type, value: :custom %>
 
         <div class="flex items-center gap-2">
-          <label class="text-sm font-medium text-secondary"><%= t("reports.index.date_range.from") %></label>
+          <%= f.label :start_date, t("reports.index.date_range.from"), class: "text-sm font-medium text-secondary" %>
           <%= f.date_field :start_date,
                            value: @start_date.strftime("%Y-%m-%d"),
                            data: { auto_submit_form_target: "auto" },
@@ -55,7 +55,7 @@
         </div>
         <span class="text-secondary">—</span>
         <div class="flex items-center gap-2">
-          <label class="text-sm font-medium text-secondary"><%= t("reports.index.date_range.to") %></label>
+          <%= f.label :end_date, t("reports.index.date_range.to"), class: "text-sm font-medium text-secondary" %>
           <%= f.date_field :end_date,
                            value: @end_date.strftime("%Y-%m-%d"),
                            data: { auto_submit_form_target: "auto" },
@@ -138,11 +138,11 @@
     </section>
 
     <%# Collapsible & Reorderable Sections %>
-    <div data-controller="reports-sortable" data-action="dragover->reports-sortable#dragOver drop->reports-sortable#drop" role="list" aria-label="Reports sections">
+    <div data-controller="reports-sortable" data-action="dragover->reports-sortable#dragOver drop->reports-sortable#drop" role="list" aria-label="<%= t("reports.index.sections_aria_label") %>">
       <% @reports_sections.each do |section| %>
         <% next unless section[:visible] %>
         <section
-          class="bg-container rounded-xl shadow-border-xs transition-all mb-6 group focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
+          class="bg-container rounded-xl shadow-border-xs transition-all mb-6 group focus-ring"
           data-reports-sortable-target="section"
           data-section-key="<%= section[:key] %>"
           data-controller="reports-section"
@@ -152,7 +152,7 @@
           tabindex="0"
           role="listitem"
           aria-grabbed="false"
-          aria-label="<%= t(section[:title]) %> section. Press Enter or Space to grab for reordering, then use arrow keys to move."
+          aria-label="<%= t("reports.index.section_label", title: t(section[:title])) %>"
           data-action="
             dragstart->reports-sortable#dragStart
             dragend->reports-sortable#dragEnd
@@ -164,7 +164,7 @@
             <div class="flex items-center gap-2">
               <button
                 type="button"
-                class="text-secondary hover:text-primary transition-colors p-0.5"
+                class="text-secondary hover:text-primary transition-colors p-0.5 rounded-md focus-ring"
                 data-action="click->reports-section#toggle keydown->reports-section#handleToggleKeydown"
                 data-reports-section-target="button"
                 aria-label="<%= t("reports.index.toggle_section") %>"
@@ -177,7 +177,7 @@
             </div>
             <button
               type="button"
-              class="cursor-grab active:cursor-grabbing text-secondary hover:text-primary transition-colors p-0.5 opacity-0 group-hover:opacity-100"
+              class="cursor-grab active:cursor-grabbing text-secondary hover:text-primary transition-colors p-0.5 rounded-md opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-ring"
               aria-label="<%= t("reports.index.drag_to_reorder") %>">
               <%= icon("grip-vertical", size: "sm") %>
             </button>

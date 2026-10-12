@@ -789,6 +789,38 @@ class ReportsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match private_security.ticker, response.body
   end
 
+  # The section controls fade in on hover, which keyboard users never trigger,
+  # so they must also appear when focus lands inside the section header. The
+  # list label and the reorder instructions read by screen readers come from
+  # the locale file rather than being hard-coded English.
+  test "report sections are reorderable and collapsible from the keyboard" do
+    get reports_path
+    assert_response :ok
+
+    assert_select "[role=list][aria-label=?]", I18n.t("reports.index.sections_aria_label"), count: 1
+    assert_select "section[role=listitem][tabindex='0'].focus-ring[aria-label=?]",
+                  I18n.t("reports.index.section_label", title: I18n.t("reports.net_worth.title")), count: 1
+    assert_select "[data-reports-section-target=button].focus-ring", minimum: 1
+    assert_select "button[aria-label=?]", I18n.t("reports.index.drag_to_reorder"), minimum: 1 do |handles|
+      handles.each do |handle|
+        assert_includes handle["class"].split, "group-focus-within:opacity-100"
+        assert_includes handle["class"].split, "focus-ring"
+      end
+    end
+    assert_select "[class*=\"group-hover:opacity-100\"]:not([class*=\"group-focus-within:opacity-100\"])", count: 0
+  end
+
+  test "period tabs are labelled and custom range labels are bound to their date fields" do
+    get reports_path(period_type: :custom)
+    assert_response :ok
+
+    assert_select "[aria-label=?]", I18n.t("reports.index.period_aria"), count: 1
+    assert_select "label[for=start_date]", text: I18n.t("reports.index.date_range.from"), count: 1
+    assert_select "input[type=date]#start_date", count: 1
+    assert_select "label[for=end_date]", text: I18n.t("reports.index.date_range.to"), count: 1
+    assert_select "input[type=date]#end_date", count: 1
+  end
+
   private
     # n EUR-priced disposals in a USD account, each on its own date with its
     # own rate row, so every one needs a distinct lookup.

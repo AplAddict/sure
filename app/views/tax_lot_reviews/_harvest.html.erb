@@ -29,7 +29,7 @@
       </div>
       <div class="rounded-xl bg-container p-3 shadow-border-xs">
         <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.summary.realized") %></p>
-        <p class="mt-1 text-xl font-semibold text-primary privacy-sensitive"><%= realized[:amount].format %></p>
+        <p class="mt-1 text-xl font-semibold text-primary" data-testid="realized-ytd"><%= realized[:amount] ? tag.span(realized[:amount].format, class: "privacy-sensitive") : unavailable_cell(t("tax_loss_harvests.show.summary.realized_unavailable")) %></p>
         <p class="text-xs <%= unmeasured.positive? ? "text-warning" : "text-subdued" %>">
           <%= unmeasured.positive? ? t("tax_loss_harvests.show.summary.realized_hint", count: unmeasured) : t("tax_loss_harvests.show.summary.realized_known") %>
         </p>

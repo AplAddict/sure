@@ -87,8 +87,13 @@
 
                   <div class="flex items-center gap-1 flex-shrink-0">
                     <% if transaction.one_time? %>
-                      <span class="text-orange-500" title="One-time <%= entry.amount.negative? ? "income" : "expense" %> (excluded from averages)">
-                        <%= icon "asterisk", size: "sm", color: "current" %>
+                      <span data-testid="one-time-pill" title="<%= t("transactions.transaction.one_time_tooltip") %>">
+                        <%= render DS::Pill.new(
+                          label: t("transactions.transaction.one_time"),
+                          tone: :warning,
+                          marker: false,
+                          icon: "asterisk"
+                        ) %>
                       </span>
                     <% end %>
 

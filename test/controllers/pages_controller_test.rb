@@ -14,6 +14,41 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
   end
 
+  # The header controls fade in on hover, which keyboard users never trigger,
+  # so they must also appear when focus lands inside the section header.
+  test "dashboard section controls are reachable and visible for keyboard users" do
+    get root_path
+
+    assert_response :ok
+    assert_select "[data-dashboard-section-target=button].focus-ring", minimum: 1
+    assert_select "button[aria-label=?]", I18n.t("pages.dashboard.drag_to_reorder"), minimum: 1 do |handles|
+      handles.each do |handle|
+        assert_includes handle["class"].split, "group-focus-within:opacity-100"
+        assert_includes handle["class"].split, "focus-ring"
+      end
+    end
+    assert_select "[class*=\"group-hover:opacity-100\"]:not([class*=\"group-focus-within:opacity-100\"])", count: 0
+    assert_select "section[role=listitem][tabindex='0'].focus-ring[aria-label=?]",
+                  I18n.t("pages.dashboard.section_label", title: I18n.t("pages.dashboard.net_worth_chart.title")), count: 1
+  end
+
+  test "dashboard investment summary lists balance-only investment accounts as positions" do
+    pension = @family.accounts.create!(
+      name: "Workplace Pension", balance: 4000, cash_balance: 0, currency: "USD",
+      accountable: Investment.new, owner: @user
+    )
+
+    get root_path
+
+    assert_response :ok
+    assert_select "#investment-summary table tbody tr" do |rows|
+      row = rows.find { |r| r.text.include?("Workplace Pension") }
+      assert row, "expected a row for the balance-only account"
+      assert_select row, "a[href=?]", account_path(pension)
+      assert_includes row.text, I18n.t("pages.dashboard.investment_summary.account_position")
+    end
+  end
+
   test "dashboard renders the net worth chart as drag-selectable, opting it out of card drag-and-drop" do
     get root_path
 

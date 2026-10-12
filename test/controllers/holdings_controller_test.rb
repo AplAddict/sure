@@ -12,6 +12,36 @@ class HoldingsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "view toggles and the metric picker are localized and mark the current view" do
+    get holdings_url(account_id: @account.id, view: "compact", metric: "total_value")
+
+    assert_response :success
+    assert_select "nav[aria-label=?]", I18n.t("holdings.index.views.label") do
+      assert_select "a[aria-current=page]", text: I18n.t("holdings.index.views.compact"), count: 1
+      assert_select "a:not([aria-current])", text: I18n.t("holdings.index.views.advanced"), count: 1
+    end
+    assert_select "label[for=metric]", text: I18n.t("holdings.index.metric_label")
+    User::HOLDINGS_METRICS.each do |metric|
+      assert_select "select#metric option[value=?]", metric, text: I18n.t("holdings.index.metrics.#{metric}")
+    end
+    assert_select "[data-testid=holding-metric] p.text-xs", text: I18n.t("holdings.index.metrics.total_value"), minimum: 1
+  end
+
+  test "an account with no holdings shows an empty state that leads to adding one" do
+    empty_account = users(:family_admin).family.accounts.create!(name: "Fresh Brokerage", balance: 0, cash_balance: 0, currency: "USD",
+                                                                 owner: users(:family_admin), status: "active", accountable: Investment.new(subtype: "brokerage"))
+
+    %w[compact advanced].each do |view|
+      get holdings_url(account_id: empty_account.id, view: view)
+
+      assert_response :success
+      assert_select "[data-testid=holdings-empty]", count: 1 do
+        assert_select "p", text: I18n.t("holdings.index.no_holdings")
+        assert_select "a[href=?]", new_trade_path(account_id: empty_account.id), text: I18n.t("holdings.index.new_holding")
+      end
+    end
+  end
+
   test "the holdings view and metric a member picks are remembered for them" do
     user = users(:family_admin)
 
@@ -85,6 +115,8 @@ class HoldingsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-testid=account-holdings-advanced]"
     assert_select "[data-testid=account-holdings-advanced] table"
+    assert_select "[data-testid=account-holdings-advanced] th[aria-sort=none] a", minimum: 6
+    assert_select "[data-testid=account-holdings-advanced] th[aria-sort=ascending], [data-testid=account-holdings-advanced] th[aria-sort=descending]", count: 1
 
     get holdings_url(account_id: @account.id, view: "compact", metric: "day_gain")
     assert_select "select[name=metric] option[selected][value=day_gain]"

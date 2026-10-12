@@ -99,6 +99,19 @@ class InvestmentSectionsTest < ActionDispatch::IntegrationTest
     assert_select %(button[data-action="click->reports-sortable#reset"]), text: /Reset layout/
   end
 
+  # Each section's collapse toggle must say which section it controls and be
+  # a reasonable target with visible focus, not an unlabelled 20px chevron.
+  test "section toggles name their section and are keyboard visible" do
+    get investment_income_path
+
+    assert_response :success
+    assert_select "[data-section-key=monthly_income] [data-reports-section-target=button].focus-ring[aria-expanded]" do |buttons|
+      assert_equal 1, buttons.size
+      title = css_select("[data-section-key=monthly_income] h2").first.text.strip
+      assert_equal I18n.t("investments.sections.toggle", title: title), buttons.first["aria-label"]
+    end
+  end
+
   test "allocation explains the unreported-fund slice and colours Unclassified grey" do
     get portfolio_holdings_path(by: "asset_class")
     assert_response :success

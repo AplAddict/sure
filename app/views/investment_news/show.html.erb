@@ -1,14 +1,10 @@
 <% content_for :page_title, t(".title") %>
-<% content_for :page_header do %>
+<%= turbo_frame_tag "investment_workspace", target: "_top" do %>
   <div class="mb-6 space-y-1">
     <%= render "investments/subnav", current: :news %>
     <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t(".title") %></h1>
     <p class="max-w-3xl text-sm text-secondary"><%= t(".subtitle") %></p>
   </div>
-<% end %>
-
-<%= turbo_frame_tag "investment_workspace" do %>
-  <% if turbo_frame_request? %><%= render "investments/workspace_header", current: :news, title: t(".title"), subtitle: t(".subtitle") %><% end %>
   <div class="space-y-3 pb-6 lg:pb-12" data-testid="investment-news">
     <% if @articles.empty? %>
       <%= render DS::EmptyState.new(icon: "newspaper", title: t(".empty_title"), description: t(".empty_description")) %>
