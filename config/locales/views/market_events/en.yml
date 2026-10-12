@@ -1,0 +1,52 @@
+---
+en:
+  market_events:
+    index:
+      title: Market Events
+      eyebrow: Holdings-derived calendar
+      subtitle: Generated from holdings, cached market data, and read-only options snapshots. This does not import or copy your external calendar.
+      research_link: Ticker research
+      filter:
+        from: From
+        to: To
+        type: Event type
+        apply: Apply
+        applying: Applying…
+      types:
+        all: All event types
+        earnings: Earnings
+        ex_dividend: Ex-dividend
+        options_expiration: Options expiration
+        wash_sale: Wash sale
+      wash_sales:
+        boundary_title: "Wash sales: verification boundary"
+        open: Open windows
+        upcoming: Upcoming windows
+        replacement_evidence: With replacement evidence
+        next_deadline: Next window end
+        none_upcoming: None upcoming
+      empty:
+        title: No verified events in this range
+        description: Unavailable or stale source data is never shown as a fabricated market or tax event.
+        action: Research a ticker
+      event:
+        stale_source: Stale source
+        window: "Window starts %{starts}; ends %{ends}."
+        wash_window: "%{state} wash-sale window — starts %{starts}; ends %{ends} (%{timing})."
+        state:
+          ended: Ended
+          upcoming: Upcoming
+          open: Open
+        timing:
+          ended:
+            one: "ended %{count} day ago"
+            other: "ended %{count} days ago"
+          opens_in:
+            one: "opens in %{count} day"
+            other: "opens in %{count} days"
+          remaining:
+            one: "%{count} day remaining"
+            other: "%{count} days remaining"
+        replacement_evidence: "Recorded replacement-purchase evidence: %{evidence}."
+        replacement_present: present — review the quantity below
+        replacement_none: none recorded in Sure
