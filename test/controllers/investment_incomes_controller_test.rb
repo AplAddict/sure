@@ -19,8 +19,10 @@ class InvestmentIncomesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match "Income &amp; Performance", response.body
     assert_match "$42.00", response.body
-    assert_match "Option premium", response.body
+    assert_match "Net option premium", response.body
     assert_match "Unavailable", response.body
+    assert_no_match(/No verified premium label/, response.body)
+    assert_match "Collected (sold to open)", response.body
   end
 
   test "a member without access sees none of the owner's income" do

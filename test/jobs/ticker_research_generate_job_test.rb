@@ -57,4 +57,34 @@ class TickerResearchGenerateJobTest < ActiveJob::TestCase
       TickerResearchGenerateJob.perform_now("AAPL")
     end
   end
+
+  test "resolve_security creates the research-only security without enriching it" do
+    match = Provider::SecurityConcept::Security.new(symbol: "ZZJD", name: "Resolve Corp", logo_url: nil, exchange_operating_mic: "XNAS", country_code: "US")
+    @provider.expects(:search_securities).with("ZZJD").returns(Result.new([ match ], true))
+    Security::FundamentalsRefresher.any_instance.expects(:refresh).never
+
+    security, status = TickerResearchGenerateJob.resolve_security("zzjd")
+
+    assert_equal :created, status
+    assert_equal "ZZJD", security.ticker
+    assert_equal Security::RESEARCH_ONLY_REASON, security.offline_reason
+  end
+
+  test "resolve_security reports unknown, unavailable and invalid distinctly" do
+    @provider.expects(:search_securities).with("ZZJE").returns(Result.new([], true))
+    assert_equal [ nil, :unknown ], TickerResearchGenerateJob.resolve_security("ZZJE")
+
+    @provider.expects(:search_securities).with("ZZJF").returns(Result.new(nil, false))
+    assert_equal [ nil, :unavailable ], TickerResearchGenerateJob.resolve_security("ZZJF")
+
+    assert_equal [ nil, :invalid ], TickerResearchGenerateJob.resolve_security("bad symbol!!")
+  end
+
+  test "enrich_only refreshes fundamentals for an existing research-only security" do
+    security = Security.create!(ticker: "ZZJG", name: "Enrich", offline: true, offline_reason: Security::RESEARCH_ONLY_REASON)
+    Security::FundamentalsRefresher.any_instance.expects(:refresh).with(security).returns(:ok)
+    Security::ResearchSnapshotImporter.any_instance.expects(:import).with(security).returns(:unavailable)
+
+    TickerResearchGenerateJob.perform_now("ZZJG", enrich_only: true)
+  end
 end

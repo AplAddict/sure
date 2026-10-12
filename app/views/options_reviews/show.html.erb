@@ -1,12 +1,21 @@
 <% content_for :page_title, "Options Review" %>
 <% money = ->(value, currency) { value.nil? ? "—" : format_money(Money.new(value, currency)) } %>
 <% qty = ->(value) { value.nil? ? "—" : number_with_precision(value, precision: 8, strip_insignificant_zeros: true) } %>
+<% gain_cell = lambda do |position|
+     gain = position.gain
+     next tag.span("—", class: "text-secondary", title: "Unavailable: the broker snapshot is missing a cost basis, mark, quantity or multiplier") if gain.nil?
+     tone = gain.positive? ? "text-success" : gain.negative? ? "text-destructive" : "text-primary"
+     pct = position.gain_pct
+     tag.span(class: tone) do
+       safe_join([ tag.span(format_money(Money.new(gain, position.currency)), class: "privacy-sensitive"), (pct ? tag.span(" (#{number_to_percentage(pct, precision: 1)})", class: "text-xs") : nil) ].compact)
+     end
+   end %>
 <% freshness_class = ->(state) { state == "current" ? "text-success" : state == "stale" ? "text-warning" : "text-secondary" } %>
 
 <% content_for :page_header do %>
   <div class="mb-6 space-y-1">
     <h1 class="text-xl lg:text-3xl font-medium text-primary">Options Review</h1>
-    <p class="max-w-3xl text-sm text-secondary">Read-only brokerage contract snapshots. Options are excluded from equity holdings, performance, cost basis, and net-worth totals.</p>
+    <p class="max-w-3xl text-sm text-secondary">Read-only brokerage contract snapshots. Gain / loss is unrealized against the broker's last mark, using its per-share cost basis (net of opening fees) times contracts times multiplier. Options are excluded from equity holdings, performance, cost basis, and net-worth totals.</p>
   </div>
 <% end %>
 
@@ -17,13 +26,15 @@
     <div class="overflow-x-auto rounded-xl bg-container shadow-border-xs">
       <table class="w-full text-sm">
         <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary"><tr>
-          <th class="px-4 py-3">Account</th><th class="px-4 py-3">Contract</th><th class="px-4 py-3">Underlying</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Expiry / DTE</th><th class="px-4 py-3 text-right">Strike</th><th class="px-4 py-3 text-right">Quantity</th><th class="px-4 py-3 text-right">Mark</th><th class="px-4 py-3">Snapshot</th>
+          <th class="px-4 py-3">Account</th><th class="px-4 py-3">Contract</th><th class="px-4 py-3">Underlying</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Expiry / DTE</th><th class="px-4 py-3 text-right">Strike</th><th class="px-4 py-3 text-right">Quantity</th><th class="px-4 py-3 text-right">Mark</th><th class="px-4 py-3 text-right">Cost basis</th><th class="px-4 py-3 text-right">Gain / loss</th><th class="px-4 py-3">Snapshot</th>
         </tr></thead>
         <tbody class="divide-y divide-tertiary">
           <% @rows.each do |row| %><% position = row.position %>
             <tr>
               <td class="px-4 py-3 font-medium text-primary"><%= row.account.name %></td><td class="px-4 py-3 font-mono text-primary whitespace-nowrap"><%= position.contract %></td><td class="px-4 py-3"><%= position.underlying || "—" %></td><td class="px-4 py-3"><%= position.type || "—" %></td>
               <td class="px-4 py-3"><%= position.expiration ? "#{l(position.expiration)}#{row.dte ? " · #{row.dte}d" : ""}" : "—" %></td><td class="px-4 py-3 text-right font-mono"><%= money.call(position.strike, position.currency) %></td><td class="px-4 py-3 text-right font-mono"><%= qty.call(position.quantity) %></td><td class="px-4 py-3 text-right font-mono"><%= money.call(position.mark, position.currency) %></td>
+              <td class="px-4 py-3 text-right font-mono"><%= position.cost_total ? tag.span(format_money(Money.new(position.cost_total, position.currency)), class: "privacy-sensitive") : tag.span("—", class: "text-secondary") %></td>
+              <td class="px-4 py-3 text-right font-mono"><%= gain_cell.call(position) %></td>
               <td class="px-4 py-3 text-xs <%= freshness_class.call(row.freshness) %>"><%= row.freshness.capitalize %><% if row.synced_at %> · <%= time_ago_in_words(row.synced_at) %> ago<% end %></td>
             </tr>
           <% end %>

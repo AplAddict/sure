@@ -11,7 +11,7 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
     item = SnaptradeItem.create!(family: @owner.family, name: "Options broker", client_id: "options-client", consumer_key: "options-key", status: "good")
     @provider_account = SnaptradeAccount.create!(
       snaptrade_item: item, snaptrade_account_id: "options-account", name: "Options broker", currency: "USD", current_balance: 1000,
-      raw_options_payload: [ { "instrument" => { "symbol" => "AAPL  270115C00250000", "option_type" => "CALL", "expiration_date" => "2027-01-15", "strike_price" => "250" }, "units" => "1", "price" => "12.5", "currency" => { "code" => "USD" } } ],
+      raw_options_payload: [ { "instrument" => { "symbol" => "AAPL  270115C00250000", "option_type" => "CALL", "expiration_date" => "2027-01-15", "strike_price" => "250", "multiplier" => "100" }, "units" => "1", "price" => "12.5", "cost_basis" => "10", "currency" => { "code" => "USD" } } ],
       last_holdings_sync: Time.current
     )
     AccountProvider.create!(account: @account, provider: @provider_account)
@@ -25,6 +25,9 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
     assert_match "AAPL  270115C00250000", response.body
     assert_match "Owner Options Brokerage", response.body
     assert_match "Read-only", response.body
+    assert_match "Gain / loss", response.body
+    assert_match "$250.00", response.body
+    assert_match "25.0%", response.body
     assert_no_match(/Greeks|Implied volatility|Trade now/i, response.body)
   end
 

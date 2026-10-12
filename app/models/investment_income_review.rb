@@ -47,10 +47,51 @@ class InvestmentIncomeReview
     missing_fx.values.sum
   end
 
-  # Option premium has no verified, distinct source label in the ledger, so it
-  # is never presented as a number.
+  OPTION_PREMIUM_TAGS = {
+    "SELL_TO_OPEN" => :sold_to_open,
+    "BUY_TO_OPEN" => :bought_to_open,
+    "BUY_TO_CLOSE" => :bought_to_close,
+    "SELL_TO_CLOSE" => :sold_to_close
+  }.freeze
+
+  # Option premium cash flow from the broker's own open/close tags on each
+  # activity. Amounts are the broker's signed, fee-inclusive cash figures
+  # (credits positive, debits negative). Assignments, exercises and expirations
+  # carry no premium amount and are not counted. This is cash premium, not
+  # realized profit: an open short has not been closed out yet.
+  #
+  # Only activities already in the family currency are summed (the broker
+  # supplies no FX rate); any other currency makes the net unavailable (nil).
+  def option_premium
+    @option_premium ||= begin
+      sums = OPTION_PREMIUM_TAGS.values.index_with { BigDecimal("0") }
+      count = 0
+      unconverted = 0
+
+      option_activities.each do |activity|
+        kind = OPTION_PREMIUM_TAGS[activity[:option_type]]
+        code = activity.dig(:currency, :code).presence || currency
+        amount = begin
+          BigDecimal(activity[:amount].to_s)
+        rescue ArgumentError
+          nil
+        end
+
+        if amount.nil? || code != currency
+          unconverted += 1
+        else
+          sums[kind] += amount.abs
+          count += 1
+        end
+      end
+
+      net = unconverted.positive? ? nil : sums[:sold_to_open] + sums[:sold_to_close] - sums[:bought_to_open] - sums[:bought_to_close]
+      sums.merge(net: net, count: count, unconverted: unconverted)
+    end
+  end
+
   def option_premium_available?
-    false
+    !option_premium[:net].nil?
   end
 
   def accounts
@@ -65,6 +106,28 @@ class InvestmentIncomeReview
   end
 
   private
+    def option_activities
+      account_ids = accounts.pluck(:id).to_set
+      range = period.date_range
+
+      SnaptradeAccount.includes(:account_provider).flat_map do |provider_account|
+        linked = provider_account.current_account
+        next [] unless linked && account_ids.include?(linked.id)
+
+        Array(provider_account.raw_activities_payload).filter_map do |raw|
+          activity = raw.respond_to?(:to_h) ? raw.to_h.with_indifferent_access : {}
+          next unless OPTION_PREMIUM_TAGS.key?(activity[:option_type])
+
+          date = begin
+            Date.iso8601(activity[:trade_date].to_s[0, 10])
+          rescue ArgumentError
+            nil
+          end
+          activity if date && range.cover?(date)
+        end
+      end
+    end
+
     def totals
       compute
       @totals

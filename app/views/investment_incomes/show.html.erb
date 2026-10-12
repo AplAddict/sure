@@ -36,8 +36,12 @@
         <%= card.call("Interest", money.call(review.total(:interest))) %>
         <%= card.call("Total labeled income", money.call(review.income_total)) %>
       </div>
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <%= card.call("Option premium", unavailable, "No verified premium label exists in the ledger, so none is estimated.") %>
+      <% premium = review.option_premium %>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <%= card.call("Net option premium", money.call(premium[:net]), premium[:net].nil? ? "#{premium[:unconverted]} option trade#{"s" if premium[:unconverted] != 1} could not be converted, so no net is shown." : "Cash premium from #{premium[:count]} broker-tagged option trade#{"s" if premium[:count] != 1}, net of fees. Not realized profit while positions remain open.") %>
+        <%= card.call("Collected (sold to open)", money.call(premium[:sold_to_open])) %>
+        <%= card.call("Paid (bought to open)", money.call(premium[:bought_to_open])) %>
+        <%= card.call("Closing (net)", money.call(premium[:net].nil? ? nil : premium[:sold_to_close] - premium[:bought_to_close]), "Sold to close less bought to close.") %>
       </div>
     </section>
 

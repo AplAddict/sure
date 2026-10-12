@@ -8,14 +8,24 @@ class ResearchWatchlistEntriesController < ApplicationController
 
   def create
     @entry = Current.user.research_watchlist_entries.new(entry_params.except(:ticker))
-    # Only an already-known security can be queued; this never creates placeholder securities.
     ticker = entry_params[:ticker].to_s.strip.upcase
-    @entry.security = Security.where(ticker: ticker).order(:created_at).first if ticker.present?
 
-    if @entry.security.nil?
-      @entry.errors.add(:base, "Ticker not found. Search it in Ticker research first, then add it here.")
-    elsif @entry.save
-      return redirect_to research_watchlist_entries_path, notice: "#{ticker} added to your research watchlist."
+    # Any real ticker can be queued. An unseen one is resolved against the
+    # market source as a research-only security (never held, priced or imported
+    # as a normal security), and its fundamentals are fetched in the background.
+    security, status = TickerResearchGenerateJob.resolve_security(ticker)
+    case status
+    when :invalid then @entry.errors.add(:base, "\"#{ticker}\" doesn't look like a ticker symbol.")
+    when :unknown then @entry.errors.add(:base, "#{ticker} isn't a known ticker. Check the symbol and try again.")
+    when :unavailable then @entry.errors.add(:base, "#{ticker} couldn't be checked right now, so nothing was added. Try again in a moment.")
+    end
+
+    if security
+      @entry.security = security
+      if @entry.save
+        TickerResearchGenerateJob.perform_later(ticker, enrich_only: true) if status == :created
+        return redirect_to research_watchlist_entries_path, notice: "#{ticker} added to your research watchlist."
+      end
     end
 
     load_entries

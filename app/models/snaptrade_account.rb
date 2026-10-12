@@ -228,7 +228,32 @@ class SnaptradeAccount < ApplicationRecord
     snaptrade_item.snaptrade_provider
   end
 
-  OptionPosition = Data.define(:contract, :underlying, :type, :expiration, :strike, :quantity, :mark, :currency)
+  # `cost_basis` is the broker's PER-SHARE cost, already net of opening fees, so
+  # a contract's total cost is cost_basis x |contracts| x multiplier. Every
+  # derived figure is nil (shown as unavailable) when any input is missing:
+  # a missing cost basis, mark, quantity or multiplier is never treated as zero.
+  OptionPosition = Data.define(:contract, :underlying, :type, :expiration, :strike, :quantity, :mark, :cost_basis, :multiplier, :currency) do
+    def cost_total
+      return nil unless cost_basis && quantity && multiplier
+
+      cost_basis * quantity.abs * multiplier
+    end
+
+    # Unrealized, against the broker's last mark. Signed units make this correct
+    # for both long (mark above cost) and short (mark below credit) positions.
+    def gain
+      return nil unless cost_basis && quantity && multiplier && mark
+
+      (mark - cost_basis) * quantity * multiplier
+    end
+
+    def gain_pct
+      total = cost_total
+      return nil unless gain && total&.positive?
+
+      gain / total * 100
+    end
+  end
 
   # Normalize the read-only contract snapshot for presentation. This is
   # deliberately independent from Holding: option contracts must not become
@@ -244,27 +269,24 @@ class SnaptradeAccount < ApplicationRecord
         contract: contract,
         underlying: contract[/\A([A-Z.]+)\s+/, 1],
         type: instrument[:option_type].to_s.upcase.presence,
-        expiration: Date.iso8601(instrument[:expiration_date].to_s),
+        expiration: option_date(instrument[:expiration_date]),
         strike: option_decimal(instrument[:strike_price]),
         quantity: option_decimal(position[:units]),
         mark: option_decimal(position[:price]),
-        currency: option_currency(position[:currency]) || currency
-      )
-    rescue ArgumentError
-      OptionPosition.new(
-        contract: contract,
-        underlying: contract[/\A([A-Z.]+)\s+/, 1],
-        type: instrument[:option_type].to_s.upcase.presence,
-        expiration: nil,
-        strike: option_decimal(instrument[:strike_price]),
-        quantity: option_decimal(position[:units]),
-        mark: option_decimal(position[:price]),
+        cost_basis: option_decimal(position[:cost_basis]),
+        multiplier: option_decimal(instrument[:multiplier]),
         currency: option_currency(position[:currency]) || currency
       )
     end
   end
 
   private
+
+  def option_date(value)
+    Date.iso8601(value.to_s)
+  rescue ArgumentError
+    nil
+  end
 
   def option_decimal(value)
     BigDecimal(value.to_s)
