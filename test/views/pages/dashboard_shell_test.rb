@@ -274,6 +274,18 @@ class DashboardShellTest < ActionView::TestCase
     assert_select html, "select[name=security_id][disabled]"
   end
 
+  test "widget picker warns about a decision overlap without blocking a scoped alternative" do
+    widgets = dashboard_widget_catalog(existing: %w[portfolio.pulse]).flat_map { |group| group[:widgets] }
+    workspace = widgets.find { |widget| widget[:key] == "investments.decision_center" }
+
+    assert_equal "portfolio.pulse", workspace.fetch(:overlap_with_key)
+    assert_equal I18n.t("pages.dashboard.granular_widgets.portfolio_pulse"), workspace.fetch(:overlap_with_title)
+    assert_nil widgets.find { |widget| widget[:key] == "research.news" }.fetch(:overlap_with_key)
+
+    html = Nokogiri::HTML.fragment(render(partial: "pages/dashboard/add_widget_dialog", locals: @add_widget.merge(widgets: [ { key: :review, label: "Review", widgets: [ workspace ] } ])))
+    assert_select html, "form:has(button[data-widget-key='investments.decision_center']) [data-testid='widget-overlap-warning']", text: /#{Regexp.escape(I18n.t("pages.dashboard.widgets.overlap_warning", title: workspace.fetch(:overlap_with_title)))}/
+  end
+
   test "KPI tile does not duplicate a privacy-sensitive value into its title" do
     value = tag.span("$1,234.00", class: "privacy-sensitive", title: "$1,234.00")
     html = Nokogiri::HTML.fragment(render(partial: "pages/dashboard/widgets/kpi_tile", locals: { label: "Value", value: value }))

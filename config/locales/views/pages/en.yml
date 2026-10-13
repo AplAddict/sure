@@ -85,6 +85,7 @@ en:
         none_left_description: "Remove a widget to make room for another."
         search: "Search widgets"
         duplicate_confirm: "%{title} is already on this page. Add another independent instance?"
+        overlap_warning: "Similar to %{title} already on this page. Use a different scope or open that workspace instead."
         group_navigation: "Widget groups"
         added_count:
           one: "Added once"

@@ -86,12 +86,22 @@ module Dashboard
     HEIGHT_PX = { 3 => 208, 4 => 288, 5 => 352, 6 => 416 }.freeze
     HEIGHT_PRESETS = { 3 => "compact", 4 => "auto", 5 => "medium", 6 => "tall" }.freeze
     GROUPS = %i[portfolio review income tax options research market home_cash_flow].freeze
+    # These cards all lead with the same portfolio-level decision. They are not
+    # blocked—different pages or scopes can still be useful—but the picker must
+    # make the conceptual overlap visible before a user adds another one.
+    OVERLAP_SETS = [
+      %w[home.investment_summary investments.decision_center portfolio.pulse].freeze
+    ].freeze
 
     class << self
       def fetch(key) = INDEX.fetch(WidgetRegistry.canonical_key(key))
       def find(key) = INDEX[WidgetRegistry.canonical_key(key)]
       def height_px(units) = HEIGHT_PX.fetch(units.to_i) { HEIGHT_PX.fetch(4) }
       def height_preset(units) = HEIGHT_PRESETS.fetch(units.to_i) { "auto" }
+      def overlap?(first, second)
+        canonical = [ WidgetRegistry.canonical_key(first), WidgetRegistry.canonical_key(second) ]
+        canonical.uniq.size == 2 && OVERLAP_SETS.any? { |keys| canonical.all? { |key| keys.include?(key) } }
+      end
     end
   end
 end

@@ -3,6 +3,7 @@ module DashboardHelper
   def dashboard_widget_catalog(except: [], existing: [])
     excluded = Array(except).map { |key| Dashboard::WidgetRegistry.canonical_key(key) }
     existing_keys = Array(existing).map { |key| Dashboard::WidgetRegistry.canonical_key(key) }
+    existing_entries = existing_keys.index_with { |key| Dashboard::WidgetCatalog.fetch(key) }
     preview_enabled = respond_to?(:preview_features_enabled?) && preview_features_enabled?
 
     entries = Dashboard::WidgetRegistry.all.filter_map do |definition|
@@ -11,6 +12,7 @@ module DashboardHelper
       next if definition.key == "home.insights_feed" && !preview_enabled
 
       entry = Dashboard::WidgetCatalog.fetch(definition.key)
+      overlap_with_key = existing_entries.keys.find { |existing_key| Dashboard::WidgetCatalog.overlap?(definition.key, existing_key) }
       {
         key: definition.key,
         title: t(entry.title_key),
@@ -18,6 +20,8 @@ module DashboardHelper
         group: entry.group,
         added_count: existing_keys.count(definition.key),
         duplicate_type: existing_keys.include?(definition.key),
+        overlap_with_key: overlap_with_key,
+        overlap_with_title: overlap_with_key && t(existing_entries.fetch(overlap_with_key).title_key),
         settings: dashboard_catalog_widget_settings(definition)
       }
     end

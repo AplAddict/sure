@@ -33,6 +33,7 @@
                             <% if widget[:added_count].to_i.positive? %><span class="rounded-full bg-container-inset px-2 py-0.5 text-xs text-secondary"><%= t("pages.dashboard.widgets.added_count", count: widget[:added_count]) %></span><% end %>
                           </div>
                           <% if widget[:description].present? %><p class="text-xs text-secondary"><%= widget[:description] %></p><% end %>
+                          <% if widget[:overlap_with_key].present? %><p class="mt-1 text-xs font-medium text-warning" data-testid="widget-overlap-warning"><%= t("pages.dashboard.widgets.overlap_warning", title: widget[:overlap_with_title]) %></p><% end %>
                         </div>
                       </div>
                       <button type="button"
