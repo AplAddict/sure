@@ -9,11 +9,13 @@ class DashboardVisualQaTest < ApplicationSystemTestCase
   include DashboardVisualQaFixture
 
   PHONE = [ 375, 812 ].freeze
+  SHOTS = Rails.root.join("tmp/screenshots/dashboard-visual-qa")
 
   setup do
     @user = users(:family_admin)
-    @qa = build_dashboard_visual_qa_fixture!(user: @user)
     sign_in @user
+    @qa = build_dashboard_visual_qa_fixture!(user: @user)
+    FileUtils.mkdir_p(SHOTS)
   end
 
   teardown { restore_dashboard_visual_qa_network_guard! }
@@ -33,21 +35,32 @@ class DashboardVisualQaTest < ApplicationSystemTestCase
       assert_text I18n.t("pages.dashboard.granular_data.top_share")
       assert_no_text "Portfolio value"
     end
+    portfolio_value_cards = all("section[data-widget-key]").select { |card| card.text.include?("Portfolio value") }
+    assert_equal [ "portfolio.pulse" ], portfolio_value_cards.map { |card| card["data-widget-key"] }
 
-    save_screenshot Rails.root.join("tmp/screenshots/dashboard-visual-qa/desktop.png")
+    save_screenshot SHOTS.join("desktop.png")
+    find("section[data-widget-key='research.news']").native.save_screenshot(SHOTS.join("desktop-news.png"))
+    find("section[data-widget-key='portfolio.top_holdings']").native.save_screenshot(SHOTS.join("desktop-top-holdings.png"))
     assert_no_document_overflow("desktop dashboard")
   end
 
-  test "phone dashboard keeps the sentiment widget and main content above the bottom bar" do
+  test "phone dashboard has no Investments tab, a compact page switcher, and room above the bottom bar" do
     page.current_window.resize_to(*PHONE)
     visit root_url(page: @qa.fetch(:page_id))
 
-    assert_selector "section[data-widget-key='research.news']", visible: true
-    assert_text "QA Alpha beats fictional estimates"
-    main = page.evaluate_script("document.querySelector('#main').getBoundingClientRect()")
-    nav = page.evaluate_script("document.querySelector('[data-testid=mobile-bottom-nav]').getBoundingClientRect()")
-    assert_operator main["bottom"], :<=, nav["bottom"], "main must reserve the mobile bottom navigation area"
-    save_screenshot Rails.root.join("tmp/screenshots/dashboard-visual-qa/phone.png")
+    assert_selector "section[data-widget-key='research.news']", visible: :all
+    labels = all("[data-testid=mobile-bottom-nav-items] li a p, [data-testid=mobile-bottom-nav-items] li button p").map(&:text)
+    assert_includes labels, "Home"
+    assert_not_includes labels, I18n.t("layouts.application.nav.investments")
+    assert_selector "[data-testid=dashboard-page-switcher]", visible: true
+
+    nav_height = page.evaluate_script("document.querySelector('[data-testid=mobile-bottom-nav]').getBoundingClientRect().height")
+    padding = page.evaluate_script("parseFloat(getComputedStyle(document.querySelector('#main')).paddingBottom)")
+    assert_operator padding, :>=, nav_height - 1, "main must reserve at least the bottom bar height so the last card stays reachable"
+
+    save_screenshot SHOTS.join("phone.png")
+    find("section[data-widget-key='research.news']").native.save_screenshot(SHOTS.join("phone-news.png"))
+    find("section[data-widget-key='research.news']").assert_text I18n.t("pages.dashboard.settings.options.sentiment.bullish")
     assert_no_document_overflow("phone dashboard")
   end
 
