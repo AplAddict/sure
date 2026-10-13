@@ -1,181 +1,192 @@
+<% content_for :page_title, (@dashboard_page_id == "investments" ? t("investment_decision_center.title") : @dashboard_page.fetch("name")) %>
+
 <% content_for :page_header do %>
-  <div class="space-y-1 mb-6 flex gap-4 justify-between items-center lg:items-start">
+  <div class="mb-6 flex items-center justify-between gap-4 lg:items-start">
     <div class="space-y-1">
-      <h1 class="text-xl lg:text-3xl font-medium text-primary">
-        <%= t("pages.dashboard.welcome", name: Current.user.first_name) %>
+      <h1 class="text-xl font-medium text-primary lg:text-3xl">
+        <% if @dashboard_page_id == "home" %>
+          <%= t("pages.dashboard.welcome", name: Current.user.first_name) %>
+        <% elsif @dashboard_page_id == "investments" %>
+          <%= t("investment_decision_center.title") %>
+        <% else %>
+          <%= @dashboard_page.fetch("name") %>
+        <% end %>
       </h1>
-      <p class="text-sm lg:text-base text-secondary">
-        <%= t("pages.dashboard.subtitle") %>
+      <p class="text-sm text-secondary lg:text-base">
+        <%= @dashboard_page_id == "investments" ? t("investment_decision_center.subtitle") : t("pages.dashboard.subtitle") %>
       </p>
     </div>
 
-    <%# `add_widget:` stays nil until the homepage has pages a member can edit;
-        the shell for that (pages/dashboard/_page_tabs, _header_actions,
-        _add_widget_dialog, _empty_page) takes explicit locals, so wiring it is a
-        matter of passing { id:, url:, page_key:, widgets: } from a named route
-        and dashboard_widget_catalog. %>
-    <%= render "pages/dashboard/header_actions", show_view_switch: @decision_available %>
+    <%= render "pages/dashboard/header_actions",
+          add_widget: @dashboard_add_widget,
+          page_management: @dashboard_page_management,
+          current_page_url: root_path(page: @dashboard_page_id),
+          home_url: root_path %>
   </div>
 <% end %>
 
 <%= turbo_frame_tag "dashboard_sections", target: "_top" do %>
-  <% if accessible_accounts.any? %>
-    <div class="flex items-center justify-end mb-4">
-      <%= render UI::PeriodPicker.new(selected: @period, url: root_path, frame: "dashboard_sections") %>
+  <%= render "pages/dashboard/page_tabs", pages: @dashboard_tabs, current: @dashboard_page_id %>
+
+  <% if @dashboard_page_id == "investments" %>
+    <turbo-frame id="investment_workspace" target="_top">
+  <% end %>
+
+  <% if @dashboard_page_id == "investments" %>
+    <div class="mb-5">
+      <%= render "investments/subnav", current: :decision %>
     </div>
   <% end %>
 
-  <% two_column = Current.user.dashboard_two_column? %>
-  <div class="grid grid-cols-1 <%= "2xl:grid-cols-2 2xl:items-start 2xl:gap-y-0 2xl:[grid-auto-flow:row_dense] 2xl:[grid-auto-rows:1px]" if two_column %> gap-6 pb-6 lg:pb-12" data-controller="dashboard-sortable dashboard-masonry" data-action="dragover->dashboard-sortable#dragOver drop->dashboard-sortable#drop" role="list" aria-label="<%= t("pages.dashboard.sections_aria_label") %>">
-  <% if accessible_accounts.any? %>
-    <% @dashboard_sections.each do |section| %>
-      <% next unless section[:visible] %>
-      <%# Each widget instance owns a DOM id prefix. A section's partial takes
-          `widget_id:` (and its own inner ids derived from it) so a second copy
-          of the same widget on another page cannot collide; this single
-          dashboard keeps the partials' historical default ids. %>
-      <section
-        id="<%= section[:dom_id] || "dashboard-section-#{section[:key]}" %>"
-        class="bg-container rounded-xl shadow-border-xs transition-all group focus-ring<%= " 2xl:col-span-2" if two_column && section[:layout][:col_span] == "full" %>"
-        style="<%= "--dash-widget-h: #{section[:layout][:height_px]}px;" if section[:layout][:grow] %>"
-        data-dashboard-sortable-target="section"
-        data-section-key="<%= section[:key] %>"
-        data-controller="dashboard-section<%= " cashflow-expand" if section[:key] == "cashflow_sankey" %>"
-        data-dashboard-section-section-key-value="<%= section[:key] %>"
-        data-dashboard-section-collapsed-value="<%= Current.user.dashboard_section_collapsed?(section[:key]) %>"
-        draggable="true"
-        tabindex="0"
-        role="listitem"
-        aria-grabbed="false"
-        aria-label="<%= t("pages.dashboard.section_label", title: t(section[:title])) %>"
-        data-action="
-          dragstart->dashboard-sortable#dragStart
-          dragend->dashboard-sortable#dragEnd
-          touchstart->dashboard-sortable#touchStart
-          touchmove->dashboard-sortable#touchMove
-          touchend->dashboard-sortable#touchEnd
-          touchcancel->dashboard-sortable#touchEnd
-          keydown->dashboard-sortable#handleKeyDown">
-        <div class="px-4 py-2 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="flex items-center justify-center w-6 h-6 pointer-coarse:w-11 pointer-coarse:h-11 rounded-md text-secondary hover:text-primary hover:bg-container-inset-hover transition-colors focus-ring"
-              data-action="click->dashboard-section#toggle keydown->dashboard-section#handleToggleKeydown"
-              data-dashboard-section-target="button"
-              aria-label="<%= t("pages.dashboard.toggle_section") %>"
-              aria-expanded="<%= !Current.user.dashboard_section_collapsed?(section[:key]) %>">
-              <%= icon("chevron-down", size: "sm", class: "transition-transform", data: { dashboard_section_target: "chevron" }) %>
-            </button>
-            <h2 class="text-base font-medium">
-              <%= t(section[:title]) %>
-            </h2>
-          </div>
-          <%# Header controls fade in on hover and focus. Touch screens have
-              neither, so pointer-coarse keeps them visible and grows each one
-              to a 44px square; the layout box stays 24px for mice. %>
-          <div class="flex items-center gap-1">
-            <%# Expand/Collapse-all for the balance sheet, as the leftmost
-                icon in the header's hover cluster. Wired by the inline script
-                in _balance_sheet.html.erb (which finds it via this section). %>
-            <% if section[:key] == "balance_sheet" && @balance_sheet.classification_groups.any? { |cg| cg.account_groups.any? } %>
-              <button
-                type="button"
-                class="flex items-center justify-center w-6 h-6 pointer-coarse:w-11 pointer-coarse:h-11 rounded-md text-secondary hover:text-primary hover:bg-container-inset-hover transition-colors opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100 focus-ring"
-                data-balance-sheet-expand-all="true"
-                data-expand-label="<%= t("pages.dashboard.balance_sheet.expand_all") %>"
-                data-collapse-label="<%= t("pages.dashboard.balance_sheet.collapse_all") %>"
-                aria-expanded="false"
-                aria-label="<%= t("pages.dashboard.balance_sheet.expand_all") %>">
-                <span data-icon="expand" aria-hidden="true"><%= icon("chevrons-up-down", size: "sm", class: "!w-3.5 !h-3.5") %></span>
-                <span data-icon="collapse" aria-hidden="true" style="display:none"><%= icon("chevrons-down-up", size: "sm", class: "!w-3.5 !h-3.5") %></span>
-              </button>
-            <% end %>
-            <% if section[:key] == "cashflow_sankey" && section[:locals][:sankey_data][:links].present? %>
-              <button
-                type="button"
-                class="flex items-center justify-center w-6 h-6 pointer-coarse:w-11 pointer-coarse:h-11 rounded-md text-secondary hover:text-primary hover:bg-container-inset-hover transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 pointer-coarse:opacity-100 focus-ring ml-auto lg:ml-0"
-                data-action="click->cashflow-expand#open"
-                aria-label="<%= t("global.expand") %>">
-                <%= icon("maximize-2", size: "sm", class: "!w-3.5 !h-3.5") %>
-              </button>
-            <% end %>
-            <% layout = section[:layout] %>
-            <% show_width = layout[:width_toggle] && two_column %>
-            <% if layout[:grow] || show_width %>
-              <details
-                class="relative hidden lg:block"
-                data-controller="dashboard-widget-size"
-                data-dashboard-widget-size-section-key-value="<%= section[:key] %>"
-                data-action="keydown->dashboard-widget-size#stopKeydown">
-                <summary
-                  class="focus-ring list-none cursor-pointer flex items-center justify-center w-6 h-6 pointer-coarse:w-11 pointer-coarse:h-11 rounded-md text-secondary hover:text-primary hover:bg-container-inset-hover transition-colors opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100 [&::-webkit-details-marker]:hidden"
-                  aria-label="<%= t("pages.dashboard.widget_size.label") %>">
-                  <%= icon("sliders-horizontal", size: "sm", class: "!w-3.5 !h-3.5") %>
-                </summary>
-                <div class="absolute right-0 top-full mt-1.5 z-10 w-48 p-2.5 space-y-2.5 bg-surface rounded-xl shadow-border-xs border border-primary">
-                  <% if show_width %>
-                    <div class="space-y-1.5">
-                      <p class="flex items-center gap-1.5 text-xs font-medium text-secondary">
-                        <%= icon("move-horizontal", size: "xs") %>
-                        <%= t("pages.dashboard.widget_size.width_label") %>
-                      </p>
-                      <%= render DS::SegmentedControl.new(full_width: true, aria_label: t("pages.dashboard.widget_size.width_label")) do |sc| %>
-                        <% { "single" => "half", "full" => "full" }.each do |value, i18n_key| %>
-                          <% sc.with_segment(
-                               t("pages.dashboard.widget_size.#{i18n_key}"),
-                               active: layout[:col_span] == value,
-                               data: { action: "dashboard-widget-size#selectWidth", col_span: value }
-                             ) %>
-                        <% end %>
-                      <% end %>
-                    </div>
-                  <% end %>
-                  <% if layout[:grow] %>
-                    <div class="space-y-1.5">
-                      <p class="flex items-center gap-1.5 text-xs font-medium text-secondary">
-                        <%= icon("move-vertical", size: "xs") %>
-                        <%= t("pages.dashboard.widget_size.height_label") %>
-                      </p>
-                      <%= render DS::SegmentedControl.new(full_width: true, aria_label: t("pages.dashboard.widget_size.height_label")) do |sc| %>
-                        <% PagesController::DASHBOARD_HEIGHT_PRESETS.each do |preset, px| %>
-                          <% sc.with_segment(
-                               t("pages.dashboard.widget_size.#{preset}"),
-                               active: layout[:height_preset] == preset,
-                               data: { action: "dashboard-widget-size#selectHeight", preset: preset, height: px }
-                             ) %>
-                        <% end %>
-                      <% end %>
-                    </div>
-                  <% end %>
-                </div>
-              </details>
-            <% end %>
-            <%# A grab surface, not a button — clicking it does nothing. It keeps
-                cursor-grab and the colour shift, and deliberately skips the hover
-                background the other header controls use: a filled hover state
-                reads as "clickable" and would promise a click that never lands.
-                Still sized to the same 24px box so the icons stay aligned. %>
-            <button
-              type="button"
-              class="cursor-grab active:cursor-grabbing hidden lg:flex items-center justify-center w-6 h-6 pointer-coarse:w-11 pointer-coarse:h-11 rounded-md text-secondary hover:text-primary transition-colors opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100 focus-ring"
-              aria-label="<%= t("pages.dashboard.drag_to_reorder") %>">
-              <%= icon("grip-vertical", size: "sm") %>
-            </button>
-          </div>
-        </div>
-        <div class="py-4" data-dashboard-section-target="content">
-          <%= render partial: section[:partial], locals: section[:locals] %>
-          <% if section[:key] == "cashflow_sankey" && preview_features_enabled? %>
-            <%= render "pages/dashboard/cashflow_preview", period: @period, legacy_data: section[:locals][:sankey_data] %>
-          <% end %>
-        </div>
-      </section>
-    <% end %>
-  <% else %>
-    <section>
-      <%= render "pages/dashboard/no_accounts_graph_placeholder" %>
-    </section>
+  <% if @accounts.any? %>
+    <div class="mb-4 flex items-center justify-end">
+      <%= render UI::PeriodPicker.new(selected: @period, url: root_path(page: @dashboard_page_id), frame: "dashboard_sections") %>
+    </div>
+  <% elsif @dashboard_page_id == "home" %>
+    <div class="mb-6"><%= render "pages/dashboard/no_accounts_graph_placeholder" %></div>
   <% end %>
-  </div>
+
+  <% if @dashboard_sections.empty? %>
+    <%= render "pages/dashboard/empty_page",
+          title: t("pages.dashboard.empty_page.title"),
+          description: t("pages.dashboard.empty_page.description"),
+          add_widget: @dashboard_add_widget,
+          current_page_url: root_path(page: @dashboard_page_id) %>
+  <% else %>
+    <% two_column = Current.user.dashboard_two_column? %>
+    <div class="grid grid-cols-1 gap-6 pb-6 lg:pb-12 <%= "2xl:grid-cols-2 2xl:items-start 2xl:gap-y-0 2xl:[grid-auto-flow:row_dense] 2xl:[grid-auto-rows:1px]" if two_column %>"
+         data-controller="dashboard-pages dashboard-sortable dashboard-masonry"
+         data-dashboard-pages-return-url-value="<%= root_path(page: @dashboard_page_id) %>"
+         data-dashboard-sortable-url-value="<%= order_page_widgets_path(@dashboard_page_id) %>"
+         data-action="dragover->dashboard-sortable#dragOver drop->dashboard-sortable#drop"
+         role="list"
+         aria-label="<%= t("pages.dashboard.sections_aria_label") %>">
+      <% @dashboard_sections.each do |section| %>
+        <section id="<%= section[:dom_id] %>"
+                 class="group rounded-xl bg-container shadow-border-xs transition-all focus-ring <%= "2xl:col-span-2" if two_column && section[:layout][:col_span] == "full" %>"
+                 style="<%= "--dash-widget-h: #{section[:layout][:height_px]}px;" if section[:layout][:grow] %>"
+                 data-dashboard-sortable-target="section"
+                 data-section-key="<%= section[:key] %>"
+                 data-controller="dashboard-section<%= " cashflow-expand" if section[:legacy_key] == "cashflow_sankey" %>"
+                 data-dashboard-section-section-key-value="<%= section[:key] %>"
+                 data-dashboard-section-collapsed-value="<%= section[:collapsed] %>"
+                 data-dashboard-section-url-value="<%= section[:update_url] %>"
+                 draggable="true"
+                 tabindex="0"
+                 role="listitem"
+                 aria-grabbed="false"
+                 aria-label="<%= t("pages.dashboard.section_label", title: t(section[:title])) %>"
+                 data-action="dragstart->dashboard-sortable#dragStart dragend->dashboard-sortable#dragEnd keydown->dashboard-sortable#handleKeyDown">
+          <div class="flex items-center justify-between px-4 py-2">
+            <div class="flex min-w-0 items-center gap-2">
+              <button type="button"
+                      class="flex h-6 w-6 items-center justify-center rounded-md text-secondary transition-colors hover:bg-container-inset-hover hover:text-primary focus-ring pointer-coarse:h-11 pointer-coarse:w-11"
+                      data-action="click->dashboard-section#toggle keydown->dashboard-section#handleToggleKeydown"
+                      data-dashboard-section-target="button"
+                      aria-label="<%= t("pages.dashboard.toggle_section") %>"
+                      aria-expanded="<%= !section[:collapsed] %>">
+                <%= icon("chevron-down", size: "sm", class: "transition-transform", data: { dashboard_section_target: "chevron" }) %>
+              </button>
+              <h2 class="truncate text-base font-medium"><%= t(section[:title]) %></h2>
+            </div>
+
+            <div class="flex items-center gap-1">
+              <% if section[:legacy_key] == "balance_sheet" && !section[:unavailable] && section[:locals][:balance_sheet].classification_groups.any? { |group| group.account_groups.any? } %>
+                <button type="button"
+                        class="flex h-6 w-6 items-center justify-center rounded-md text-secondary opacity-0 transition-colors hover:bg-container-inset-hover hover:text-primary focus-ring group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:opacity-100"
+                        data-balance-sheet-expand-all="true"
+                        data-expand-label="<%= t("pages.dashboard.balance_sheet.expand_all") %>"
+                        data-collapse-label="<%= t("pages.dashboard.balance_sheet.collapse_all") %>"
+                        aria-expanded="false"
+                        aria-label="<%= t("pages.dashboard.balance_sheet.expand_all") %>">
+                  <span data-icon="expand" aria-hidden="true"><%= icon("chevrons-up-down", size: "sm") %></span>
+                  <span data-icon="collapse" aria-hidden="true" hidden><%= icon("chevrons-down-up", size: "sm") %></span>
+                </button>
+              <% end %>
+
+              <% if section[:legacy_key] == "cashflow_sankey" && !section[:unavailable] && section[:locals][:sankey_data][:links].present? %>
+                <button type="button"
+                        class="flex h-6 w-6 items-center justify-center rounded-md text-secondary opacity-0 transition-colors hover:bg-container-inset-hover hover:text-primary focus-ring group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:opacity-100"
+                        data-action="click->cashflow-expand#open"
+                        aria-label="<%= t("global.expand") %>">
+                  <%= icon("maximize-2", size: "sm") %>
+                </button>
+              <% end %>
+
+              <% layout = section[:layout] %>
+              <% if layout[:width_options].any? || layout[:height_options].any? %>
+                <details class="relative block"
+                         data-controller="dashboard-widget-size"
+                         data-dashboard-widget-size-url-value="<%= section[:update_url] %>"
+                         data-action="keydown->dashboard-widget-size#stopKeydown">
+                  <summary class="flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-md text-secondary opacity-0 transition-colors hover:bg-container-inset-hover hover:text-primary focus-ring group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:opacity-100 [&::-webkit-details-marker]:hidden"
+                           aria-label="<%= t("pages.dashboard.widget_size.label") %>">
+                    <%= icon("sliders-horizontal", size: "sm") %>
+                  </summary>
+                  <div class="absolute right-0 top-full z-10 mt-1.5 w-48 space-y-2.5 rounded-xl border border-primary bg-surface p-2.5 shadow-border-xs">
+                    <% if layout[:width_options].any? %>
+                      <div class="space-y-1.5">
+                        <p class="text-xs font-medium text-secondary"><%= t("pages.dashboard.widget_size.width_label") %></p>
+                        <%= render DS::SegmentedControl.new(full_width: true, aria_label: t("pages.dashboard.widget_size.width_label")) do |control| %>
+                          <% layout[:width_options].each do |width| %>
+                            <% control.with_segment(t("pages.dashboard.widget_size.#{width == 12 ? "full" : "half"}"), active: layout[:col_width] == width, data: { action: "dashboard-widget-size#selectWidth", col_width: width }) %>
+                          <% end %>
+                        <% end %>
+                      </div>
+                    <% end %>
+                    <% if layout[:height_options].any? %>
+                      <div class="space-y-1.5">
+                        <p class="text-xs font-medium text-secondary"><%= t("pages.dashboard.widget_size.height_label") %></p>
+                        <%= render DS::SegmentedControl.new(full_width: true, aria_label: t("pages.dashboard.widget_size.height_label")) do |control| %>
+                          <% layout[:height_options].each do |height| %>
+                            <% preset = Dashboard::WidgetCatalog.height_preset(height) %>
+                            <% control.with_segment(t("pages.dashboard.widget_size.#{preset}"), active: layout[:height] == height, data: { action: "dashboard-widget-size#selectHeight", height_units: height, height_px: Dashboard::WidgetCatalog.height_px(height) }) %>
+                          <% end %>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                </details>
+              <% end %>
+
+              <button type="button"
+                      class="flex h-6 w-6 items-center justify-center rounded-md text-secondary opacity-0 transition-colors hover:bg-container-inset-hover hover:text-destructive focus-ring group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:opacity-100"
+                      data-action="click->dashboard-pages#removeWidget"
+                      data-url="<%= section[:remove_url] %>"
+                      aria-label="<%= t("pages.dashboard.widgets.remove", title: t(section[:title])) %>">
+                <%= icon("trash-2", size: "sm") %>
+              </button>
+
+              <button type="button"
+                      class="flex h-6 w-6 cursor-grab items-center justify-center rounded-md text-secondary opacity-0 transition-colors hover:text-primary focus-ring group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:opacity-100"
+                      data-action="touchstart->dashboard-sortable#touchStart touchmove->dashboard-sortable#touchMove touchend->dashboard-sortable#touchEnd touchcancel->dashboard-sortable#touchEnd"
+                      aria-label="<%= t("pages.dashboard.drag_to_reorder") %>">
+                <%= icon("grip-vertical", size: "sm") %>
+              </button>
+            </div>
+          </div>
+
+          <div class="<%= section[:padded] ? "px-4 py-4" : "py-4" %>" data-dashboard-section-target="content">
+            <% if section[:unavailable] %>
+              <div class="px-4 py-6 text-sm text-secondary" role="status">
+                <p><%= section[:unavailable][:message] %></p>
+                <% if section[:unavailable][:href] %>
+                  <p class="mt-3"><%= render DS::Link.new(text: section[:unavailable][:link_text], href: section[:unavailable][:href], variant: "outline", size: "sm") %></p>
+                <% end %>
+              </div>
+            <% else %>
+              <%= render partial: section[:partial], locals: section[:locals] %>
+              <% if section[:legacy_key] == "cashflow_sankey" && preview_features_enabled? %>
+                <%= render "pages/dashboard/cashflow_preview", period: @period, legacy_data: section[:locals][:sankey_data] %>
+              <% end %>
+            <% end %>
+          </div>
+        </section>
+      <% end %>
+    </div>
+  <% end %>
+
+  <% if @dashboard_page_id == "investments" %>
+    </turbo-frame>
+  <% end %>
 <% end %>

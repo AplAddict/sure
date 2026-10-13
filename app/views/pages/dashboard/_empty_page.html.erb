@@ -1,22 +1,15 @@
-<%# locals: (title:, description:, add_widget: nil, icon: "layout-grid") %>
-<%# Empty state for a homepage page with no widgets on it. With `add_widget`
-    (the same { id:, url:, page_key:, widgets: } hash the header takes) the
-    state offers an Add widget button wired to its own copy of the dialog, so
-    it works even when the header is out of view. %>
-<%= tag.div class: "bg-container rounded-xl shadow-border-xs", data: { testid: "dashboard-empty-page", controller: (add_widget ? "expandable" : nil) } do %>
+<%# locals: (title:, description:, add_widget:, current_page_url:, icon: "layout-grid") %>
+<%= tag.div class: "rounded-xl bg-container shadow-border-xs",
+      data: { testid: "dashboard-empty-page", controller: "dashboard-pages expandable", dashboard_pages_return_url_value: current_page_url } do %>
   <%= render DS::EmptyState.new(icon: icon, title: title, description: description) do |empty| %>
-    <% if add_widget %>
-      <% empty.with_action do %>
-        <%= render DS::Button.new(
-          variant: "primary",
-          icon: "plus",
-          text: t("pages.dashboard.widgets.add"),
-          data: { action: "click->expandable#open" }
-        ) %>
-      <% end %>
+    <% empty.with_action do %>
+      <%= render DS::Button.new(
+        variant: "primary",
+        icon: "plus",
+        text: t("pages.dashboard.widgets.add"),
+        data: { action: "click->expandable#open" }
+      ) %>
     <% end %>
   <% end %>
-  <% if add_widget %>
-    <%= render "pages/dashboard/add_widget_dialog", **add_widget.merge(id: "#{add_widget[:id]}-empty") %>
-  <% end %>
+  <%= render "pages/dashboard/add_widget_dialog", **add_widget.merge(id: "#{add_widget[:id]}-empty") %>
 <% end %>

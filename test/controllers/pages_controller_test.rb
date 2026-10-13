@@ -55,12 +55,13 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     get root_path
 
     assert_response :ok
-    ids = css_select("section[data-section-key]").map { |section| section["id"] }
+    ids = css_select("#dashboard_sections [id]").map { |node| node["id"] }
     assert_equal ids.uniq, ids
     assert_select "section#dashboard-section-net_worth_chart #net-worth-chart #netWorthChart"
     assert_select "section#dashboard-section-balance_sheet #balance-sheet"
     assert_select "[data-testid=dashboard-header-actions] a[href=?]", new_account_path, minimum: 1
-    assert_select "[data-testid=dashboard-add-widget]", count: 0
+    assert_select "[data-testid=dashboard-add-widget]", count: 1
+    assert_select "[data-testid=dashboard-manage-pages]", count: 1
   end
 
   test "dashboard investment summary lists balance-only investment accounts as positions" do

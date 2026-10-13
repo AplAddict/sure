@@ -254,12 +254,12 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the overview shows the switch when the member has investments" do
+  test "the overview shows the Investments page tab when the member has investments" do
     sign_in @owner
     get root_path
 
     assert_response :success
-    assert_select "a[href=?]", root_path(view: "decision"), text: I18n.t("investment_decision_center.switch.decision")
+    assert_select "a[href=?][data-dashboard-page-key=investments]", root_path(page: "investments"), text: "Investments"
   end
 
   test "a member with no investment accounts gets no switch and cannot force the view" do

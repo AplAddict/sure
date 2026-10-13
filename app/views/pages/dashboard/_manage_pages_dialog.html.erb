@@ -1,0 +1,74 @@
+<%# locals: (pages:, create_url:, order_url:, can_create:, can_restore_investments:) %>
+<%= render DS::Dialog.new(id: "dashboard-manage-pages-dialog", auto_open: false, disable_frame: true, data: { testid: "dashboard-manage-pages-dialog", expandable_target: "dialog" }) do |dialog| %>
+  <% dialog.with_header(title: t("pages.dashboard.pages.manage"), subtitle: t("pages.dashboard.pages.manage_description")) %>
+  <% dialog.with_body do %>
+    <div class="space-y-4" data-order-url="<%= order_url %>">
+      <p class="hidden text-sm text-destructive" role="alert" data-dashboard-pages-target="error"></p>
+
+      <ol class="divide-y divide-tertiary" data-testid="dashboard-page-list">
+        <% pages.each_with_index do |page, index| %>
+          <li class="flex items-center gap-2 py-3" data-dashboard-pages-target="pageRow" data-page-id="<%= page[:id] %>">
+            <div class="min-w-0 flex-1">
+              <% if page[:custom] %>
+                <form class="flex items-center gap-2" data-action="submit->dashboard-pages#renamePage" data-url="<%= page[:update_url] %>">
+                  <label class="sr-only" for="dashboard-page-name-<%= page[:id] %>"><%= t("pages.dashboard.pages.name_label") %></label>
+                  <input id="dashboard-page-name-<%= page[:id] %>" name="name" value="<%= page[:name] %>" maxlength="<%= User::MAX_DASHBOARD_PAGE_NAME %>" required
+                         class="min-w-0 flex-1 rounded-lg border border-primary bg-container px-3 py-2 text-sm text-primary focus-ring">
+                  <%= render DS::Button.new(type: :submit, variant: "outline", size: :sm, text: t("pages.dashboard.pages.rename")) %>
+                </form>
+              <% else %>
+                <p class="truncate text-sm font-medium text-primary"><%= page[:name] %></p>
+              <% end %>
+            </div>
+
+            <div class="flex shrink-0 items-center gap-1">
+              <% if index > 1 %>
+                <button type="button" class="flex h-11 w-11 items-center justify-center rounded-md text-secondary hover:bg-container-inset-hover hover:text-primary focus-ring"
+                        data-action="click->dashboard-pages#movePageUp" aria-label="<%= t("pages.dashboard.pages.move_up", name: page[:name]) %>">
+                  <%= icon("arrow-up", size: "sm") %>
+                </button>
+              <% end %>
+              <% if index.positive? && index < pages.length - 1 %>
+                <button type="button" class="flex h-11 w-11 items-center justify-center rounded-md text-secondary hover:bg-container-inset-hover hover:text-primary focus-ring"
+                        data-action="click->dashboard-pages#movePageDown" aria-label="<%= t("pages.dashboard.pages.move_down", name: page[:name]) %>">
+                  <%= icon("arrow-down", size: "sm") %>
+                </button>
+              <% end %>
+              <% if page[:delete_url] %>
+                <button type="button" class="flex h-11 w-11 items-center justify-center rounded-md text-secondary hover:bg-container-inset-hover hover:text-destructive focus-ring"
+                        data-action="click->dashboard-pages#deletePage" data-url="<%= page[:delete_url] %>" data-page-id="<%= page[:id] %>"
+                        data-confirm="<%= t("pages.dashboard.pages.delete_confirm", name: page[:name]) %>"
+                        aria-label="<%= t("pages.dashboard.pages.delete", name: page[:name]) %>">
+                  <%= icon("trash-2", size: "sm") %>
+                </button>
+              <% end %>
+            </div>
+          </li>
+        <% end %>
+      </ol>
+
+      <% if can_create %>
+        <form class="flex items-end gap-2 border-t border-tertiary pt-4" data-action="submit->dashboard-pages#createPage" data-url="<%= create_url %>">
+          <div class="min-w-0 flex-1">
+            <label class="mb-1 block text-sm font-medium text-primary" for="dashboard-new-page-name"><%= t("pages.dashboard.pages.new_name") %></label>
+            <input id="dashboard-new-page-name" name="name" maxlength="<%= User::MAX_DASHBOARD_PAGE_NAME %>" required
+                   class="w-full rounded-lg border border-primary bg-container px-3 py-2 text-sm text-primary focus-ring">
+          </div>
+          <%= render DS::Button.new(type: :submit, icon: "plus", text: t("pages.dashboard.pages.create")) %>
+        </form>
+      <% end %>
+
+      <% if can_restore_investments %>
+        <div class="border-t border-tertiary pt-4">
+          <%= render DS::Button.new(
+            type: :button,
+            variant: "outline",
+            icon: "rotate-ccw",
+            text: t("pages.dashboard.pages.restore_investments"),
+            data: { action: "click->dashboard-pages#restoreInvestments", url: create_url }
+          ) %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>

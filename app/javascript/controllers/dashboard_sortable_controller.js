@@ -6,6 +6,7 @@ export default class extends Controller {
   // Hold delay to require deliberate press-and-hold before activating drag mode
   static values = {
     holdDelay: { type: Number, default: 800 },
+    url: String,
   };
 
   connect() {
@@ -130,7 +131,8 @@ export default class extends Controller {
     if (!this.holdActivated) {
       const dx = touchX - this.touchStartX;
       const dy = touchY - this.touchStartY;
-      if (dx * dx + dy * dy > 100) { // 10px radius
+      if (dx * dx + dy * dy > 100) {
+        // 10px radius
         this.cancelHold();
       }
       return;
@@ -142,7 +144,10 @@ export default class extends Controller {
     this.currentTouchX = touchX;
     this.currentTouchY = touchY;
 
-    const afterElement = this.getDragAfterElement(this.currentTouchX, this.currentTouchY);
+    const afterElement = this.getDragAfterElement(
+      this.currentTouchX,
+      this.currentTouchY,
+    );
     this.clearPlaceholders();
 
     if (afterElement == null) {
@@ -160,7 +165,10 @@ export default class extends Controller {
       return;
     }
 
-    const afterElement = this.getDragAfterElement(this.currentTouchX, this.currentTouchY);
+    const afterElement = this.getDragAfterElement(
+      this.currentTouchX,
+      this.currentTouchY,
+    );
     const container = this.element;
 
     if (afterElement == null) {
@@ -203,6 +211,8 @@ export default class extends Controller {
 
   // ===== Keyboard Navigation =====
   handleKeyDown(event) {
+    if (event.target !== event.currentTarget) return;
+
     const currentSection = event.currentTarget;
 
     switch (event.key) {
@@ -345,28 +355,31 @@ export default class extends Controller {
     }
 
     try {
-      const response = await fetch("/dashboard/preferences", {
+      const response = await fetch(this.urlValue, {
         method: "PATCH",
         headers: {
+          Accept: "application/json",
           "Content-Type": "application/json",
           "X-CSRF-Token": csrfToken.content,
         },
-        body: JSON.stringify({ preferences: { section_order: order } }),
+        body: JSON.stringify({ widget_keys: order }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error(
-          "[Dashboard Sortable] Failed to save section order:",
+          "[Dashboard Sortable] Failed to save widget order:",
           response.status,
           errorData,
         );
+        window.location.reload();
       }
     } catch (error) {
       console.error(
-        "[Dashboard Sortable] Network error saving section order:",
+        "[Dashboard Sortable] Network error saving widget order:",
         error,
       );
+      window.location.reload();
     }
   }
 }

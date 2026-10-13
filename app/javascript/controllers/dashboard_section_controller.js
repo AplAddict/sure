@@ -5,6 +5,7 @@ export default class extends Controller {
   static values = {
     sectionKey: String,
     collapsed: Boolean,
+    url: String,
   };
 
   connect() {
@@ -54,12 +55,6 @@ export default class extends Controller {
   }
 
   async savePreference(collapsed) {
-    const preferences = {
-      collapsed_sections: {
-        [this.sectionKeyValue]: collapsed,
-      },
-    };
-
     // Safely obtain CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]');
     if (!csrfToken) {
@@ -70,13 +65,14 @@ export default class extends Controller {
     }
 
     try {
-      const response = await fetch("/dashboard/preferences", {
+      const response = await fetch(this.urlValue, {
         method: "PATCH",
         headers: {
+          Accept: "application/json",
           "Content-Type": "application/json",
           "X-CSRF-Token": csrfToken.content,
         },
-        body: JSON.stringify({ preferences }),
+        body: JSON.stringify({ widget: { collapsed } }),
       });
 
       if (!response.ok) {
@@ -86,12 +82,14 @@ export default class extends Controller {
           response.status,
           errorData,
         );
+        window.location.reload();
       }
     } catch (error) {
       console.error(
         "[Dashboard Section] Network error saving preferences:",
         error,
       );
+      window.location.reload();
     }
   }
 }

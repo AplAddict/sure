@@ -1,87 +1,49 @@
 class PagesController < ApplicationController
   include Periodable
 
-  # Per-widget dashboard layout guardrails. Deterministic defaults the masonry
-  # packer reads; users may override a grow widget's height via presets.
-  #   col_span:   "single" | "full" (full spans both columns in 2-col mode)
-  #   grow:       true for charts that should fill an allotted height,
-  #               false for content-sized widgets (tables, stat grids)
-  #   min_height: floor in px
-  DASHBOARD_SECTION_LAYOUTS = {
-    "ticker_news"        => { col_span: "full",   grow: false, min_height: 0,   width_toggle: true },
-    # Width-toggleable but full by default: the feed is much shorter than any
-    # other single-width widget, so defaulting to half leaves a grid hole the
-    # masonry can't backfill (dense placement needs a later card short enough
-    # to fit beside it, and none is). Users who pair it manually can go half.
-    "insights_feed"      => { col_span: "full",   grow: false, min_height: 0, width_toggle: true },
-    "cashflow_sankey"    => { col_span: "full",   grow: false, min_height: 384, width_toggle: true },
-    "money_flow"         => { col_span: "single", grow: false, min_height: 0,   width_toggle: true },
-    "spending_trend"     => { col_span: "single", grow: true,  min_height: 208, width_toggle: true },
-    "outflows_donut"     => { col_span: "single", grow: false, min_height: 0 },
-    "investment_summary" => { col_span: "single", grow: false, min_height: 0, width_toggle: true },
-    "net_worth_chart"    => { col_span: "single", grow: true,  min_height: 208, width_toggle: true },
-    "balance_sheet"      => { col_span: "single", grow: false, min_height: 0, width_toggle: true }
-  }.freeze
-
   # Number of consecutive months (ending at the selected month) shown as
   # bars in the "money_flow" dashboard widget.
   MONEY_FLOW_CHART_MONTHS = 6
 
-  # Selectable height presets (px) for grow widgets.
-  DASHBOARD_HEIGHT_PRESETS = { "compact" => 208, "auto" => 288, "tall" => 416 }.freeze
-  DEFAULT_HEIGHT_PRESET = "auto"
-
   skip_authentication only: %i[redis_configuration_error privacy terms]
   before_action :ensure_intro_guest!, only: :intro
 
+  # The homepage is a set of pages (Home, Investments, custom) the member
+  # composes from registry widgets. Only the resolved page's widgets are
+  # loaded and rendered; data is loaded once per registry load group so two
+  # widgets sharing a source share its queries.
   def dashboard
     if Current.user&.ui_layout_intro?
       redirect_to chats_path and return
     end
 
-    @decision_center = InvestmentDecisionCenter.new(user: Current.user)
-    @decision_available = @decision_center.available?
-    @dashboard_view = resolve_dashboard_view
-
-    if @dashboard_view == "decision"
-      @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("investment_decision_center.breadcrumb"), nil ] ]
-      render :decision_center and return
+    if legacy_decision_view_requested?
+      @decision_center = InvestmentDecisionCenter.new(user: Current.user)
+      if @decision_center.available?
+        @dashboard_view = "decision"
+        unless prefetch_request? || Current.user.dashboard_view == "decision"
+          Current.user.update_dashboard_preferences("dashboard_view" => "decision")
+        end
+        @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("investment_decision_center.breadcrumb"), nil ] ]
+        render :decision_center and return
+      end
     end
 
-    @balance_sheet = Current.family.balance_sheet
-    @investment_statement = Current.family.investment_statement
+    @dashboard_pages = Current.user.dashboard_pages
+    @dashboard_view = resolve_dashboard_view
     @accounts = Current.user.accessible_accounts.visible.with_attached_logo
+    @dashboard_sections = build_dashboard_page_sections(@dashboard_page)
+    @dashboard_tabs = @dashboard_pages.map do |page|
+      { key: page.fetch("id"), title: page.fetch("name"), path: root_path(page: page.fetch("id")) }
+    end
+    @dashboard_add_widget = dashboard_add_widget_options(@dashboard_page)
+    @dashboard_page_management = dashboard_page_management_options
 
-    family_currency = Current.family.currency
-
-    # Use IncomeStatement for all cashflow data (now includes categorized trades)
-    income_statement = Current.family.income_statement
-    income_totals = income_statement.income_totals(period: @period)
-    expense_totals = income_statement.expense_totals(period: @period)
-    net_totals = income_statement.net_category_totals(period: @period)
-
-    @cashflow_sankey_data = build_cashflow_sankey_data(net_totals, income_totals, expense_totals, family_currency)
-    @outflows_data = build_outflows_donut_data(net_totals)
-    # Preview-gated: skip the query outright rather than loading rows the
-    # section won't be built from.
-    @feed_insights = preview_features_enabled? ? Current.user.visible_insights.visible.ordered.limit(Insight::FEED_LIMIT) : Insight.none
-    @ticker_news = cached_ticker_news
-
-    @money_flow_accounts = income_statement.eligible_accounts
-    # TransactionsController's default (account_ids absent) scopes to this
-    # broader set, not @money_flow_accounts, so the view needs it to know
-    # when the drill-down links can safely omit account_ids.
-    @money_flow_accessible_account_ids = Current.user.accessible_accounts.pluck(:id).map(&:to_s)
-    @money_flow_month = money_flow_month_param
-    @money_flow_account_ids = money_flow_account_ids_param
-    @money_flow_data = build_money_flow_data(income_statement, @money_flow_month, @money_flow_account_ids)
-
-    @spending_trend_month = spending_trend_month_param
-    @spending_trend_data = build_spending_trend_data(income_statement, @spending_trend_month)
-
-    @dashboard_sections = build_dashboard_sections
-
-    @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("breadcrumbs.dashboard"), nil ] ]
+    @breadcrumbs = if @dashboard_page_id == "investments"
+      [ [ t("breadcrumbs.home"), root_path ], [ t("investment_decision_center.breadcrumb"), nil ] ]
+    else
+      [ [ t("breadcrumbs.home"), root_path ], [ t("breadcrumbs.dashboard"), nil ] ]
+    end
   end
 
   def intro
@@ -132,11 +94,18 @@ class PagesController < ApplicationController
   end
 
   private
+    def legacy_decision_view_requested?
+      return false if params[:page].present?
+      return true if params[:view].to_s == "decision"
+
+      params[:view].blank? && Current.user.preferences&.[]("dashboard_current_page").blank? && Current.user.dashboard_view == "decision"
+    end
+
     # Resolve the new page id first, with legacy view aliases kept read-forward.
     # A prefetch never changes preferences. Unknown, deleted, or currently
     # inaccessible pages fall back to Home without persisting that fallback.
     def resolve_dashboard_view
-      pages = Current.user.dashboard_pages
+      pages = @dashboard_pages
       requested_page = params[:page].presence
 
       if requested_page
@@ -150,10 +119,16 @@ class PagesController < ApplicationController
       else
         requested_view = params[:view].to_s
         if User::DASHBOARD_PAGE_ALIASES.key?(requested_view)
-          unless prefetch_request? || requested_view == Current.user.dashboard_view
-            Current.user.update_dashboard_preferences("dashboard_view" => requested_view)
-          end
           candidate = User::DASHBOARD_PAGE_ALIASES.fetch(requested_view)
+          candidate_available = pages.any? { |item| item["id"] == candidate }
+          if candidate_available
+            unless prefetch_request? || Current.user.dashboard_view == requested_view
+              Current.user.update_dashboard_preferences("dashboard_view" => requested_view)
+            end
+            unless prefetch_request? || Current.user.dashboard_current_page == candidate
+              Current.user.select_dashboard_page!(candidate)
+            end
+          end
         else
           candidate = Current.user.dashboard_current_page
         end
@@ -162,7 +137,10 @@ class PagesController < ApplicationController
 
       @dashboard_page = page
       @dashboard_page_id = page.fetch("id")
-      @dashboard_page_id == "investments" && @decision_available ? "decision" : "overview"
+      # The Investments page only exists in `pages` for members with investment
+      # access, so its presence is the access check; the legacy "decision" lens
+      # name keeps the main navigation's Home/Investments highlighting intact.
+      @dashboard_page_id == "investments" ? "decision" : "overview"
     end
 
     def prefetch_request?
@@ -170,7 +148,7 @@ class PagesController < ApplicationController
     end
 
     def cached_ticker_news
-      security_ids = Holding.where(account_id: accessible_accounts.select(:id)).select(:security_id).distinct
+      security_ids = Holding.where(account_id: Current.user.accessible_accounts.visible.select(:id)).select(:security_id).distinct
       SecurityResearchSnapshot.includes(security: :headline_analysis).where(security_id: security_ids).filter_map do |snapshot|
         Array(snapshot.section("news")).filter_map do |article|
           title = article["title"].to_s.squish
@@ -200,138 +178,234 @@ class PagesController < ApplicationController
       end
     end
 
-    # Preview-gated, and omitted from the section list entirely rather than
-    # left in it with `visible: false`. Dropping it here means the two
-    # downstream behaviors fall out for free: the saved-order lookup finds
-    # nothing to map, and the insights_feed unshift special-case never fires.
-    def insights_feed_section
-      return nil unless preview_features_enabled?
+    # One card description per widget on the page, in the page's saved order.
+    # Widgets that cannot be rendered for this member (a preview feature that
+    # is off, an investment source that is unavailable) carry an honest
+    # `unavailable` state instead of being dropped, so the card can still be
+    # seen and removed; the one exception is a preview-gated widget, which is
+    # hidden entirely because the feature itself is not offered.
+    def build_dashboard_page_sections(page)
+      page.fetch("widgets").filter_map do |widget|
+        definition = Dashboard::WidgetRegistry.fetch(widget["key"])
+        entry = Dashboard::WidgetCatalog.fetch(definition.key)
+        next if entry.key == "home.insights_feed" && !preview_features_enabled?
+
+        content = dashboard_widget_content(entry)
+        layout = dashboard_widget_layout(definition, widget.fetch("layout"))
+
+        {
+          key: definition.key,
+          legacy_key: entry.legacy_key,
+          dom_id: page.fetch("id") == "home" ? "dashboard-section-#{entry.legacy_key}" : "dashboard-section-#{page.fetch("id")}-#{entry.legacy_key}",
+          title: entry.title_key,
+          partial: entry.partial,
+          padded: entry.padded,
+          collapsed: widget["collapsed"] == true,
+          layout: layout,
+          locals: dashboard_widget_locals(entry, content.fetch(:locals, {}), page, layout),
+          unavailable: content[:unavailable],
+          update_url: page_widget_path(page.fetch("id"), definition.key),
+          remove_url: page_widget_path(page.fetch("id"), definition.key)
+        }
+      end
+    end
+
+    # Width/height the member saved for this instance of the widget, plus what
+    # the registry allows it to change to. A widget whose definition offers a
+    # single width and a single height gets no size menu at all.
+    def dashboard_widget_layout(definition, saved)
+      col_width = saved.fetch("col_width")
+      height = saved.fetch("height")
+      grow = definition.supported_heights.size > 1
 
       {
-        key: "insights_feed",
-        title: "pages.dashboard.insights_feed.title",
-        partial: "pages/dashboard/insights_feed",
-        layout: section_layout("insights_feed"),
-        locals: { insights: @feed_insights },
-        visible: @feed_insights.any?,
-        collapsible: true
+        col_width: col_width,
+        height: height,
+        col_span: col_width == 12 ? "full" : "single",
+        grow: grow,
+        height_px: Dashboard::WidgetCatalog.height_px(height),
+        height_preset: Dashboard::WidgetCatalog.height_preset(height),
+        width_options: definition.supported_col_widths.size > 1 ? definition.supported_col_widths : [],
+        height_options: grow ? definition.supported_heights : []
       }
     end
 
-    def build_dashboard_sections
-      all_sections = [
-        {
-          key: "ticker_news",
-          title: "pages.dashboard.ticker_news.title",
-          partial: "pages/dashboard/ticker_news",
-          layout: section_layout("ticker_news"),
-          locals: { articles: @ticker_news },
-          visible: @ticker_news.any?,
-          collapsible: true
-        },
-        insights_feed_section,
-        {
-          key: "cashflow_sankey",
-          title: "pages.dashboard.cashflow_sankey.title",
-          partial: "pages/dashboard/cashflow_sankey",
-          layout: section_layout("cashflow_sankey"),
-          locals: { sankey_data: @cashflow_sankey_data, period: @period },
-          visible: @accounts.any?,
-          collapsible: true
-        },
-        {
-          key: "money_flow",
-          title: "pages.dashboard.money_flow.title",
-          partial: "pages/dashboard/money_flow",
-          layout: section_layout("money_flow"),
-          locals: { money_flow_data: @money_flow_data, accounts: @money_flow_accounts, accessible_account_ids: @money_flow_accessible_account_ids, col_span: section_layout("money_flow")[:col_span] },
-          visible: @accounts.any?,
-          collapsible: true
-        },
-        {
-          key: "spending_trend",
-          title: "pages.dashboard.spending_trend.title",
-          partial: "pages/dashboard/spending_trend",
-          layout: section_layout("spending_trend"),
-          locals: { spending_trend_data: @spending_trend_data },
-          visible: @accounts.any?,
-          collapsible: true
-        },
-        {
-          key: "outflows_donut",
-          title: "pages.dashboard.outflows_donut.title",
-          partial: "pages/dashboard/outflows_donut",
-          layout: section_layout("outflows_donut"),
-          locals: { outflows_data: @outflows_data, period: @period },
-          visible: @accounts.any? && @outflows_data[:categories].present?,
-          collapsible: true
-        },
-        {
-          key: "investment_summary",
-          title: "pages.dashboard.investment_summary.title",
-          partial: "pages/dashboard/investment_summary",
-          layout: section_layout("investment_summary"),
-          locals: { investment_statement: @investment_statement, period: @period },
-          visible: @accounts.any? && @investment_statement.investment_accounts.any?,
-          collapsible: true
-        },
-        {
-          key: "net_worth_chart",
-          title: "pages.dashboard.net_worth_chart.title",
-          partial: "pages/dashboard/net_worth_chart",
-          layout: section_layout("net_worth_chart"),
-          locals: { balance_sheet: @balance_sheet, period: @period },
-          visible: @accounts.any?,
-          collapsible: true
-        },
-        {
-          key: "balance_sheet",
-          title: "pages.dashboard.balance_sheet.title",
-          partial: "pages/dashboard/balance_sheet",
-          layout: section_layout("balance_sheet"),
-          locals: { balance_sheet: @balance_sheet },
-          visible: @accounts.any?,
-          collapsible: true
-        }
-      ].compact
+    def dashboard_widget_locals(entry, locals, page, layout)
+      result = locals.dup
+      result[:col_span] = layout.fetch(:col_span) if entry.key == "home.money_flow"
+      return result if page.fetch("id") == "home" || !entry.key.start_with?("home.")
 
-      # Order sections according to user preference
-      section_order = Current.user.dashboard_section_order
-      ordered_sections = section_order.map do |key|
-        all_sections.find { |s| s[:key] == key }
-      end.compact
-
-      # Add any new sections that aren't in the saved order (future-proofing).
-      # The insights feed leads instead of appending: it's a proactive surface,
-      # and appending would bury it below the fold for every family with a
-      # saved order. Users can still drag it back down — that choice persists.
-      all_sections.each do |section|
-        next if ordered_sections.include?(section)
-
-        if section[:key] == "insights_feed"
-          ordered_sections.unshift(section)
-        else
-          ordered_sections << section
-        end
-      end
-
-      ordered_sections
+      prefix = "#{page.fetch("id")}-#{entry.legacy_key.dasherize}"
+      result[:widget_id] = prefix
+      result[:chart_id] = "#{prefix}-chart" if entry.key == "home.net_worth_chart"
+      result[:dialog_id] = "#{prefix}-dialog" if entry.key == "home.cashflow_sankey"
+      result
     end
 
-    # Resolves a section's layout guardrails, applying the user's height preset
-    # override (falling back to the deterministic default) for grow widgets.
-    def section_layout(key)
-      base = DASHBOARD_SECTION_LAYOUTS.fetch(key, { col_span: "single", grow: false, min_height: 0, width_toggle: false })
-      preset = Current.user.dashboard_section_height(key)
-      preset = DEFAULT_HEIGHT_PRESET unless DASHBOARD_HEIGHT_PRESETS.key?(preset)
-
-      col_span = base[:col_span]
-      if base[:width_toggle]
-        user_span = Current.user.dashboard_section_width(key)
-        col_span = user_span if %w[single full].include?(user_span)
+    # Locals for the widget's partial, or an unavailable state when the data
+    # behind it cannot be supplied. Everything is scoped to Current.user and
+    # loaded at most once per registry load group.
+    def dashboard_widget_content(entry)
+      case entry.key
+      when "home.ticker_news"
+        articles = load_group(:home_news)
+        articles.any? ? { locals: { articles: articles } } : unavailable_widget(entry, "no_news")
+      when "home.insights_feed"
+        insights = load_group(:home_insights)
+        insights.any? ? { locals: { insights: insights } } : unavailable_widget(entry, "no_insights")
+      when "home.cashflow_sankey"
+        { locals: { sankey_data: load_group(:home_cashflow).fetch(:sankey), period: @period } }
+      when "home.money_flow"
+        cashflow = load_group(:home_cashflow)
+        { locals: { money_flow_data: cashflow.fetch(:money_flow), accounts: cashflow.fetch(:money_flow_accounts), accessible_account_ids: cashflow.fetch(:accessible_account_ids) } }
+      when "home.spending_trend"
+        { locals: { spending_trend_data: load_group(:home_cashflow).fetch(:spending_trend) } }
+      when "home.outflows_donut"
+        outflows = load_group(:home_cashflow).fetch(:outflows)
+        outflows[:categories].present? ? { locals: { outflows_data: outflows, period: @period } } : unavailable_widget(entry, "no_outflows")
+      when "home.investment_summary"
+        statement = load_group(:home_investments)
+        statement.investment_accounts.any? ? { locals: { investment_statement: statement, period: @period } } : unavailable_widget(entry, "no_investments")
+      when "home.net_worth_chart"
+        { locals: { balance_sheet: load_group(:home_net_worth), period: @period } }
+      when "home.balance_sheet"
+        { locals: { balance_sheet: load_group(:home_net_worth) } }
+      when "investments.decision_pulse"
+        center = load_group(:investment_decision)
+        center.available? ? { locals: { pulse: center.pulse } } : unavailable_widget(entry, "no_investments")
+      when "investments.decision_action"
+        center = load_group(:investment_decision)
+        center.available? ? { locals: { actions: center.actions } } : unavailable_widget(entry, "no_investments")
+      when "investments.decision_monitor"
+        center = load_group(:investment_decision)
+        center.available? ? { locals: { top_holdings: center.top_holdings, center: center } } : unavailable_widget(entry, "no_investments")
+      when "investments.holdings_allocation"
+        allocation = load_group(:investment_holdings)
+        allocation ? { locals: { allocation: allocation, currency: allocation.currency } } : unavailable_widget(entry, "failed")
+      when "investments.holdings_data_quality"
+        allocation = load_group(:investment_holdings)
+        allocation ? { locals: { issues: allocation.data_quality } } : unavailable_widget(entry, "failed")
+      when "investments.income_performance", "investments.income_cash_flows"
+        review = load_group(:investment_income)
+        if review.nil?
+          unavailable_widget(entry, "failed")
+        elsif review.accounts.none?
+          unavailable_widget(entry, "no_investments")
+        else
+          { locals: { review: review, currency: review.currency } }
+        end
       end
+    end
 
-      base.merge(col_span: col_span, height_preset: preset, height_px: DASHBOARD_HEIGHT_PRESETS.fetch(preset))
+    def unavailable_widget(entry, reason)
+      {
+        unavailable: {
+          message: t("pages.dashboard.widget_unavailable.#{reason}"),
+          href: entry.canonical_route ? public_send("#{entry.canonical_route}_path") : nil,
+          link_text: entry.canonical_route ? t("pages.dashboard.widget_unavailable.open_#{entry.canonical_route}") : nil
+        }
+      }
+    end
+
+    # Memoized per request: a load group is computed the first time a widget
+    # from it appears on the page and shared by every later widget in it.
+    def load_group(group)
+      @dashboard_load_groups ||= {}
+      return @dashboard_load_groups[group] if @dashboard_load_groups.key?(group)
+
+      @dashboard_load_groups[group] = send("load_#{group}_group")
+    end
+
+    def load_home_news_group
+      cached_ticker_news
+    end
+
+    def load_home_insights_group
+      Current.user.visible_insights.visible.ordered.limit(Insight::FEED_LIMIT)
+    end
+
+    def load_home_net_worth_group
+      Current.family.balance_sheet(user: Current.user)
+    end
+
+    def load_home_investments_group
+      Current.family.investment_statement(user: Current.user)
+    end
+
+    def load_home_cashflow_group
+      family_currency = Current.family.currency
+
+      # Use IncomeStatement for all cashflow data (now includes categorized trades)
+      income_statement = Current.family.income_statement(user: Current.user)
+      income_totals = income_statement.income_totals(period: @period)
+      expense_totals = income_statement.expense_totals(period: @period)
+      net_totals = income_statement.net_category_totals(period: @period)
+
+      money_flow_accounts = income_statement.eligible_accounts
+      @money_flow_accounts = money_flow_accounts
+      {
+        sankey: build_cashflow_sankey_data(net_totals, income_totals, expense_totals, family_currency),
+        outflows: build_outflows_donut_data(net_totals),
+        money_flow_accounts: money_flow_accounts,
+        # TransactionsController's default (account_ids absent) scopes to this
+        # broader set, not the eligible accounts, so the widget needs it to
+        # know when the drill-down links can safely omit account_ids.
+        accessible_account_ids: Current.user.accessible_accounts.pluck(:id).map(&:to_s),
+        money_flow: build_money_flow_data(income_statement, money_flow_month_param, money_flow_account_ids_param),
+        spending_trend: build_spending_trend_data(income_statement, spending_trend_month_param)
+      }
+    end
+
+    # nil when the center itself cannot say whether it is available; the
+    # widgets then show their unavailable state rather than failing the page.
+    def load_investment_decision_group
+      InvestmentDecisionCenter.new(user: Current.user)
+    end
+
+    def load_investment_holdings_group
+      InvestmentAllocation.new(user: Current.user, by: params[:by])
+    rescue StandardError => e
+      Rails.logger.warn("[dashboard] holdings widgets unavailable: #{e.class}: #{e.message}")
+      nil
+    end
+
+    def load_investment_income_group
+      InvestmentIncomeReview.new(user: Current.user, period: @period)
+    rescue StandardError => e
+      Rails.logger.warn("[dashboard] income widgets unavailable: #{e.class}: #{e.message}")
+      nil
+    end
+
+    # The add-widget dialog: every registry widget this member may use that is
+    # not already on the page. Investment widgets are only offered to members
+    # with investment access; the insights feed only with preview features.
+    def dashboard_add_widget_options(page)
+      {
+        id: "dashboard-add-widget-dialog-#{page.fetch("id")}",
+        url: page_widgets_path(page.fetch("id")),
+        page_key: page.fetch("id"),
+        widgets: helpers.dashboard_widget_catalog(except: page.fetch("widgets").map { |widget| widget["key"] })
+      }
+    end
+
+    def dashboard_page_management_options
+      {
+        pages: @dashboard_pages.map do |page|
+          {
+            id: page.fetch("id"),
+            name: page.fetch("name"),
+            custom: page.fetch("id").start_with?("p_"),
+            update_url: page_path(page.fetch("id")),
+            delete_url: page.fetch("id") == "home" ? nil : page_path(page.fetch("id"))
+          }
+        end,
+        create_url: pages_path,
+        order_url: order_pages_path,
+        can_create: @dashboard_pages.size < User::MAX_DASHBOARD_PAGES,
+        can_restore_investments: Current.user.investment_dashboard_access? &&
+          @dashboard_pages.none? { |page| page.fetch("id") == "investments" } &&
+          @dashboard_pages.size < User::MAX_DASHBOARD_PAGES
+      }
     end
 
     def github_provider

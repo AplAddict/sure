@@ -1,14 +1,20 @@
 # Presentation helpers for the homepage dashboard and its page/widget shell.
 module DashboardHelper
-  # The widgets a homepage page can host, as the { key:, title: } hashes the
-  # add-widget dialog lists. Keys are PagesController::DASHBOARD_SECTION_LAYOUTS
-  # (the one registry of dashboard widgets), titles their existing translations;
-  # `except:` drops the keys already on the page so they are not offered twice.
   def dashboard_widget_catalog(except: [])
     excluded = Array(except).map(&:to_s)
+    preview_enabled = respond_to?(:preview_features_enabled?) && preview_features_enabled?
 
-    PagesController::DASHBOARD_SECTION_LAYOUTS.keys.reject { |key| excluded.include?(key) }.map do |key|
-      { key: key, title: t("pages.dashboard.#{key}.title") }
+    Dashboard::WidgetRegistry.all.filter_map do |definition|
+      next if excluded.include?(definition.key)
+      next if definition.investment_required && !Current.user.investment_dashboard_access?
+      next if definition.key == "home.insights_feed" && !preview_enabled
+
+      entry = Dashboard::WidgetCatalog.fetch(definition.key)
+      {
+        key: definition.key,
+        title: t(entry.title_key),
+        description: t(entry.description_key, default: nil)
+      }
     end
   end
 end

@@ -16,7 +16,11 @@ class DashboardShellTest < ActionView::TestCase
       { key: "investing", title: "Investing", path: "/?page=investing" }
     ]
     @add_widget = { id: "add-widget-dialog", url: "/dashboard/pages/investing/widgets", page_key: "investing",
-                    widgets: [ { key: "net_worth_chart", title: "Net Worth" }, { key: "balance_sheet", title: "Balance Sheet" } ] }
+                    widgets: [ { key: "home.net_worth_chart", title: "Net Worth" }, { key: "home.balance_sheet", title: "Balance Sheet" } ] }
+    @page_management = {
+      pages: [], create_url: "/dashboard/pages", order_url: "/dashboard/pages/order",
+      can_create: true, can_restore_investments: false
+    }
   end
 
   test "page tabs mark the current page, swap the dashboard frame and name each page key" do
@@ -24,25 +28,24 @@ class DashboardShellTest < ActionView::TestCase
 
     assert_select html, "nav[aria-label=?][data-testid=dashboard-page-tabs]", I18n.t("pages.dashboard.pages.label")
     assert_select html, "a[aria-current=page][href='/?page=investing'][data-dashboard-page-key=investing]", text: "Investing"
-    assert_select html, "a[href='/'][data-turbo-frame=dashboard_sections][data-turbo-action=advance]", text: "Overview"
+    assert_select html, "a[href='/'][data-turbo-frame=_top][data-turbo-action=advance][data-turbo-prefetch=false]", text: "Overview"
     assert_select html, "a[aria-current]", count: 1
   end
 
-  test "a single page renders no tab strip" do
-    html = render(partial: "pages/dashboard/page_tabs", locals: { pages: @pages.first(1), current: "overview" })
+  test "a single page still renders the permanent Home tab" do
+    html = Nokogiri::HTML.fragment(render(partial: "pages/dashboard/page_tabs", locals: { pages: @pages.first(1), current: "overview" }))
 
-    assert_equal "", html.strip
+    assert_select html, "nav[data-testid=dashboard-page-tabs] a[aria-current=page]", text: "Overview"
   end
 
-  test "the add-widget dialog posts each offered widget and page key to the given route" do
+  test "the add-widget dialog sends each offered registered key to the given route" do
     html = Nokogiri::HTML.fragment(render(partial: "pages/dashboard/add_widget_dialog", locals: @add_widget))
 
     assert_select html, "dialog#add-widget-dialog[data-testid=dashboard-add-widget-dialog]"
     assert_select html, "[data-testid=dashboard-widget-catalog] li", count: 2
-    assert_select html, "form[action='/dashboard/pages/investing/widgets'][method=post]", count: 2
-    assert_select html, "input[name=page_key][value=investing]", count: 2
-    assert_select html, "input[name=widget_key][value=net_worth_chart]", count: 1
-    assert_select html, "button[data-dashboard-widget-key=balance_sheet][aria-label=?]", I18n.t("pages.dashboard.widgets.add_to_page", title: "Balance Sheet")
+    assert_select html, "button[data-action='click->dashboard-pages#addWidget'][data-url='/dashboard/pages/investing/widgets'][data-page-key=investing]", count: 2
+    assert_select html, "button[data-widget-key='home.net_worth_chart']", count: 1
+    assert_select html, "button[data-widget-key='home.balance_sheet'][aria-label=?]", I18n.t("pages.dashboard.widgets.add_to_page", title: "Balance Sheet")
   end
 
   test "an exhausted catalog shows an empty state instead of an empty list" do
@@ -52,32 +55,42 @@ class DashboardShellTest < ActionView::TestCase
     assert_select html, "dialog", text: /#{I18n.t("pages.dashboard.widgets.none_left_title")}/
   end
 
-  test "header actions offer Add widget only when a page can be edited" do
-    plain = Nokogiri::HTML.fragment(render(partial: "pages/dashboard/header_actions", locals: {}))
-    assert_select plain, "[data-testid=dashboard-header-actions] a[href=?]", "/accounts/new", minimum: 1
-    assert_select plain, "[data-testid=dashboard-add-widget]", count: 0
-    assert_select plain, "dialog", count: 0
+  test "header actions offer widget, page-management and account controls" do
+    html = Nokogiri::HTML.fragment(render(
+      partial: "pages/dashboard/header_actions",
+      locals: {
+        add_widget: @add_widget,
+        page_management: @page_management,
+        current_page_url: "/?page=investing",
+        home_url: "/"
+      }
+    ))
 
-    editable = Nokogiri::HTML.fragment(render(partial: "pages/dashboard/header_actions", locals: { add_widget: @add_widget }))
-    assert_select editable, "[data-controller=expandable] [data-testid=dashboard-add-widget][data-action='click->expandable#open']"
-    assert_select editable, "[data-controller=expandable] dialog#add-widget-dialog"
+    assert_select html, "[data-testid=dashboard-header-actions] a[href=?]", "/accounts/new", minimum: 1
+    assert_select html, "[data-controller~='dashboard-pages'][data-dashboard-pages-return-url-value='/?page=investing'] [data-testid=dashboard-add-widget]"
+    assert_select html, "dialog#add-widget-dialog"
+    assert_select html, "[data-testid=dashboard-manage-pages]"
+    assert_select html, "dialog#dashboard-manage-pages-dialog"
   end
 
-  test "the empty page offers Add widget with its own dialog only when a page can be edited" do
-    plain = Nokogiri::HTML.fragment(render(partial: "pages/dashboard/empty_page", locals: { title: "Nothing here", description: "Add something." }))
-    assert_select plain, "[data-testid=dashboard-empty-page]", text: /Nothing here/
-    assert_select plain, "button", count: 0
+  test "the empty page offers Add widget with its own dialog" do
+    html = Nokogiri::HTML.fragment(render(
+      partial: "pages/dashboard/empty_page",
+      locals: { title: "Nothing here", description: "Add something.", add_widget: @add_widget, current_page_url: "/?page=investing" }
+    ))
 
-    editable = Nokogiri::HTML.fragment(render(partial: "pages/dashboard/empty_page", locals: { title: "Nothing here", description: "Add something.", add_widget: @add_widget }))
-    assert_select editable, "[data-controller=expandable] button[data-action='click->expandable#open']", text: /#{I18n.t("pages.dashboard.widgets.add")}/
-    assert_select editable, "dialog#add-widget-dialog-empty"
+    assert_select html, "[data-testid=dashboard-empty-page]", text: /Nothing here/
+    assert_select html, "[data-controller~='dashboard-pages'][data-dashboard-pages-return-url-value='/?page=investing'] button[data-action='click->expandable#open']", text: /#{I18n.t("pages.dashboard.widgets.add")}/
+    assert_select html, "dialog#add-widget-dialog-empty"
   end
 
-  test "the widget catalog is the dashboard's own widget registry with translated titles" do
-    catalog = dashboard_widget_catalog(except: %w[net_worth_chart])
+  test "the widget catalog is the member-accessible registry with translated titles" do
+    catalog = dashboard_widget_catalog(except: %w[home.net_worth_chart])
+    expected = Dashboard::WidgetRegistry.keys - %w[home.insights_feed home.net_worth_chart]
 
-    assert_equal PagesController::DASHBOARD_SECTION_LAYOUTS.keys - %w[net_worth_chart], catalog.map { |w| w[:key] }
-    assert_equal I18n.t("pages.dashboard.balance_sheet.title"), catalog.find { |w| w[:key] == "balance_sheet" }[:title]
+    assert_equal expected, catalog.map { |widget| widget[:key] }
+    assert_equal I18n.t("pages.dashboard.balance_sheet.title"), catalog.find { |widget| widget[:key] == "home.balance_sheet" }[:title]
+    assert_equal I18n.t("investment_incomes.show.performance"), catalog.find { |widget| widget[:key] == "investments.income_performance" }[:title]
   end
 
   test "chart widgets take a per-instance DOM id so two copies cannot collide" do

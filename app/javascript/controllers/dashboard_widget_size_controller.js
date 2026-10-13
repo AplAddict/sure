@@ -9,7 +9,7 @@ import { Controller } from "@hotwired/stimulus";
 //   - Width: toggles the `2xl:col-span-2` class; the CSS grid re-flows and a
 //     synthetic resize nudges dashboard-masonry to re-pack.
 export default class extends Controller {
-  static values = { sectionKey: String };
+  static values = { url: String };
 
   connect() {
     this._closeOnOutsideClick = this._closeOnOutsideClick.bind(this);
@@ -28,25 +28,25 @@ export default class extends Controller {
   }
 
   selectHeight(event) {
-    const { preset, height } = event.currentTarget.dataset;
+    const { heightUnits, heightPx } = event.currentTarget.dataset;
     const section = this._section();
-    if (section && height) {
-      section.style.setProperty("--dash-widget-h", `${height}px`);
+    if (section && heightPx) {
+      section.style.setProperty("--dash-widget-h", `${heightPx}px`);
     }
     this._markSelected(event.currentTarget);
     this.element.open = false;
-    this._save({ height: preset });
+    this._save({ height: Number.parseInt(heightUnits, 10) });
   }
 
   selectWidth(event) {
-    const { colSpan } = event.currentTarget.dataset;
+    const colWidth = Number.parseInt(event.currentTarget.dataset.colWidth, 10);
     const section = this._section();
     if (section) {
-      section.classList.toggle("2xl:col-span-2", colSpan === "full");
+      section.classList.toggle("2xl:col-span-2", colWidth === 12);
     }
     this._markSelected(event.currentTarget);
     this.element.open = false;
-    this._save({ col_span: colSpan });
+    this._save({ col_width: colWidth });
     // Width change re-flows the grid; nudge dashboard-masonry to re-pack.
     window.dispatchEvent(new Event("resize"));
   }
@@ -81,17 +81,14 @@ export default class extends Controller {
     }
 
     try {
-      const response = await fetch("/dashboard/preferences", {
+      const response = await fetch(this.urlValue, {
         method: "PATCH",
         headers: {
+          Accept: "application/json",
           "Content-Type": "application/json",
           "X-CSRF-Token": csrfToken.content,
         },
-        body: JSON.stringify({
-          preferences: {
-            dashboard_section_layout: { [this.sectionKeyValue]: payload },
-          },
-        }),
+        body: JSON.stringify({ widget: { layout: payload } }),
       });
 
       if (!response.ok) {
@@ -99,12 +96,14 @@ export default class extends Controller {
           "[Dashboard Widget Size] Failed to save layout:",
           response.status,
         );
+        window.location.reload();
       }
     } catch (error) {
       console.error(
         "[Dashboard Widget Size] Network error saving layout:",
         error,
       );
+      window.location.reload();
     }
   }
 }

@@ -1,17 +1,9 @@
-<%# locals: (pages:, current:, frame: "dashboard_sections") %>
-<%# Tab strip for a multi-page homepage. `pages` is an array of
-    { key:, title:, path: } hashes supplied by the controller (titles already
-    translated, paths already resolved: this partial never builds URLs);
-    `current` is the key of the page being shown. Links swap `frame` and
-    advance the URL so each page has an address. A homepage with a single page
-    has nothing to switch between, so the strip renders nothing. %>
-<% if pages.size > 1 %>
-  <nav aria-label="<%= t("pages.dashboard.pages.label") %>" class="mb-4 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1" data-testid="dashboard-page-tabs">
-    <% pages.each do |page| %>
-      <%= link_to page[:title], page[:path],
-            class: "shrink-0 rounded-lg px-3 py-1.5 pointer-coarse:py-2.5 text-sm font-medium focus-ring #{current == page[:key] ? "bg-container-inset text-primary" : "text-secondary hover:text-primary hover:bg-container-inset-hover"}",
-            aria: { current: (current == page[:key] ? "page" : nil) },
-            data: { turbo_frame: frame, turbo_action: "advance", dashboard_page_key: page[:key] } %>
-    <% end %>
-  </nav>
-<% end %>
+<%# locals: (pages:, current:, frame: "_top") %>
+<nav aria-label="<%= t("pages.dashboard.pages.label") %>" class="mb-4 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1" data-testid="dashboard-page-tabs">
+  <% pages.each do |page| %>
+    <%= link_to page[:title], page[:path],
+          class: "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium focus-ring pointer-coarse:py-2.5 #{current == page[:key] ? "bg-container-inset text-primary" : "text-secondary hover:bg-container-inset-hover hover:text-primary"}",
+          aria: { current: (current == page[:key] ? "page" : nil) },
+          data: { turbo_frame: frame, turbo_action: "advance", turbo_prefetch: false, dashboard_page_key: page[:key] } %>
+  <% end %>
+</nav>
