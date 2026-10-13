@@ -101,6 +101,7 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_no_match I18n.t("investment_decision_center.title"), response.body
     assert_equal [ "home" ], @user.reload.dashboard_pages.map { |page| page["id"] }
+    assert_select "button[data-action*='restoreInvestments'][data-url=?]", pages_path
 
     delete "/dashboard/pages/home", as: :json
     assert_response :unprocessable_entity
@@ -177,6 +178,8 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_no_match I18n.t("investment_decision_center.title"), response.body
     assert_nil member.reload.preferences["dashboard_current_page"]
+    assert_select "[data-testid=dashboard-page-tabs] [data-dashboard-page-key=investments]", count: 0
+    assert_select "[data-testid=dashboard-widget-catalog] [data-widget-key^='investments.']", count: 0
   end
 
   test "page resolver handles aliases and prefetch without persistence" do
@@ -188,6 +191,20 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_nil @user.preferences["dashboard_current_page"]
   end
 
+  test "legacy view aliases preserve the detailed decision workspace and overview" do
+    get root_path(view: "decision")
+
+    assert_response :success
+    assert_equal "decision", @user.reload.dashboard_view
+    assert_select "turbo-frame#investment_workspace h1", text: I18n.t("investment_decision_center.title")
+
+    get root_path(view: "overview")
+
+    assert_response :success
+    assert_equal "overview", @user.reload.dashboard_view
+    assert_select "[data-testid=dashboard-page-tabs] a[aria-current=page][data-dashboard-page-key=home]"
+  end
+
   test "unknown page falls back to Home without persistence" do
     get root_path(page: "deleted-page")
 
@@ -195,6 +212,120 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match I18n.t("investment_decision_center.title"), response.body
     assert_not @user.reload.preferences.key?("dashboard_pages")
     assert_nil @user.preferences["dashboard_current_page"]
+  end
+
+  test "homepage renders selected page tabs and page-specific widget controls" do
+    get root_path
+
+    assert_response :success
+    assert_select "[data-testid=dashboard-page-tabs] a[aria-current=page][data-dashboard-page-key=home]", text: "Home"
+    assert_select "[data-testid=dashboard-page-tabs] a[href=?]", root_path(page: "investments"), text: "Investments"
+    assert_select "[data-testid=dashboard-widget-catalog] [data-widget-key='investments.income_performance']"
+    assert_select "[data-dashboard-sortable-url-value=?]", order_page_widgets_path("home")
+    assert_select "section[data-section-key]" do |sections|
+      sections.each do |section|
+        key = section["data-section-key"]
+        assert_equal page_widget_path("home", key), section["data-dashboard-section-url-value"]
+        assert_select section, "button[data-url=?][aria-label]", page_widget_path("home", key), minimum: 1
+      end
+    end
+
+    get root_path(page: "investments")
+
+    assert_response :success
+    assert_select "[data-testid=dashboard-page-tabs] a[aria-current=page][data-dashboard-page-key=investments]", text: "Investments"
+    assert_select "h1", text: I18n.t("investment_decision_center.title")
+    assert_select "turbo-frame#investment_workspace" do
+      assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label") do
+        assert_select "a[data-turbo-frame=investment_workspace]", minimum: 1
+      end
+    end
+  end
+
+  test "all supported widgets can be added and removed independently" do
+    page = @user.create_dashboard_page!("Everything")
+
+    Dashboard::WidgetRegistry.keys.each do |key|
+      post page_widgets_path(page.fetch("id")), params: { widget: { key: key } }, as: :json
+      assert_response :created, "expected #{key} to be addable"
+    end
+    assert_equal Dashboard::WidgetRegistry.keys, @user.reload.dashboard_pages.find { |item| item["id"] == page.fetch("id") }.fetch("widgets").map { |widget| widget.fetch("key") }
+
+    Dashboard::WidgetRegistry.keys.each do |key|
+      delete page_widget_path(page.fetch("id"), key), as: :json
+      assert_response :no_content, "expected #{key} to be removable"
+    end
+    assert_empty @user.reload.dashboard_pages.find { |item| item["id"] == page.fetch("id") }.fetch("widgets")
+  end
+
+  test "two pages render independent widget order collapse size and unique ids" do
+    first = @user.create_dashboard_page!("First")
+    second = @user.create_dashboard_page!("Second")
+    %w[home.spending_trend home.balance_sheet].each { |key| @user.add_dashboard_widget!(first.fetch("id"), key) }
+    %w[home.balance_sheet home.spending_trend].each { |key| @user.add_dashboard_widget!(second.fetch("id"), key) }
+    @user.update_dashboard_widget!(first.fetch("id"), "home.spending_trend", collapsed: true, layout: { "col_width" => 12, "height" => 6 })
+
+    get root_path(page: first.fetch("id"))
+
+    assert_response :success
+    assert_equal %w[home.spending_trend home.balance_sheet], css_select("section[data-section-key]").map { |node| node["data-section-key"] }
+    assert_select "section[data-section-key='home.spending_trend'][data-dashboard-section-collapsed-value=true][style*='416px']"
+    assert_select "##{first.fetch("id")}-spending-trend"
+    ids = css_select("#dashboard_sections [id]").map { |node| node["id"] }
+    assert_equal ids.uniq, ids
+
+    get root_path(page: second.fetch("id"))
+
+    assert_response :success
+    assert_equal %w[home.balance_sheet home.spending_trend], css_select("section[data-section-key]").map { |node| node["data-section-key"] }
+    assert_select "section[data-section-key='home.spending_trend'][data-dashboard-section-collapsed-value=false][style*='288px']"
+    assert_select "##{second.fetch("id")}-spending-trend"
+  end
+
+  test "page management exposes only actions accepted for each page" do
+    custom = @user.create_dashboard_page!("Planning")
+    get root_path(page: custom.fetch("id"))
+
+    assert_response :success
+    assert_select "[data-testid=dashboard-page-list] [data-page-id=home]" do |row|
+      assert_select row, "form", count: 0
+      assert_select row, "button[data-action*='deletePage']", count: 0
+      assert_select row, "button[data-action*='movePageUp']", count: 0
+      assert_select row, "button[data-action*='movePageDown']", count: 0
+    end
+    assert_select "[data-testid=dashboard-page-list] [data-page-id=investments] button[data-action*='deletePage'][data-url=?]", page_path("investments")
+    assert_select "[data-testid=dashboard-page-list] [data-page-id=?] form[data-action*='renamePage'][data-url=?]", custom.fetch("id"), page_path(custom.fetch("id"))
+    assert_select "button[class*='h-11'][aria-label]", minimum: 1
+  end
+
+  test "an empty custom page skips dashboard data loaders and shows a functional empty state" do
+    custom = @user.create_dashboard_page!("Blank")
+    IncomeStatement.expects(:new).never
+    InvestmentDecisionCenter.expects(:new).never
+
+    get root_path(page: custom.fetch("id"))
+
+    assert_response :success
+    assert_select "[data-testid=dashboard-empty-page]"
+    assert_select "[data-testid=dashboard-empty-page] button[data-action='click->expandable#open']"
+    assert_select "[data-testid=dashboard-empty-page] [data-testid=dashboard-add-widget-dialog]"
+  end
+
+  test "investment allocation and income widgets render real scoped loaders" do
+    custom = @user.create_dashboard_page!("Portfolio")
+    keys = %w[
+      investments.holdings_allocation investments.holdings_data_quality
+      investments.income_performance investments.income_cash_flows
+    ]
+    keys.each { |key| @user.add_dashboard_widget!(custom.fetch("id"), key) }
+
+    get root_path(page: custom.fetch("id"))
+
+    assert_response :success
+    assert_equal keys, css_select("section[data-section-key]").map { |node| node["data-section-key"] }
+    assert_select "[data-testid=allocation-section]"
+    assert_select "[data-testid=data-quality-section], [data-testid=data-quality-clear]", minimum: 1
+    assert_no_match(/watchlist|options mutation/i, response.body)
   end
 
   test "requires authentication" do
