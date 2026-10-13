@@ -4,3 +4,30 @@ en:
     news:
       title: News & impact
       subtitle: Cached source articles with preserved source, topic, publication time, and ticker tags. Reference context only—not a trade signal.
+      search_placeholder: Search headlines, descriptions, tickers, or sources
+      search_label: Search news
+      scope_label: News scope
+      scope_portfolio: Held securities
+      scope_all: All cached news
+      source_label: Source
+      all_sources: All sources
+      topic_label: Topic
+      all_topics: All topics
+      sentiment_label: Headline sentiment
+      all_sentiments: All sentiments
+      ticker_label: Ticker
+      ticker_placeholder: Ticker
+      sort_label: Sort articles
+      sort_latest: Newest first
+      sort_oldest: Oldest first
+      sort_title: Headline A–Z
+      period_label: Publication period
+      filter_label: Headline filter
+      density_label: Display density
+      apply: Apply filters
+      results: "%{count} matching articles · page %{page}"
+      articles_label: News articles
+      publication_time_unavailable: Publication time unavailable
+      empty: No cached articles match these filters.
+      load_more: Load more
+      source_unavailable: Source unavailable

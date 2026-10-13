@@ -7,17 +7,18 @@
   ]
 else
   [
-    { name: t(".nav.home"), path: root_path, icon: "pie-chart", icon_custom: false, active: page_active?(root_path) && !investments_nav_active? },
-    investments_nav_item,
-    { name: t(".nav.transactions"), path: transactions_path, icon: "credit-card", icon_custom: false, active: page_active?(transactions_path) },
+    { name: t(".nav.home"), path: root_path, icon: "pie-chart", icon_custom: false, active: page_active?(root_path) && !investments_nav_active?, mobile_primary: true },
+    investments_nav_item&.merge(mobile_primary: true),
+    { name: t(".nav.transactions"), path: transactions_path, icon: "credit-card", icon_custom: false, active: page_active?(transactions_path), mobile_primary: true },
     bills_nav_item,
-    { name: t(".nav.reports"), path: reports_path, icon: "chart-bar", icon_custom: false, active: page_active?(reports_path) },
+    { name: t(".nav.reports"), path: reports_path, icon: "chart-bar", icon_custom: false, active: page_active?(reports_path), mobile_primary: true },
     plan_nav_item,
     { name: t(".nav.assistant"), path: chats_path, icon: "icon-assistant", icon_custom: true, active: page_active?(chats_path), mobile_only: true }
   ].compact
 end %>
 
 <% desktop_nav_items = mobile_nav_items.reject { |item| item[:mobile_only] } %>
+<% mobile_primary_items, mobile_more_items = mobile_nav_groups(mobile_nav_items) %>
 <% expanded_sidebar_class = "w-full" %>
 <% collapsed_sidebar_class = "w-0 overflow-hidden" %>
 
@@ -160,7 +161,7 @@ end %>
     <% end %>
 
     <%# SHARED - Main content %>
-    <%= tag.main id: "main", class: class_names("grow overflow-y-auto px-3 lg:px-10 w-full mx-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0"), data: { app_layout_target: "content", viewport_target: "content", notification_tray_target: "main" } do %>
+    <%= tag.main id: "main", class: class_names("grow overflow-y-auto px-3 lg:px-10 w-full mx-auto lg:pb-0"), style: "padding-bottom: calc(var(--bottom-nav-height, 5rem) + env(safe-area-inset-bottom))", data: { app_layout_target: "content", viewport_target: "content", notification_tray_target: "main" } do %>
       <% unless intro_mode %>
         <div class="hidden lg:flex gap-2 items-center justify-between mb-6 sticky top-0 z-10 -mx-3 lg:-mx-10 px-3 lg:px-10 py-4 bg-surface border-b border-tertiary">
           <div class="flex items-center gap-2">
@@ -231,12 +232,34 @@ end %>
       <% end %>
     <% end %>
 
-    <%# MOBILE - Bottom Nav %>
-    <%= tag.nav class: "lg:hidden fixed bottom-0 left-0 right-0 bg-surface z-10 border-t border-tertiary flex justify-around pb-[env(safe-area-inset-bottom)]",
-      data: { viewport_target: "bottomNav" } do %>
-      <% mobile_nav_items.each do |nav_item| %>
-        <%= render "layouts/shared/nav_item", **nav_item %>
-      <% end %>
+    <%# MOBILE - Bottom Nav: at most four primary destinations plus "More" for
+        the rest. The viewport controller publishes this bar's rendered height as
+        --bottom-nav-height so <main> pads by the real height + the safe area. %>
+    <%= tag.nav class: "lg:hidden fixed bottom-0 left-0 right-0 bg-surface z-10 border-t border-tertiary pb-[env(safe-area-inset-bottom)]",
+      aria: { label: t("layouts.application.nav.mobile_label") },
+      data: { viewport_target: "bottomNav", testid: "mobile-bottom-nav" } do %>
+      <%# Phones use the bounded primary + More navigation. Keep the existing
+          complete bottom navigation from md through lg so tablet behavior and
+          the lg desktop sidebar breakpoint are unchanged. %>
+      <ul class="flex items-stretch justify-around md:hidden" role="list" data-testid="mobile-bottom-nav-items">
+        <% mobile_primary_items.each do |nav_item| %>
+          <li class="min-w-0 flex-1">
+            <%= render "layouts/shared/nav_item", **nav_item %>
+          </li>
+        <% end %>
+        <% if mobile_more_items.any? %>
+          <li class="min-w-0 flex-1">
+            <%= render "layouts/shared/mobile_more_nav", items: mobile_more_items %>
+          </li>
+        <% end %>
+      </ul>
+      <ul class="hidden items-stretch justify-around md:flex" role="list" data-testid="tablet-bottom-nav-items">
+        <% mobile_nav_items.each do |nav_item| %>
+          <li class="min-w-0 flex-1">
+            <%= render "layouts/shared/nav_item", **nav_item %>
+          </li>
+        <% end %>
+      </ul>
     <% end %>
     <%# "What's new" release highlight: one centered popover per deployed
         release, shown on first interaction and tracked per account. %>

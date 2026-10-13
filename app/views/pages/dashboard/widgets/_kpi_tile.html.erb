@@ -1,0 +1,6 @@
+<%# locals: (label:, value:, hint: nil, tone: "text-primary") %>
+<div class="min-w-0 rounded-lg bg-container-inset p-4">
+  <p class="truncate text-sm text-secondary"><%= label %></p>
+  <p class="mt-1 truncate text-xl font-semibold tabular-nums <%= tone %>"><%= value %></p>
+  <% if hint.present? %><p class="mt-1 text-xs text-secondary"><%= hint %></p><% end %>
+</div>

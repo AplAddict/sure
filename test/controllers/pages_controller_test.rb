@@ -9,6 +9,44 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     @family = @user.family
   end
 
+  test "phone navigation is bounded while tablet and desktop destinations remain available" do
+    get root_path
+
+    assert_response :ok
+    assert_select "nav[data-testid=mobile-bottom-nav]", minimum: 1 do |navs|
+      nav = navs.first
+      assert_equal I18n.t("layouts.application.nav.mobile_label"), nav["aria-label"]
+      assert_equal "bottomNav", nav["data-viewport-target"]
+      phone = nav.at_css("[data-testid=mobile-bottom-nav-items]")
+      tablet = nav.at_css("[data-testid=tablet-bottom-nav-items]")
+
+      assert_includes phone["class"].split, "md:hidden"
+      phone_items = phone.xpath("./li")
+      assert_equal 5, phone_items.size
+      assert_equal %w[Home Investments Transactions Reports], phone_items.first(4).map { |item| item.at_xpath("./a//p").text.strip }
+      assert_equal I18n.t("layouts.application.nav.more"), phone_items.last.at_xpath("./div/button//p").text.strip
+      assert_includes tablet["class"].split, "md:flex"
+      assert_operator tablet.xpath("./li").size, :>, 5
+    end
+
+    assert_select "[data-testid=mobile-more-nav-dialog] a[href=?]", chats_path, text: /#{Regexp.escape(I18n.t("layouts.application.nav.assistant"))}/
+    assert_select "div.hidden.lg\\:block nav a[href=?]", reports_path, minimum: 1
+
+    assert_select "html[data-controller~='viewport']"
+    main = css_select("main#main").first
+    padding_expression = "calc(var(--bottom-nav-height, 5rem) + env(safe-area-inset-bottom))"
+    assert_equal "padding-bottom: #{padding_expression}", main["style"]
+    assert_equal "content", main["data-viewport-target"]
+    assert_includes main["class"].split, "lg:pb-0"
+
+    viewport_source = Rails.root.join("app/javascript/controllers/viewport_controller.js").read
+    disconnect_contract = viewport_source[/bottomNavTargetDisconnected\(\).*?(?=\n  handleResize)/m]
+    assert_includes disconnect_contract, "content.style.paddingBottom ="
+    assert_includes disconnect_contract, %Q("#{padding_expression}")
+    refute_includes disconnect_contract, 'content.style.removeProperty("padding-bottom")'
+    refute_includes disconnect_contract, '"0px"'
+  end
+
   test "dashboard" do
     get root_path
     assert_response :ok
@@ -28,8 +66,9 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
       end
     end
     assert_select "[class*=\"group-hover:opacity-100\"]:not([class*=\"group-focus-within:opacity-100\"])", count: 0
-    assert_select "section[role=listitem][tabindex='0'].focus-ring[aria-label=?]",
-                  I18n.t("pages.dashboard.section_label", title: I18n.t("pages.dashboard.net_worth_chart.title")), count: 1
+    assert_select "section[data-widget-key='home.net_worth_chart'][role=listitem][tabindex='0'][aria-describedby=dashboard-reorder-instructions]:not([aria-label])", count: 1 do |sections|
+      assert_select sections.first, "h2", text: I18n.t("pages.dashboard.net_worth_chart.title")
+    end
   end
 
   # Hover never happens on a touch screen, so the header controls must stay
@@ -62,6 +101,8 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=dashboard-header-actions] a[href=?]", new_account_path, minimum: 1
     assert_select "[data-testid=dashboard-add-widget]", count: 1
     assert_select "[data-testid=dashboard-manage-pages]", count: 1
+    assert_select "[data-testid=dashboard-page-switcher][class*='md:hidden'] [data-testid=dashboard-page-switcher-create]", count: 1
+    assert_select "dialog#dashboard-manage-pages-dialog form[data-action='submit->dashboard-pages#createPage']", count: 1
     assert_select "[data-testid=dashboard-widget-catalog] form[data-dashboard-widget-add-form] [data-widget-key='portfolio.allocation']"
     assert_select "#catalog-home-portfolio-allocation-scope"
     assert_select "#catalog-home-portfolio-allocation-account_id option[value=?]", accounts(:investment).id
@@ -85,9 +126,11 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     )
     page = @user.create_dashboard_page!("Mixed currencies")
     @user.add_dashboard_widget!(page.fetch("id"), "portfolio.top_holdings")
+    @user.add_dashboard_widget!(page.fetch("id"), "portfolio.largest_position")
     ExchangeRate.stubs(:rates_for).returns("EUR" => 1)
     ExchangeRate.expects(:rates_for)
       .with([ "EUR" ], to: "USD", date: Date.current, fallback: nil)
+      .twice
       .returns("EUR" => nil)
 
     get root_path(page: page.fetch("id"))
@@ -95,6 +138,10 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
     assert_select "section[data-widget-key='portfolio.top_holdings'] [data-testid='granular-investment-widget'] .grid > div", count: 1 do |tiles|
       assert_includes tiles.first.text, I18n.t("pages.dashboard.granular_data.measured_value")
+      assert_equal "—", tiles.first.css("p").last.text
+    end
+    assert_select "section[data-widget-key='portfolio.largest_position'] [data-testid='granular-investment-widget'] .grid > div", count: 1 do |tiles|
+      assert_includes tiles.first.text, I18n.t("pages.dashboard.granular_data.largest_weight")
       assert_equal "—", tiles.first.css("p").last.text
     end
   end
@@ -123,6 +170,29 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
       assert_not_equal "—", tiles.first.css("p").last.text
       assert_includes tiles.first.css("p").last.text, "0"
     end
+  end
+
+  test "cash liquidity uses security evidence and counts price-only uncertainty" do
+    account = @family.accounts.create!(
+      name: "Liquidity Evidence", balance: 20, cash_balance: 5, currency: "USD",
+      accountable: Investment.new, owner: @user
+    )
+    sweep = Security.create!(ticker: "MMKT#{SecureRandom.hex(2)}", name: "Government Money Market Fund")
+    uncertain = Security.create!(ticker: "ONE#{SecureRandom.hex(2)}", name: "Ordinary One Dollar Equity")
+    account.holdings.create!(security: sweep, date: Date.current, qty: 10, price: 0.9999, amount: 9.999, currency: "USD")
+    account.holdings.create!(security: uncertain, date: Date.current, qty: 10, price: 1, amount: 10, currency: "USD")
+    page = @user.create_dashboard_page!("Liquidity")
+    @user.add_dashboard_widget!(page.fetch("id"), "portfolio.cash_liquidity")
+
+    get root_path(page: page.fetch("id"))
+
+    assert_response :ok
+    section = css_select("section[data-widget-key='portfolio.cash_liquidity']").sole
+    assert_includes section.text, sweep.ticker
+    assert_not_includes section.text, uncertain.ticker
+    unavailable = section.css("[data-testid='granular-investment-widget'] .grid > div").find { |tile| tile.text.include?(I18n.t("pages.dashboard.granular_data.unavailable")) }
+    assert unavailable
+    assert_operator unavailable.css("p").last.text.to_i, :>=, 1
   end
 
   test "dashboard investment summary lists balance-only investment accounts as positions" do

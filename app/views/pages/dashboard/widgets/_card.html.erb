@@ -1,0 +1,19 @@
+<%# locals: (section:, two_column:) %>
+<section id="<%= section[:dom_id] %>"
+         class="group min-w-0 rounded-xl bg-container shadow-border-xs transition-all motion-reduce:transition-none focus-ring <%= two_column ? (section[:layout][:col_span] == "full" ? "2xl:col-span-12" : "2xl:col-span-6") : "" %>"
+         style="<%= "--dash-widget-h: #{section[:layout][:height_px]}px;" if section[:layout][:grow] %>"
+         data-dashboard-sortable-target="section"
+         data-section-key="<%= section[:instance_id] %>"
+         data-widget-key="<%= section[:key] %>"
+         data-widget-instance-id="<%= section[:instance_id] %>"
+         data-controller="dashboard-section<%= " cashflow-expand" if section[:legacy_key] == "cashflow_sankey" %>"
+         data-dashboard-section-section-key-value="<%= section[:instance_id] %>"
+         data-dashboard-section-collapsed-value="<%= section[:collapsed] %>"
+         data-dashboard-section-url-value="<%= section[:update_url] %>"
+         draggable="true"
+         tabindex="0"
+         role="listitem"
+         aria-describedby="dashboard-reorder-instructions"
+         data-action="dragstart->dashboard-sortable#dragStart dragend->dashboard-sortable#dragEnd keydown->dashboard-sortable#handleKeyDown">
+  <%= yield %>
+</section>

@@ -25,6 +25,7 @@ class TransactionsControllerTest < ActionDispatch::IntegrationTest
     get transactions_url
 
     assert_response :success
+    assert_select "div[style*='--bottom-overlay-offset'][style*='safe-area-inset-bottom']", minimum: 1
     assert_select "label[for=entry_selection].sr-only", text: I18n.t("transactions.selection_bar.deselect_all")
     assert_select "button[data-bulk-select-scope-param=bulk_delete][aria-label=?]", I18n.t("transactions.selection_bar.delete")
     assert_select "button[data-bulk-select-scope-param=bulk_delete][title]", count: 0

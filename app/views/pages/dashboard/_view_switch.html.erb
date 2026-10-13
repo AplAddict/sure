@@ -4,6 +4,7 @@
     through the CSRF-protected current-page endpoint before navigation. %>
 <div data-controller="dashboard-pages"
      data-dashboard-pages-current-page-url-value="<%= current_pages_path %>">
+  <%= render "pages/dashboard/local_error" %>
   <%= render DS::SegmentedControl.new(aria_label: t("investment_decision_center.switch.aria_label")) do |control| %>
     <% control.with_segment(t("investment_decision_center.switch.overview"), active: active == "overview", href: root_path(view: "overview"), data: { action: "click->dashboard-pages#selectPage", turbo_prefetch: false, dashboard_page_key: "home" }) %>
     <% control.with_segment(t("investment_decision_center.switch.decision"), active: active == "decision", href: root_path(view: "decision"), data: { action: "click->dashboard-pages#selectPage", turbo_prefetch: false, dashboard_page_key: "investments" }) %>

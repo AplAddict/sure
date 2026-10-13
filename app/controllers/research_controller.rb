@@ -30,19 +30,29 @@ class ResearchController < ApplicationController
   end
 
   def news
-    @scope = %w[portfolio all].include?(params[:scope]) ? params[:scope] : "portfolio"
+    @scope = %w[overall portfolio account security watchlist all].include?(params[:scope]) ? params[:scope] : "portfolio"
     @query = params[:q].to_s.strip
     @source = params[:source].to_s.strip
     @category = params[:category].to_s.strip
     @sentiment = Security::HeadlineToneAnalyzer::TONES.include?(params[:sentiment].to_s) ? params[:sentiment].to_s : ""
     @ticker = params[:ticker].to_s.upcase.strip
-    @sort = %w[latest title].include?(params[:sort]) ? params[:sort] : "latest"
+    @sort = %w[latest oldest title].include?(params[:sort]) ? params[:sort] : "latest"
+    @period = %w[all 1m 3m ytd 1y].include?(params[:period]) ? params[:period] : "all"
+    @filter = %w[all sentiment].include?(params[:filter]) ? params[:filter] : "all"
+    @density = %w[compact detail].include?(params[:density]) ? params[:density] : "detail"
+    @account_id = if @scope == "account"
+      accessible_accounts.visible.where(accountable_type: %w[Investment Crypto]).find_by(id: params[:account_id])&.id&.to_s
+    end
     @page = [params[:page].to_i, 1].max
-    @all_articles = @scope == "portfolio" ? article_rows : news_rows
+    @all_articles = @scope == "all" ? news_rows : article_rows
     @sources = @all_articles.map { |article| article[:source] }.uniq.sort
     @categories = @all_articles.map { |article| article[:category] }.compact.uniq.sort
     @articles = filter_news(@all_articles)
-    @articles = @articles.sort_by { |article| @sort == "title" ? article[:title].downcase : article[:published_at].to_s }.reverse
+    @articles = case @sort
+    when "title" then @articles.sort_by { |article| article[:title].downcase }
+    when "oldest" then @articles.sort_by { |article| article[:published_at] || Time.zone.at(0) }
+    else @articles.sort_by { |article| article[:published_at] || Time.zone.at(0) }.reverse
+    end
     @total = @articles.size
     @articles = @articles.drop((@page - 1) * PAGE_SIZE).first(PAGE_SIZE)
   end
@@ -55,6 +65,7 @@ class ResearchController < ApplicationController
     @security = @holdings.first&.security || find_research_security(@ticker)
     return render_pending_ticker unless @security
 
+    @ticker_news = research_news.rows_for(security: @security)
     @scan = @security.research_snapshot&.section("scan").presence
     @holding_currencies = @holdings.map(&:currency).uniq
     @aggregate_position = aggregate_ticker_position
@@ -160,62 +171,57 @@ class ResearchController < ApplicationController
 
     def news_rows
       artifact = Pathname.new(ENV.fetch("INVEST_RESEARCH_PATH", "/run/invest-research")).join(NEWS_FILE)
-      Array(JSON.parse(artifact.read)).filter_map do |article|
-        title = article["title"].to_s.squish
-        next unless title.present? && article["link"].to_s.start_with?("https://")
-
-        raw_source = article["source"].to_s.squish
-        { title: title, url: article["link"], description: article["description"].to_s.gsub(/<[^>]*>/, " ").squish, source: raw_source.presence || "Source unavailable", category: article["category"].presence, published_at: article["published"] || article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase), headline_sentiments: headline_sentiments_for(raw_source, title) }
-      end.uniq { |article| article[:url] }
+      research_news.rows_from(JSON.parse(artifact.read))
     rescue Errno::ENOENT, JSON::ParserError
       []
     end
 
     def filter_news(rows)
-      held = scoped_securities.pluck(:ticker).map(&:upcase).to_set
+      allowed_tickers = case @scope
+      when "all"
+        nil
+      when "account"
+        @account_id ? Security.where(id: Holding.where(account_id: @account_id).select(:security_id)).pluck(:ticker).map(&:upcase).to_set : Set.new
+      when "watchlist"
+        Security.where(id: Current.user.research_watchlist_entries.active.select(:security_id)).pluck(:ticker).map(&:upcase).to_set
+      when "security"
+        @ticker.present? ? [ @ticker ].to_set : Set.new
+      when "overall"
+        news_securities.pluck(:ticker).map(&:upcase).to_set
+      else
+        scoped_securities.pluck(:ticker).map(&:upcase).to_set
+      end
+      period = news_period
+
       rows.select do |article|
         text = [article[:title], article[:description], article[:source], article[:category], article[:tickers].join(" ")].join(" ").downcase
-        (@scope == "all" || (article[:tickers] & held.to_a).any?) &&
+        (allowed_tickers.nil? || (article[:tickers] & allowed_tickers.to_a).any?) &&
           (@query.blank? || text.include?(@query.downcase)) &&
           (@source.blank? || article[:source] == @source) &&
           (@category.blank? || article[:category] == @category) &&
+          (@filter != "sentiment" || article[:headline_sentiments].any?) &&
           (@sentiment.blank? || article[:headline_sentiments].any? { |sentiment| sentiment[:tone] == @sentiment }) &&
-          (@ticker.blank? || article[:tickers].include?(@ticker))
+          (@ticker.blank? || article[:tickers].include?(@ticker)) &&
+          (period.nil? || article[:published_at]&.to_date&.between?(period.start_date, period.end_date))
       end
     end
 
     def article_rows
-      security_ids = scoped_securities.select(:id)
-      SecurityResearchSnapshot.where(security_id: security_ids).filter_map do |snapshot|
-        Array(snapshot.section("news")).filter_map do |article|
-          title = article["title"].to_s.squish
-          next unless title.present? && article["link"].to_s.start_with?("https://")
-
-          raw_source = article["source"].to_s.squish
-          { title: title, url: article["link"], source: raw_source.presence || "Source unavailable", published_at: article["published"] || article["published_at"] || article["publishedAt"] || article["time"], tickers: Array(article["tickers"]).map(&:to_s).map(&:upcase), headline_sentiments: headline_sentiments_for(raw_source, title) }
-        end
-      end.flatten.uniq { |article| article[:url] }.sort_by { |article| article[:published_at].to_s }.reverse
+      research_news.rows
     end
 
-    # Jev sentiment remains research-only and is scoped to securities the
-    # signed-in user can access. The persisted cache stores article digests,
-    # not raw headlines, so UI rows recompute the same digest for lookup.
-    def headline_sentiments_for(source, title)
-      key = Digest::SHA256.hexdigest([source.to_s.squish, title.to_s.squish.truncate(Security::HeadlineToneAnalyzer::TITLE_LIMIT)].join("\u0000"))
-      headline_sentiment_index.fetch(key, [])
+    def research_news
+      @research_news ||= ResearchNews.new(user: Current.user, source_unavailable: t("research.news.source_unavailable"))
     end
 
-    def headline_sentiment_index
-      @headline_sentiment_index ||= SecurityHeadlineAnalysis.includes(:security)
-        .where(security_id: scoped_securities.select(:id), status: "current")
-        .each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |analysis, index|
-          analysis.payload.fetch("articleTones", {}).each do |article_key, result|
-            tone = result["tone"].to_s
-            next unless Security::HeadlineToneAnalyzer::TONES.include?(tone)
+    def news_securities
+      held = Holding.where(account_id: accessible_accounts.visible.select(:id)).select(:security_id)
+      watched = Current.user.research_watchlist_entries.active.select(:security_id)
+      Security.where(id: held).or(Security.where(id: watched))
+    end
 
-            label = { ticker: analysis.security.ticker, tone: tone }
-            index[article_key] << label unless index[article_key].include?(label)
-          end
-        end
+    def news_period
+      key = { "1m" => "last_30_days", "3m" => "last_90_days", "ytd" => "current_year", "1y" => "last_365_days" }[@period]
+      Period.from_key(key) if key
     end
 end

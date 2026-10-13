@@ -34,6 +34,49 @@ class ApplicationHelperTest < ActionView::TestCase
     singleton_class.send(:remove_method, :lucide_icon) if singleton_class.method_defined?(:lucide_icon)
   end
 
+  test "#mobile_nav_groups keeps four primary destinations and moves every other item to More" do
+    items = [
+      { name: "Home", mobile_primary: true },
+      { name: "Investments", mobile_primary: true },
+      { name: "Transactions", mobile_primary: true },
+      { name: "Events" },
+      { name: "Reports", mobile_primary: true },
+      { name: "Plan" },
+      { name: "Assistant" }
+    ]
+
+    primary, more = mobile_nav_groups(items)
+
+    assert_equal %w[Home Investments Transactions Reports], primary.pluck(:name)
+    assert_equal %w[Events Plan Assistant], more.pluck(:name)
+  end
+
+  test "#mobile_nav_groups fills and caps primary destinations without hash equality" do
+    duplicate = { name: "Duplicate" }
+    items = [
+      { name: "Home", mobile_primary: true },
+      { name: "Transactions", mobile_primary: true },
+      duplicate,
+      duplicate.dup,
+      { name: "Assistant" }
+    ]
+
+    primary, more = mobile_nav_groups(items)
+
+    assert_equal 4, primary.size
+    assert_equal %w[Home Transactions Duplicate Duplicate], primary.pluck(:name)
+    assert_equal [ "Assistant" ], more.pluck(:name)
+  end
+
+  test "#mobile_nav_groups does not add More to a navigation that already fits" do
+    items = [ { name: "Home" }, { name: "Intro" } ]
+
+    primary, more = mobile_nav_groups(items)
+
+    assert_equal items, primary
+    assert_empty more
+  end
+
   test "#format_optional_percentage preserves missing financial evidence" do
     assert_equal "—", format_optional_percentage(nil)
     assert_equal "0.0%", format_optional_percentage(0)

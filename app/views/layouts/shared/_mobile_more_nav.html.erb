@@ -1,0 +1,46 @@
+<%# locals: (items:) %>
+<%# The phone bottom bar's "More" affordance. A native modal <dialog> (DS::Dialog)
+    lists every destination that did not fit in the bar, with the current one
+    marked. Escape, outside click and the close button dismiss it, and the
+    dialog-trigger controller returns focus to this button. %>
+<% more_active = items.any? { |item| item[:active] } %>
+<div data-controller="dialog-trigger" data-action="turbo:before-cache@window->dialog-trigger#close" data-testid="mobile-more-nav">
+  <button type="button"
+          class="space-y-1 group block relative w-full min-h-11 pb-1 focus-ring rounded-lg"
+          data-dialog-trigger-target="trigger"
+          data-action="click->dialog-trigger#open"
+          data-active="<%= more_active %>"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-controls="mobile-more-nav-dialog">
+    <%= render "layouts/shared/nav_item_face", name: t("layouts.application.nav.more"), icon: "ellipsis", icon_custom: false, active: more_active %>
+  </button>
+
+  <%= render DS::Dialog.new(id: "mobile-more-nav-dialog", auto_open: false, disable_frame: true, width: "sm", data: { testid: "mobile-more-nav-dialog", dialog_trigger_target: "dialog" }) do |dialog| %>
+    <% dialog.with_header(title: t("layouts.application.nav.more")) %>
+    <% dialog.with_body do %>
+      <ul class="space-y-1" role="list">
+        <% items.each do |item| %>
+          <li>
+            <%= link_to item[:path],
+                  class: class_names(
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm focus-ring",
+                    item[:active] ? "bg-container-inset font-medium text-primary" : "text-secondary hover:bg-container-inset-hover hover:text-primary"
+                  ),
+                  aria: { current: ("page" if item[:active]) },
+                  data: { action: "click->dialog-trigger#close" } do %>
+              <span class="relative flex h-6 w-6 shrink-0 items-center justify-center">
+                <%= icon(item[:icon], color: item[:active] ? "current" : "default", custom: item[:icon_custom]) %>
+                <% if item[:preview] %>
+                  <span class="absolute -top-0.5 -right-0.5"><%= render DS::Pill.new(tone: :violet, dot_only: true, title: t("shared.preview")) %></span>
+                <% end %>
+              </span>
+              <span class="min-w-0 grow break-words"><%= item[:name] %></span>
+              <% if item[:active] %><%= icon("check", size: "sm", color: "current") %><% end %>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+</div>

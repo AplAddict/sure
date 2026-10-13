@@ -15,6 +15,31 @@ class InvestmentNewsTest < ActiveSupport::TestCase
     InvestmentNews.new(user: @owner).articles
   end
 
+  test "delegates canonical loading and only adapts the legacy article shape" do
+    published_at = Time.zone.parse("2026-10-12T13:29:00Z")
+    canonical = {
+      title: "Canonical", url: "https://example.com/canonical", source: "Wire",
+      published_at: published_at, published_raw: "2026-10-12T13:29:00Z", tickers: [ "NWORD" ],
+      description: "Detail", category: "markets", security_id: @security.id.to_s, headline_sentiments: []
+    }
+    ResearchNews.any_instance.expects(:rows).once.returns([ canonical ])
+
+    article = InvestmentNews.new(user: @owner).articles.sole
+
+    assert_equal canonical.slice(*InvestmentNews::Article.members), article.to_h
+  end
+
+  test "uses the localized canonical missing-source label" do
+    SecurityResearchSnapshot.create!(
+      security: @security, status: "current", generated_at: Time.current, imported_at: Time.current,
+      payload: { "news" => [ { "title" => "No source", "link" => "https://example.com/no-source" } ] }
+    )
+
+    article = InvestmentNews.new(user: @owner).articles.sole
+
+    assert_equal I18n.t("research.news.source_unavailable"), article.source
+  end
+
   test "orders by real time across the feed's mixed date formats, not alphabetically" do
     articles = news("Wed, 07 Oct 2026 18:43:07 +0000", "Mon, 12 Oct 2026 13:29:00 +0000", "2026-10-09T00:00:00+00:00")
 

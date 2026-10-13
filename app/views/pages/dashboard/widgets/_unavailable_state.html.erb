@@ -1,0 +1,5 @@
+<%# locals: (message:, href: nil, link_text: nil) %>
+<div class="rounded-lg bg-container-inset px-4 py-6 text-sm text-secondary" role="status">
+  <p><%= message %></p>
+  <% if href.present? %><p class="mt-3"><%= render DS::Link.new(text: link_text, href: href, variant: "outline", size: "sm") %></p><% end %>
+</div>

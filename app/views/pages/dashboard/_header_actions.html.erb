@@ -1,6 +1,6 @@
 <%# locals: (add_widget:, page_management:, current_page_url:, home_url:) %>
 <div class="flex items-center gap-2" data-testid="dashboard-header-actions">
-  <div class="inline-flex" data-controller="dashboard-pages expandable" data-dashboard-pages-return-url-value="<%= current_page_url %>" data-dashboard-pages-home-url-value="<%= home_url %>">
+  <div class="relative inline-flex" data-controller="dashboard-pages expandable" data-dashboard-pages-return-url-value="<%= current_page_url %>" data-dashboard-pages-home-url-value="<%= home_url %>">
     <%= render DS::Button.new(
       variant: "outline",
       icon: "layout-grid",
@@ -15,16 +15,22 @@
       aria_label: t("pages.dashboard.widgets.add"),
       data: { action: "click->expandable#open" }
     ) %>
+    <%= render "pages/dashboard/local_error", class_name: "absolute right-0 top-full z-30 mt-2 w-72" %>
     <%= render "pages/dashboard/add_widget_dialog", **add_widget %>
   </div>
 
-  <div class="inline-flex" data-controller="dashboard-pages expandable" data-dashboard-pages-return-url-value="<%= current_page_url %>" data-dashboard-pages-home-url-value="<%= home_url %>">
+  <div class="relative inline-flex"
+       data-controller="dashboard-pages expandable"
+       data-dashboard-pages-return-url-value="<%= current_page_url %>"
+       data-dashboard-pages-home-url-value="<%= home_url %>"
+       data-dashboard-pages-order-error-value="<%= t("pages.dashboard.pages.order_unavailable") %>">
     <%= render DS::Button.new(
       variant: "icon",
       icon: "settings-2",
       aria_label: t("pages.dashboard.pages.manage"),
       data: { action: "click->expandable#open", testid: "dashboard-manage-pages" }
     ) %>
+    <%= render "pages/dashboard/local_error", class_name: "absolute right-0 top-full z-30 mt-2 w-72" %>
     <%= render "pages/dashboard/manage_pages_dialog", **page_management %>
   </div>
 

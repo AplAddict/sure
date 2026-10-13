@@ -1,32 +1,18 @@
 <%# locals: (widget_data:, **args) %>
-<div class="space-y-3" data-testid="granular-investment-widget">
+<div class="min-w-0 space-y-3 overflow-hidden" data-testid="granular-investment-widget">
   <% metrics = Array(widget_data[:metrics]) %>
   <% if metrics.any? %>
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
       <% metrics.each do |metric| %>
-        <%= investment_stat(metric[:label], metric[:value]) %>
+        <%= render "pages/dashboard/widgets/kpi_tile", label: metric[:label], value: metric[:value], hint: metric[:hint], tone: metric[:tone] || "text-primary" %>
       <% end %>
     </div>
   <% end %>
 
   <% rows = Array(widget_data[:rows]) %>
   <% if rows.any? %>
-    <ul class="divide-y divide-tertiary">
-      <% rows.each do |row| %>
-        <li class="flex items-start justify-between gap-3 py-2 text-sm">
-          <div class="min-w-0">
-            <% if row[:href] %>
-              <%= link_to row[:primary], row[:href], class: "block truncate font-medium text-primary hover:underline", target: "_blank", rel: "noopener noreferrer" %>
-            <% else %>
-              <p class="truncate font-medium text-primary"><%= row[:primary] %></p>
-            <% end %>
-            <% if row[:detail].present? %><p class="truncate text-xs text-secondary"><%= row[:detail] %></p><% end %>
-          </div>
-          <% if row[:secondary].present? %><span class="shrink-0 text-right <%= row[:tone].presence || "text-secondary" %>"><%= row[:secondary] %></span><% end %>
-        </li>
-      <% end %>
-    </ul>
+    <%= render "pages/dashboard/widgets/mini_table", rows: rows %>
   <% elsif metrics.empty? %>
-    <p class="text-sm text-secondary"><%= t("pages.dashboard.granular_data.no_data") %></p>
+    <%= render "pages/dashboard/widgets/empty_state", message: t("pages.dashboard.granular_data.no_data") %>
   <% end %>
 </div>

@@ -1,26 +1,39 @@
 <%# locals: (id:, url:, page_key:, widgets:) %>
+<% error_target_id = "#{id}-error" %>
 <%= render DS::Dialog.new(id: id, auto_open: false, disable_frame: true, data: { testid: "dashboard-add-widget-dialog", expandable_target: "dialog" }) do |dialog| %>
   <% dialog.with_header(title: t("pages.dashboard.widgets.add_title"), subtitle: t("pages.dashboard.widgets.add_description")) %>
   <% dialog.with_body do %>
     <% if widgets.empty? %>
       <%= render DS::EmptyState.new(icon: "layout-grid", title: t("pages.dashboard.widgets.none_left_title"), description: t("pages.dashboard.widgets.none_left_description")) %>
     <% else %>
-      <div class="space-y-5" data-testid="dashboard-widget-catalog">
+      <div class="space-y-5" data-testid="dashboard-widget-catalog" data-error-target-id="<%= error_target_id %>">
+        <%= render "pages/dashboard/local_error", id: error_target_id, scope: "add-widget" %>
         <div>
           <label class="sr-only" for="dashboard-widget-search-<%= page_key %>"><%= t("pages.dashboard.widgets.search") %></label>
           <input id="dashboard-widget-search-<%= page_key %>" type="search" class="form-field__input" placeholder="<%= t("pages.dashboard.widgets.search") %>" data-action="input->dashboard-pages#filterCatalog">
         </div>
+        <nav class="flex gap-2 overflow-x-auto pb-1" aria-label="<%= t("pages.dashboard.widgets.group_navigation") %>">
+          <% widgets.each do |group| %>
+            <a href="#widget-group-<%= page_key %>-<%= group[:key] %>" class="shrink-0 rounded-full bg-container-inset px-3 py-1.5 text-xs font-medium text-primary focus-ring"><%= group[:label] %></a>
+          <% end %>
+        </nav>
         <% widgets.each do |group| %>
           <section aria-labelledby="widget-group-<%= page_key %>-<%= group[:key] %>">
             <h3 id="widget-group-<%= page_key %>-<%= group[:key] %>" class="text-xs font-semibold uppercase tracking-wide text-secondary"><%= group[:label] %></h3>
             <ul class="mt-1 divide-y divide-tertiary">
               <% group[:widgets].each do |widget| %>
                 <li class="py-3" data-dashboard-pages-target="catalogItem" data-search-text="<%= "#{widget[:title]} #{widget[:description]} #{group[:label]}".downcase %>">
-                  <form class="space-y-2" data-dashboard-widget-add-form>
+                  <form class="space-y-2" data-dashboard-widget-add-form data-controller="widget-settings">
                     <div class="flex items-center justify-between gap-3">
-                      <div class="min-w-0">
-                        <p class="text-sm font-medium text-primary"><%= widget[:title] %></p>
-                        <% if widget[:description].present? %><p class="text-xs text-secondary"><%= widget[:description] %></p><% end %>
+                      <div class="flex min-w-0 items-start gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-container-inset text-secondary" aria-hidden="true"><%= icon("layout-dashboard", size: "sm") %></div>
+                        <div class="min-w-0">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <p class="text-sm font-medium text-primary"><%= widget[:title] %></p>
+                            <% if widget[:added_count].to_i.positive? %><span class="rounded-full bg-container-inset px-2 py-0.5 text-xs text-secondary"><%= t("pages.dashboard.widgets.added_count", count: widget[:added_count]) %></span><% end %>
+                          </div>
+                          <% if widget[:description].present? %><p class="text-xs text-secondary"><%= widget[:description] %></p><% end %>
+                        </div>
                       </div>
                       <button type="button"
                           class="shrink-0 cursor-pointer rounded-lg border border-tertiary px-3 py-1.5 text-sm font-medium text-primary hover:bg-container-inset-hover focus-ring pointer-coarse:py-2.5"

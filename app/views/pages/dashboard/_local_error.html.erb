@@ -1,0 +1,7 @@
+<%# locals: (class_name: nil, id: nil, scope: "local", testid: nil) %>
+<%= tag.p "",
+      id: id,
+      class: class_names("hidden rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive", class_name),
+      role: "alert",
+      tabindex: -1,
+      data: { dashboard_pages_target: "error", error_scope: scope, testid: testid }.compact %>

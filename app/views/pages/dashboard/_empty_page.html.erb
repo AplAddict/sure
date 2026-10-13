@@ -1,6 +1,7 @@
 <%# locals: (title:, description:, add_widget:, current_page_url:, icon: "layout-grid") %>
 <%= tag.div class: "rounded-xl bg-container shadow-border-xs",
       data: { testid: "dashboard-empty-page", controller: "dashboard-pages expandable", dashboard_pages_return_url_value: current_page_url } do %>
+  <%= render "pages/dashboard/local_error" %>
   <%= render DS::EmptyState.new(icon: icon, title: title, description: description) do |empty| %>
     <% empty.with_action do %>
       <%= render DS::Button.new(

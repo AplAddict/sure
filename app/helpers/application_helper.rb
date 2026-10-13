@@ -84,6 +84,24 @@ module ApplicationHelper
     current_page?(path) || (request.path.start_with?(path) && path != "/")
   end
 
+  # The phone bottom bar shows at most this many destinations and always keeps
+  # the last slot for "More" when anything is left over, so the bar never grows
+  # past five equal targets.
+  MOBILE_PRIMARY_NAV_LIMIT = 4
+
+  # Splits the shared nav-item list into the phone bottom bar's primary
+  # destinations (flagged `mobile_primary: true`, capped at the limit) and the
+  # overflow that lives behind "More". A list that already fits the limit has no
+  # overflow, so intro mode and tiny navs never show an empty "More".
+  def mobile_nav_groups(items)
+    return [ items.first(MOBILE_PRIMARY_NAV_LIMIT), items.drop(MOBILE_PRIMARY_NAV_LIMIT) ] if items.size <= MOBILE_PRIMARY_NAV_LIMIT
+
+    preferred = items.select { |item| item[:mobile_primary] }
+    primary = (preferred + items.reject { |item| item[:mobile_primary] }).first(MOBILE_PRIMARY_NAV_LIMIT)
+    primary_ids = primary.map(&:object_id).to_set
+    [ primary, items.reject { |item| primary_ids.include?(item.object_id) } ]
+  end
+
   # Wraps a nav-item hash so a single call performs both halves of a
   # preview-gated entry: returns `nil` for users without the flag (so the
   # entry never reaches the rendered nav), and stamps `preview: true` on

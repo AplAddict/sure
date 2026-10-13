@@ -152,7 +152,7 @@ module DashboardPageConfigurable
     mutate_dashboard_config do |pages, current|
       page = find_dashboard_page_for_write!(pages, page_id)
       definition = dashboard_widget_for_write!(widget_key)
-      normalized_settings = definition.normalize_settings!(settings, user: self)
+      normalized_settings = definition.normalize_settings!(settings, user: self, legacy_key: widget_key)
       duplicate = page["widgets"].any? { |widget| widget["key"] == definition.key && widget["settings"] == normalized_settings }
       if duplicate && !allow_duplicate
         raise DashboardPagesValidationError, "an identical widget already exists on page"
@@ -232,10 +232,10 @@ module DashboardPageConfigurable
       raw = preferences&.[]("dashboard_pages")
       return nil if raw.nil?
 
-      normalize_dashboard_pages(raw)
+      normalize_dashboard_pages(raw, validate_access: false)
     end
 
-    def normalize_dashboard_pages(raw_pages)
+    def normalize_dashboard_pages(raw_pages, validate_access: true)
       raise DashboardPagesValidationError, "dashboard_pages must be an array" unless raw_pages.is_a?(Array)
 
       raw_pages.map do |raw_page|
@@ -247,14 +247,14 @@ module DashboardPageConfigurable
         normalized = {
           "id" => page_id,
           "name" => page["name"].to_s.strip,
-          "widgets" => normalize_dashboard_widgets(page["widgets"], page_id: page_id)
+          "widgets" => normalize_dashboard_widgets(page["widgets"], page_id: page_id, validate_access: validate_access)
         }
         normalized["provenance"] = page["provenance"].to_s if page["provenance"].present?
         normalized
-      end.then { |pages| validate_dashboard_config!(pages, "home") }
+      end.then { |pages| validate_dashboard_config!(pages, "home", validate_access: validate_access) }
     end
 
-    def normalize_dashboard_widgets(raw_widgets, page_id:)
+    def normalize_dashboard_widgets(raw_widgets, page_id:, validate_access: true)
       raise DashboardPagesValidationError, "widgets must be an array" unless raw_widgets.is_a?(Array)
 
       raw_widgets.each_with_index.map do |raw_widget, index|
@@ -284,7 +284,12 @@ module DashboardPageConfigurable
             "col_width" => migrating_alias && !definition.supported_col_widths.include?(requested_width) ? definition.default_col_width : requested_width,
             "height" => migrating_alias && !definition.supported_heights.include?(requested_height) ? definition.default_height : requested_height
           },
-          "settings" => definition.normalize_settings!(widget["settings"], user: self)
+          "settings" => definition.normalize_settings!(
+            widget["settings"],
+            user: self,
+            legacy_key: widget["key"],
+            validate_access: validate_access || definition.key != "research.news"
+          )
         }
       end.tap do |widgets|
         ids = widgets.map { |widget| widget["id"] }
@@ -292,7 +297,7 @@ module DashboardPageConfigurable
       end
     end
 
-    def validate_dashboard_config!(pages, current)
+    def validate_dashboard_config!(pages, current, validate_access: true)
       raise DashboardPagesValidationError, "dashboard_pages must be an array" unless pages.is_a?(Array)
       raise DashboardPagesValidationError, "dashboard supports at most #{MAX_DASHBOARD_PAGES} pages" if pages.size > MAX_DASHBOARD_PAGES
 
@@ -323,7 +328,7 @@ module DashboardPageConfigurable
         raise DashboardPagesValidationError, "a page supports at most #{MAX_DASHBOARD_WIDGETS} widgets" if widgets.size > MAX_DASHBOARD_WIDGETS
         instance_ids = widgets.map { |widget| widget["id"] }
         raise DashboardPagesValidationError, "widget instance ids must be unique per page" unless instance_ids.uniq == instance_ids
-        widgets.each { |widget| validate_dashboard_widget!(widget) }
+        widgets.each { |widget| validate_dashboard_widget!(widget, validate_access: validate_access) }
       end
 
       raise DashboardPagesValidationError, "current dashboard page does not exist" unless ids.include?(current.to_s)
@@ -339,7 +344,7 @@ module DashboardPageConfigurable
       pages
     end
 
-    def validate_dashboard_widget!(widget)
+    def validate_dashboard_widget!(widget, validate_access: true)
       definition = Dashboard::WidgetRegistry.find(widget["key"])
       raise DashboardPagesValidationError, "unknown widget #{widget["key"].inspect}" unless definition
       raise DashboardPagesValidationError, "invalid widget instance id" unless DASHBOARD_WIDGET_INSTANCE_ID.match?(widget["id"].to_s)
@@ -355,7 +360,11 @@ module DashboardPageConfigurable
       unless height.is_a?(Integer) && definition.supported_heights.include?(height)
         raise DashboardPagesValidationError, "height is not supported for #{definition.key}"
       end
-      definition.normalize_settings!(widget["settings"], user: self)
+      definition.normalize_settings!(
+        widget["settings"],
+        user: self,
+        validate_access: validate_access || definition.key != "research.news"
+      )
     end
 
     def normalize_dashboard_layout(raw_layout)
@@ -374,15 +383,18 @@ module DashboardPageConfigurable
     end
 
     def synthesized_home_dashboard_page
-      definitions = Dashboard::WidgetRegistry.all.select { |definition| definition.key.start_with?("home.") }
-      legacy_order = Array(preferences&.[]("section_order")).map { |key| "home.#{key}" }
-      ordered_keys = (legacy_order + definitions.map(&:key)).uniq & definitions.map(&:key)
+      definitions = Dashboard::WidgetRegistry.all.select { |definition| definition.key.start_with?("home.") || definition.key == "research.news" }
+      legacy_order = Array(preferences&.[]("section_order")).map do |key|
+        key.to_s == "ticker_news" ? "research.news" : "home.#{key}"
+      end
+      default_keys = [ "research.news" ] + definitions.map(&:key).reject { |key| key == "research.news" }
+      ordered_keys = (legacy_order + default_keys).uniq & definitions.map(&:key)
       collapsed = preferences&.[]("collapsed_sections") || {}
       layouts = preferences&.[]("dashboard_section_layout") || {}
 
       widgets = ordered_keys.each_with_index.map do |key, index|
         definition = Dashboard::WidgetRegistry.fetch(key)
-        legacy_key = key.delete_prefix("home.")
+        legacy_key = key == "research.news" ? "ticker_news" : key.delete_prefix("home.")
         layout = layouts[legacy_key] || {}
         requested_width = layout["col_span"] == "full" ? 12 : definition.default_col_width
         requested_height = { "compact" => 3, "auto" => 4, "tall" => 6 }.fetch(layout["height"], definition.default_height)

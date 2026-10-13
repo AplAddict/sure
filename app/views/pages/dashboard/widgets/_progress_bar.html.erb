@@ -1,0 +1,5 @@
+<%# locals: (value:, label:) %>
+<% bounded_value = value.to_f.clamp(0, 100) %>
+<div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-container-inset" role="progressbar" aria-label="<%= label %>" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= bounded_value.round(1) %>">
+  <div class="h-full rounded-full bg-success motion-reduce:transition-none" style="width: <%= bounded_value %>%"></div>
+</div>

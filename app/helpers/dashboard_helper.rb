@@ -16,6 +16,7 @@ module DashboardHelper
         title: t(entry.title_key),
         description: t(entry.description_key, default: nil),
         group: entry.group,
+        added_count: existing_keys.count(definition.key),
         duplicate_type: existing_keys.include?(definition.key),
         settings: dashboard_catalog_widget_settings(definition)
       }
@@ -27,6 +28,10 @@ module DashboardHelper
     end
   end
 
+  def dashboard_setting_option_label(setting_key, value)
+    t("pages.dashboard.settings.options.#{setting_key}.#{value}")
+  end
+
   private
     def dashboard_catalog_widget_settings(definition)
       definition.settings.values.map do |setting|
@@ -36,7 +41,7 @@ module DashboardHelper
         when "security_id"
           dashboard_catalog_security_options
         else
-          Array(setting.values).map { |value| [ value.to_s.humanize, value ] }
+          Array(setting.values).map { |value| [ dashboard_setting_option_label(setting.key, value), value ] }
         end
 
         {

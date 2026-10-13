@@ -37,6 +37,25 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "home", @user.reload.preferences.fetch("dashboard_current_page")
   end
 
+  test "page mutation validation failures return actionable 422 JSON" do
+    custom = @user.create_dashboard_page!("Planning")
+    original = @user.reload.preferences.deep_dup
+    requests = [
+      [ :post, pages_path, { page: { name: "" } } ],
+      [ :patch, page_path(custom.fetch("id")), { page: { name: "" } } ],
+      [ :delete, page_path("home"), {} ]
+    ]
+
+    requests.each do |method, path, params|
+      public_send(method, path, params: params, as: :json)
+
+      assert_response :unprocessable_entity
+      assert_equal "validation_failed", response.parsed_body.fetch("error")
+      assert response.parsed_body.fetch("message").present?
+      assert_equal original, @user.reload.preferences
+    end
+  end
+
   test "widget endpoints add update order and remove only registered widgets" do
     post "/dashboard/pages", params: { page: { name: "Widgets" } }, as: :json
     page_id = JSON.parse(response.body).dig("page", "id")
@@ -62,6 +81,30 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     delete page_widget_path(page_id, spending.fetch("id")), as: :json
     assert_response :no_content
     assert_not_includes @user.reload.dashboard_pages.find { |page| page["id"] == page_id }["widgets"].map { |row| row["id"] }, spending.fetch("id")
+  end
+
+  test "overall settings payload clears scope identifiers" do
+    page = @user.create_dashboard_page!("Scoped news")
+    account = accounts(:investment)
+    widget = @user.add_dashboard_widget!(
+      page.fetch("id"),
+      "research.news",
+      settings: { "scope" => "account", "account_id" => account.id.to_s }
+    )
+
+    patch page_widget_path(page.fetch("id"), widget.fetch("id")),
+      params: { widget: { settings: { scope: "overall" } } }, as: :json
+
+    assert_response :success
+    settings = response.parsed_body.dig("widget", "settings")
+    assert_equal "overall", settings.fetch("scope")
+    assert_nil settings.fetch("account_id")
+    assert_nil settings.fetch("security_id")
+
+    source = Rails.root.join("app/javascript/controllers/dashboard_pages_controller.js").read
+    assert_includes source, 'scope.value = scope.dataset.defaultValue || ""'
+    assert_includes source, '? ["account_id", "security_id"]'
+    assert_includes source, "!excludedIdentifiers.includes(key)"
   end
 
   test "invalid widget layouts and duplicate adds return 422 atomically" do
@@ -224,7 +267,7 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
 
     get root_path(page: "investments")
     assert_response :success
-    assert_select "[data-testid=dashboard-page-tabs][data-dashboard-pages-current-page-url-value=?]", current_pages_path
+    assert_select "[data-controller=dashboard-pages][data-dashboard-pages-current-page-url-value=?] > [data-testid=dashboard-page-tabs]", current_pages_path
     assert_select "[data-testid=dashboard-page-tabs] a[aria-current=page][data-dashboard-page-key=investments][data-action='click->dashboard-pages#selectPage']"
     assert_equal original, @user.reload.preferences
 
@@ -261,6 +304,7 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "homepage renders selected page tabs and page-specific widget controls" do
+    @user.update!(preferences: @user.preferences.merge("dashboard_two_column" => true))
     get root_path
 
     assert_response :success
@@ -268,11 +312,22 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=dashboard-page-tabs] a[href=?]", root_path(page: "investments"), text: "Investments"
     assert_select "[data-testid=dashboard-widget-catalog] [data-widget-key='investments.income_performance']"
     assert_select "[data-dashboard-sortable-url-value=?]", order_page_widgets_path("home")
-    assert_select "section[data-widget-key]" do |sections|
+    assert_select "[data-testid=dashboard-page-alert][role=alert][data-dashboard-pages-target=error]"
+    assert_select "#dashboard-reorder-instructions"
+    assert_select "[aria-live=polite][data-dashboard-sortable-target=announcement]"
+    assert_select "#dashboard_sections div[class*='2xl:grid-cols-12']"
+    assert_select "#dashboard_sections div[class*='md:grid-cols-12']", count: 0
+    assert_select "section[data-widget-key='research.news']" do |section|
+      assert_select section, "h2", text: I18n.t("pages.dashboard.ticker_news.title")
+      assert_select section, "details[class*='shrink-0'] > summary[aria-label^='Show']", text: /\+\d+/
+      assert_select section, "select[name=scope][data-action='change->widget-settings#scopeChanged'][data-default-value=overall]"
+    end
+    assert_select "section[data-widget-key][aria-describedby=dashboard-reorder-instructions]" do |sections|
       sections.each do |section|
         instance_id = section["data-widget-instance-id"]
         assert_equal page_widget_path("home", instance_id), section["data-dashboard-section-url-value"]
-        assert_select section, "button[data-url=?][aria-label]", page_widget_path("home", instance_id), minimum: 1
+        assert_select section, "[data-testid=dashboard-widget-actions] button[aria-haspopup=dialog][aria-label]", count: 1
+        assert_select section, "button[data-action='click->dashboard-pages#removeWidget'][data-url=?][data-confirm]", page_widget_path("home", instance_id), count: 1
       end
     end
 

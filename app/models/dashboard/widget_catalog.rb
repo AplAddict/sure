@@ -22,7 +22,6 @@ module Dashboard
     end
 
     ENTRIES = [
-      entry("home.ticker_news", title: "pages.dashboard.ticker_news.title", partial: "pages/dashboard/ticker_news", padded: false, route: :research_news, group: :research),
       entry("home.insights_feed", title: "pages.dashboard.insights_feed.title", partial: "pages/dashboard/insights_feed", padded: false, route: :insights, group: :review),
       entry("home.cashflow_sankey", title: "pages.dashboard.cashflow_sankey.title", partial: "pages/dashboard/cashflow_sankey", padded: false, group: :home_cash_flow),
       entry("home.money_flow", title: "pages.dashboard.money_flow.title", partial: "pages/dashboard/money_flow", padded: false, group: :home_cash_flow),
@@ -39,12 +38,11 @@ module Dashboard
       entry("investments.options", title: "pages.dashboard.investment_widgets.options", partial: "pages/dashboard/investment_widgets/options", route: :options_review, group: :options),
       entry("investments.market_events", title: "pages.dashboard.investment_widgets.market_events", partial: "pages/dashboard/investment_widgets/market_events", route: :market_events, group: :market),
       entry("investments.watchlist", title: "pages.dashboard.investment_widgets.watchlist", partial: "pages/dashboard/investment_widgets/watchlist", route: :research_watchlist_entries, group: :research),
-      entry("investments.news", title: "pages.dashboard.investment_widgets.news", partial: "pages/dashboard/ticker_news", padded: false, route: :research_news, group: :research),
+      entry("research.news", title: "pages.dashboard.ticker_news.title", partial: "pages/dashboard/ticker_news", padded: false, route: :research_news, group: :research),
 
       entry("portfolio.pulse", route: :investment_decision, group: :portfolio),
       entry("review.needs_review", route: :investment_decision, group: :review),
       entry("review.source_health", route: :investment_decision, group: :review),
-      entry("portfolio.holdings_concentration", route: :portfolio_holdings, group: :portfolio),
       entry("portfolio.allocation", route: :portfolio_holdings, group: :portfolio),
       entry("portfolio.top_holdings", route: :portfolio_holdings, group: :portfolio),
       entry("review.data_quality", route: :portfolio_holdings, group: :review),
@@ -53,22 +51,35 @@ module Dashboard
       entry("income.monthly", route: :investment_income, group: :income),
       entry("income.cash_flows", route: :investment_income, group: :income),
       entry("income.return_risk", route: :investment_income, group: :income),
-      entry("income.options_premium", route: :investment_income, group: :income),
       entry("tax.realized_gains", route: :tax_lot_review, group: :tax),
       entry("tax.lot_coverage", route: :tax_lot_review, group: :tax),
-      entry("tax.nearing_long_term", route: :tax_lot_review, group: :tax),
       entry("tax.harvest_summary", route: :tax_loss_harvest, group: :tax),
       entry("tax.harvest_candidates", route: :tax_loss_harvest, group: :tax),
       entry("tax.wash_sale_exposure", route: :tax_loss_harvest, group: :tax),
       entry("options.summary", route: :options_review, group: :options),
-      entry("options.expiring", route: :options_review, group: :options),
       entry("options.premium_income", route: :investment_income, group: :options),
       entry("options.contract_ledger", route: :options_review, group: :options),
-      entry("options.underlying_concentration", route: :options_review, group: :options),
-      entry("research.priority_watchlist", route: :research_watchlist_entries, group: :research),
-      entry("research.portfolio_news", route: :research_news, group: :research),
-      entry("research.upcoming_events", route: :market_events, group: :market),
-      entry("research.freshness", route: :research_watchlist_entries, group: :research)
+      entry("research.freshness", group: :research),
+
+      entry("portfolio.day_movers", route: :portfolio_holdings, group: :portfolio),
+      entry("portfolio.largest_position", route: :portfolio_holdings, group: :portfolio),
+      entry("portfolio.account_balances", route: :portfolio_holdings, group: :portfolio),
+      entry("portfolio.cash_liquidity", route: :portfolio_holdings, group: :portfolio),
+      entry("portfolio.holdings_count", route: :portfolio_holdings, group: :portfolio),
+      entry("income.by_type", route: :investment_income, group: :income),
+      entry("income.top_months", route: :investment_income, group: :income),
+      entry("income.fx_gaps", route: :investment_income, group: :income),
+      entry("tax.term_split", route: :tax_lot_review, group: :tax),
+      entry("tax.unrealized_by_holding", route: :tax_lot_review, group: :tax),
+      entry("tax.harvest_loss_total", route: :tax_loss_harvest, group: :tax),
+      entry("tax.fx_unavailable", route: :tax_loss_harvest, group: :tax),
+      entry("tax.long_term_window", route: :tax_lot_review, group: :tax),
+      entry("options.expiration_window", route: :options_review, group: :options),
+      entry("options.dte_distribution", route: :options_review, group: :options),
+      entry("options.by_underlying", route: :options_review, group: :options),
+      entry("options.unmeasured", route: :options_review, group: :options),
+      entry("research.watchlist_snapshot", route: :research_watchlist_entries, group: :research),
+      entry("research.event_countdown", route: :market_events, group: :research)
     ].freeze
 
     INDEX = ENTRIES.index_by(&:key).freeze

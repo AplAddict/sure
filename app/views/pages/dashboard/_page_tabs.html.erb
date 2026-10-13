@@ -1,13 +1,86 @@
-<%# locals: (pages:, current:, frame: "_top") %>
-<nav aria-label="<%= t("pages.dashboard.pages.label") %>"
-     class="mb-4 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1"
-     data-testid="dashboard-page-tabs"
+<%# locals: (pages:, current:, frame: "_top", can_create: true) %>
+<%# Page navigation has two shapes and exactly one is visible at a time:
+    - md and up: the existing tab strip, one link per page.
+    - below md: one compact current-page button that opens a sheet listing every
+      page. A row of tabs cannot be bounded on a phone (custom pages have long,
+      member-chosen names), so it is never rendered there. Both lists link to the
+      same page URLs, so direct links and the saved-page PATCH behave the same. %>
+<% current_page = pages.find { |page| current == page[:key] } || pages.first %>
+
+<div class="mb-4 hidden md:block"
      data-controller="dashboard-pages"
      data-dashboard-pages-current-page-url-value="<%= current_pages_path %>">
-  <% pages.each do |page| %>
-    <%= link_to page[:title], page[:path],
-          class: "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium focus-ring pointer-coarse:py-2.5 #{current == page[:key] ? "bg-container-inset text-primary" : "text-secondary hover:bg-container-inset-hover hover:text-primary"}",
-          aria: { current: (current == page[:key] ? "page" : nil) },
-          data: { action: "click->dashboard-pages#selectPage", turbo_frame: frame, turbo_action: "advance", turbo_prefetch: false, dashboard_page_key: page[:key] } %>
+  <nav aria-label="<%= t("pages.dashboard.pages.label") %>"
+       class="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1"
+       data-testid="dashboard-page-tabs">
+    <% pages.each do |page| %>
+      <%= link_to page[:title], page[:path],
+            class: "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium focus-ring pointer-coarse:py-2.5 #{current == page[:key] ? "bg-container-inset text-primary" : "text-secondary hover:bg-container-inset-hover hover:text-primary"}",
+            aria: { current: (current == page[:key] ? "page" : nil) },
+            data: { action: "click->dashboard-pages#selectPage", turbo_frame: frame, turbo_action: "advance", turbo_prefetch: false, dashboard_page_key: page[:key] } %>
+    <% end %>
+  </nav>
+  <%= render "pages/dashboard/local_error", class_name: "mt-2" %>
+</div>
+
+<div class="mb-4 md:hidden"
+     data-testid="dashboard-page-switcher"
+     data-controller="dashboard-pages dialog-trigger"
+     data-action="turbo:before-cache@window->dialog-trigger#close"
+     data-dashboard-pages-current-page-url-value="<%= current_pages_path %>">
+  <button type="button"
+          class="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg bg-container-inset px-3 py-2 text-left text-sm font-medium text-primary focus-ring"
+          data-testid="dashboard-page-switcher-trigger"
+          data-dialog-trigger-target="trigger"
+          data-action="click->dialog-trigger#open"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-controls="dashboard-page-switcher-dialog">
+    <span class="min-w-0 truncate"><span class="sr-only"><%= t("pages.dashboard.pages.switcher_label") %>: </span><%= current_page[:title] %></span>
+    <%= icon("chevron-down", size: "sm", class: "shrink-0") %>
+  </button>
+
+  <%= render DS::Dialog.new(id: "dashboard-page-switcher-dialog", auto_open: false, disable_frame: true, width: "sm", data: { testid: "dashboard-page-switcher-dialog", dialog_trigger_target: "dialog" }) do |dialog| %>
+    <% dialog.with_header(title: t("pages.dashboard.pages.label")) %>
+    <% dialog.with_body do %>
+      <%= render "pages/dashboard/local_error", class_name: "mb-3" %>
+      <ul class="space-y-1" role="list">
+        <% pages.each do |page| %>
+          <li>
+            <%= link_to page[:path],
+                  class: class_names(
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm focus-ring",
+                    current == page[:key] ? "bg-container-inset font-medium text-primary" : "text-secondary hover:bg-container-inset-hover hover:text-primary"
+                  ),
+                  aria: { current: (current == page[:key] ? "page" : nil) },
+                  data: { action: "click->dashboard-pages#selectPage", turbo_frame: frame, turbo_action: "advance", turbo_prefetch: false, dashboard_page_key: page[:key] } do %>
+              <span class="min-w-0 grow break-words"><%= page[:title] %></span>
+              <% if current == page[:key] %><%= icon("check", size: "sm", color: "current") %><% end %>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+
+      <div class="mt-3 space-y-2 border-t border-tertiary pt-3">
+        <% if can_create %>
+          <%= render DS::Button.new(
+            icon: "plus",
+            text: t("pages.dashboard.pages.create"),
+            full_width: true,
+            class: "min-h-11 justify-center",
+            data: { action: "click->dialog-trigger#handoffToFocus", dialog_trigger_handoff_id: "dashboard-manage-pages-dialog", dialog_trigger_focus_id: "dashboard-new-page-name", missing_target_message: t("pages.dashboard.pages.switcher_unavailable"), testid: "dashboard-page-switcher-create" }
+          ) %>
+        <% end %>
+        <%= render DS::Button.new(
+          variant: "outline",
+          icon: "settings-2",
+          text: t("pages.dashboard.pages.switcher_manage"),
+          full_width: true,
+          class: "min-h-11 justify-center",
+          data: { action: "click->dialog-trigger#handoff", dialog_trigger_handoff_id: "dashboard-manage-pages-dialog", missing_target_message: t("pages.dashboard.pages.switcher_unavailable"), testid: "dashboard-page-switcher-manage" }
+        ) %>
+        <p class="hidden text-sm text-destructive" role="alert" data-dialog-trigger-target="message"></p>
+      </div>
+    <% end %>
   <% end %>
-</nav>
+</div>

@@ -9,7 +9,8 @@ module InvestmentsHelper
   def investment_money(amount, currency, title: UNAVAILABLE_TITLE)
     return unavailable_cell(title) if amount.nil?
 
-    tag.span(format_money(Money.new(amount, currency)), class: "privacy-sensitive")
+    display = format_money(Money.new(amount, currency))
+    tag.span(display, class: "privacy-sensitive tabular-nums", title: display, aria: { label: display })
   end
 
   # Gain/loss with a sign (so colour is never the only signal), tone class and
@@ -19,9 +20,11 @@ module InvestmentsHelper
     return unavailable_cell(title) if amount.nil?
 
     sign = amount.positive? ? "+" : ""
+    arrow = amount.positive? ? "↑" : amount.negative? ? "↓" : "→"
+    money = "#{sign}#{format_money(Money.new(amount, currency))}"
     pct = percent.nil? ? nil : tag.span(" (#{sign}#{number_to_percentage(percent, precision: 1)})", class: "text-xs")
-    tag.span(class: gain_tone_class(amount)) do
-      safe_join([ tag.span("#{sign}#{format_money(Money.new(amount, currency))}", class: "privacy-sensitive"), pct ].compact)
+    tag.span(class: "#{gain_tone_class(amount)} tabular-nums", title: money, aria: { label: "#{arrow} #{money}" }) do
+      safe_join([ tag.span(arrow, class: "mr-1", "aria-hidden": true), tag.span(money, class: "privacy-sensitive"), pct ].compact)
     end
   end
 
@@ -39,7 +42,7 @@ module InvestmentsHelper
   end
 
   def unavailable_cell(title = UNAVAILABLE_TITLE)
-    tag.span("—", class: "text-secondary", title: title)
+    tag.span("—", class: "text-secondary", title: title, aria: { label: title })
   end
 
   # Status pill for a freshness/availability state, via the design system so the

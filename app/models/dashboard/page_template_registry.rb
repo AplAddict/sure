@@ -22,13 +22,13 @@ module Dashboard
     end
 
     TEMPLATES = [
-      template("daily_investment_check", "Daily Investment Check", %w[portfolio.pulse review.needs_review review.source_health options.expiring tax.harvest_candidates research.upcoming_events research.portfolio_news]),
-      template("portfolio_review", "Portfolio Review", %w[portfolio.holdings_concentration portfolio.allocation portfolio.top_holdings review.data_quality income.summary research.portfolio_news]),
-      template("income_risk", "Income & Risk", %w[income.summary income.monthly income.cash_flows income.return_risk tax.realized_gains income.options_premium]),
-      template("tax_review", "Tax Review", %w[tax.lot_coverage tax.nearing_long_term tax.harvest_summary tax.harvest_candidates tax.wash_sale_exposure tax.realized_gains]),
-      template("options_desk", "Options Desk", %w[options.summary options.expiring options.premium_income options.contract_ledger options.underlying_concentration]),
-      template("research_desk", "Research Desk", %w[research.priority_watchlist research.portfolio_news research.upcoming_events review.source_health research.freshness]),
-      template("account_portfolio_review", "Account Portfolio Review", %w[portfolio.holdings_concentration portfolio.allocation portfolio.top_holdings review.data_quality income.summary research.portfolio_news], account_scoped: true),
+      template("daily_investment_check", "Daily Investment Check", [ "portfolio.pulse", "portfolio.day_movers", "review.needs_review", "review.source_health", "options.expiration_window", "tax.harvest_candidates", "research.event_countdown", widget("research.news", settings: { filter: "sentiment" }) ]),
+      template("portfolio_review", "Portfolio Review", [ "portfolio.largest_position", widget("portfolio.allocation", settings: { grouping: "asset_class" }), widget("portfolio.allocation", settings: { grouping: "sector" }), "portfolio.top_holdings", "review.data_quality", widget("income.summary", settings: { period: "1y" }) ]),
+      template("income_risk", "Income & Risk", [ widget("income.summary", settings: { period: "1y" }), "income.by_type", "income.top_months", "income.cash_flows", "income.return_risk", "income.fx_gaps" ]),
+      template("tax_review", "Tax Review", %w[tax.lot_coverage tax.term_split tax.long_term_window tax.harvest_loss_total tax.harvest_candidates tax.fx_unavailable]),
+      template("options_desk", "Options Desk", %w[options.summary options.expiration_window options.dte_distribution options.premium_income options.by_underlying options.unmeasured]),
+      template("research_desk", "Research Desk", [ widget("research.watchlist_snapshot", settings: { display: "price" }), widget("research.news", settings: { filter: "sentiment" }), "research.event_countdown", "review.source_health", "research.freshness" ]),
+      template("account_portfolio_review", "Account Portfolio Review", [ "portfolio.largest_position", widget("portfolio.allocation", settings: { grouping: "asset_class" }), "portfolio.top_holdings", "review.data_quality", widget("income.summary", settings: { period: "1y" }), widget("research.news", settings: { filter: "sentiment" }) ], account_scoped: true),
       template("blank", "Blank Page", []),
       template("investment_workspaces", "Investment workspaces", WidgetRegistry.investment_keys, visible: false)
     ].freeze

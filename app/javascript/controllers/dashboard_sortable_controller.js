@@ -1,12 +1,13 @@
 import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
-  static targets = ["section", "handle"];
+  static targets = ["section", "handle", "announcement"];
 
   // Hold delay to require deliberate press-and-hold before activating drag mode
   static values = {
     holdDelay: { type: Number, default: 800 },
     url: String,
+    movedTemplate: String,
   };
 
   connect() {
@@ -33,13 +34,11 @@ export default class extends Controller {
 
     this.draggedElement = event.currentTarget;
     this.draggedElement.classList.add("opacity-50");
-    this.draggedElement.setAttribute("aria-grabbed", "true");
     event.dataTransfer.effectAllowed = "move";
   }
 
   dragEnd(event) {
     event.currentTarget.classList.remove("opacity-50");
-    event.currentTarget.setAttribute("aria-grabbed", "false");
     this.clearPlaceholders();
   }
 
@@ -114,7 +113,6 @@ export default class extends Controller {
     this.isTouching = true;
     this.draggedElement = this.pendingSection;
     this.draggedElement.classList.add("opacity-50", "scale-[1.02]");
-    this.draggedElement.setAttribute("aria-grabbed", "true");
 
     // Haptic feedback if available
     if (navigator.vibrate) {
@@ -178,7 +176,6 @@ export default class extends Controller {
     }
 
     this.draggedElement.classList.remove("opacity-50", "scale-[1.02]");
-    this.draggedElement.setAttribute("aria-grabbed", "false");
     this.clearPlaceholders();
     this.saveOrder();
 
@@ -257,13 +254,11 @@ export default class extends Controller {
     }
 
     this.keyboardGrabbedElement = section;
-    section.setAttribute("aria-grabbed", "true");
     section.classList.add("ring-2", "ring-primary", "ring-offset-2");
   }
 
   releaseKeyboardGrab() {
     if (this.keyboardGrabbedElement) {
-      this.keyboardGrabbedElement.setAttribute("aria-grabbed", "false");
       this.keyboardGrabbedElement.classList.remove(
         "ring-2",
         "ring-primary",
@@ -279,6 +274,7 @@ export default class extends Controller {
     if (previousSibling?.hasAttribute("data-section-key")) {
       this.element.insertBefore(section, previousSibling);
       section.focus();
+      this.announcePosition(section);
     }
   }
 
@@ -287,7 +283,17 @@ export default class extends Controller {
     if (nextSibling?.hasAttribute("data-section-key")) {
       this.element.insertBefore(nextSibling, section);
       section.focus();
+      this.announcePosition(section);
     }
+  }
+
+  announcePosition(section) {
+    if (!this.hasAnnouncementTarget) return;
+
+    const position = this.sectionTargets.indexOf(section) + 1;
+    this.announcementTarget.textContent = this.movedTemplateValue
+      .replace("%{position}", position)
+      .replace("%{count}", this.sectionTargets.length);
   }
 
   getDragAfterElement(pointerX, pointerY) {

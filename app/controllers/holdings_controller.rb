@@ -21,6 +21,10 @@ class HoldingsController < ApplicationController
 
   def show
     @last_price_updated = @holding.security.prices.maximum(:updated_at)
+    @ticker_news = ResearchNews.new(
+      user: Current.user,
+      source_unavailable: t("research.news.source_unavailable")
+    ).rows_for(security: @holding.security)
   end
 
   def update

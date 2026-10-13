@@ -1,5 +1,9 @@
 import { Controller } from "@hotwired/stimulus";
 
+// Links whose saved-page PATCH failed in this document. Kept in memory (not in a
+// data attribute) so a Turbo snapshot restore cannot freeze a transient failure.
+const failedPageLinks = new WeakSet();
+
 export default class extends Controller {
   static targets = [
     "error",
@@ -15,18 +19,22 @@ export default class extends Controller {
     returnUrl: String,
     homeUrl: String,
     currentPageUrl: String,
+    orderError: String,
   };
 
   async selectPage(event) {
-    event.preventDefault();
     const link = event.currentTarget;
-    const visit = () => this._visit(link.href);
+    if (failedPageLinks.has(link)) return;
 
+    event.preventDefault();
     await this._request(this.currentPageUrlValue, {
       method: "PATCH",
       body: { page_id: link.dataset.dashboardPageKey },
-      success: visit,
-      failure: visit,
+      errorTarget: this._errorTargetFor(link),
+      success: () => this._visit(link.href),
+      failure: () => {
+        failedPageLinks.add(link);
+      },
     });
   }
 
@@ -48,15 +56,47 @@ export default class extends Controller {
         },
       },
       button,
+      errorTarget: this._errorTargetFor(button),
+      success: () => this._visit(this.returnUrlValue),
+    });
+  }
+
+  async duplicateWidget(event) {
+    const button = event.currentTarget;
+    let settings = {};
+    try {
+      settings = JSON.parse(button.dataset.widgetSettings || "{}");
+    } catch (_error) {
+      this._showError(
+        button.dataset.invalidSettingsMessage,
+        this._errorTargetFor(button),
+      );
+      return;
+    }
+
+    await this._request(button.dataset.url, {
+      method: "POST",
+      body: {
+        widget: {
+          key: button.dataset.widgetKey,
+          settings,
+          allow_duplicate: true,
+        },
+      },
+      button,
+      errorTarget: this._errorTargetFor(button),
       success: () => this._visit(this.returnUrlValue),
     });
   }
 
   async removeWidget(event) {
     const button = event.currentTarget;
+    if (!window.confirm(button.dataset.confirm)) return;
+
     await this._request(button.dataset.url, {
       method: "DELETE",
       button,
+      errorTarget: this._errorTargetFor(button),
       success: () => this._visit(this.returnUrlValue),
     });
   }
@@ -68,7 +108,7 @@ export default class extends Controller {
     const name = data.get("name");
     const template = data.get("template");
     const accountId = data.get("account_id") || null;
-    await this._request(form.dataset.url, {
+    await this._manageRequest(form, form.dataset.url, {
       method: "POST",
       body: { page: { name, template, account_id: accountId } },
       success: (payload) => this._visit(this._pageUrl(payload.page.id)),
@@ -95,8 +135,13 @@ export default class extends Controller {
   async resetWidgetSettings(event) {
     event.preventDefault();
     const form = event.currentTarget;
+    const scope = form.elements.namedItem("scope");
+    if (scope) {
+      scope.value = scope.dataset.defaultValue || "";
+      scope.dispatchEvent(new Event("change", { bubbles: true }));
+    }
     form.querySelectorAll("[data-default-value]").forEach((field) => {
-      field.value = field.dataset.defaultValue || "";
+      if (field !== scope) field.value = field.dataset.defaultValue || "";
     });
     await this._persistWidgetSettings(form);
   }
@@ -107,6 +152,7 @@ export default class extends Controller {
     await this._request(form.dataset.url, {
       method: "PATCH",
       body: { widget: { settings } },
+      errorTarget: form.querySelector("[data-dashboard-pages-target='error']"),
       success: () => this._visit(this.returnUrlValue),
     });
   }
@@ -124,22 +170,20 @@ export default class extends Controller {
       }
     });
 
-    if (settings.scope === "overall") {
-      if (Object.hasOwn(settings, "account_id")) settings.account_id = null;
-      if (Object.hasOwn(settings, "security_id")) settings.security_id = null;
-    } else if (
-      settings.scope === "account" &&
-      Object.hasOwn(settings, "security_id")
-    ) {
-      settings.security_id = null;
-    } else if (
-      settings.scope === "security" &&
-      Object.hasOwn(settings, "account_id")
-    ) {
-      settings.account_id = null;
-    }
+    const excludedIdentifiers =
+      settings.scope === "overall"
+        ? ["account_id", "security_id"]
+        : settings.scope === "account"
+          ? ["security_id"]
+          : settings.scope === "security"
+            ? ["account_id"]
+            : [];
 
-    return settings;
+    return Object.fromEntries(
+      Object.entries(settings).filter(
+        ([key]) => !excludedIdentifiers.includes(key),
+      ),
+    );
   }
 
   async previewDraft(event) {
@@ -149,11 +193,14 @@ export default class extends Controller {
     try {
       draft = JSON.parse(this.draftInputTarget.value);
     } catch (_error) {
-      this._showError(this.draftInputTarget.dataset.invalidMessage);
+      this._showError(
+        this.draftInputTarget.dataset.invalidMessage,
+        this._errorTargetFor(form),
+      );
       return;
     }
 
-    await this._request(form.dataset.url, {
+    await this._manageRequest(form, form.dataset.url, {
       method: "POST",
       body: {
         draft,
@@ -179,10 +226,10 @@ export default class extends Controller {
 
   async createFromDraft(event) {
     const button = event.currentTarget;
-    const draft = this._validatedDraft();
+    const draft = this._validatedDraft(button);
     if (!draft || !window.confirm(button.dataset.confirm)) return;
 
-    await this._request(button.dataset.url, {
+    await this._manageRequest(button, button.dataset.url, {
       method: "POST",
       body: {
         page: {
@@ -198,10 +245,10 @@ export default class extends Controller {
 
   async applyDraft(event) {
     const button = event.currentTarget;
-    const draft = this._validatedDraft();
+    const draft = this._validatedDraft(button);
     if (!draft || !window.confirm(button.dataset.confirm)) return;
 
-    await this._request(button.dataset.url, {
+    await this._manageRequest(button, button.dataset.url, {
       method: "PATCH",
       body: { draft },
       button,
@@ -209,18 +256,21 @@ export default class extends Controller {
     });
   }
 
-  _validatedDraft() {
+  _validatedDraft(source) {
     try {
       return JSON.parse(this.draftValidatedTarget.value);
     } catch (_error) {
-      this._showError(this.draftValidatedTarget.dataset.invalidMessage);
+      this._showError(
+        this.draftValidatedTarget.dataset.invalidMessage,
+        this._errorTargetFor(source),
+      );
       return null;
     }
   }
 
   async restoreInvestments(event) {
     const button = event.currentTarget;
-    await this._request(button.dataset.url, {
+    await this._manageRequest(button, button.dataset.url, {
       method: "POST",
       body: { page: { id: "investments" } },
       button,
@@ -232,7 +282,7 @@ export default class extends Controller {
     event.preventDefault();
     const form = event.currentTarget;
     const name = new FormData(form).get("name");
-    await this._request(form.dataset.url, {
+    await this._manageRequest(form, form.dataset.url, {
       method: "PATCH",
       body: { page: { name } },
       success: () => this._visit(this.returnUrlValue),
@@ -243,7 +293,7 @@ export default class extends Controller {
     const button = event.currentTarget;
     if (!window.confirm(button.dataset.confirm)) return;
 
-    await this._request(button.dataset.url, {
+    await this._manageRequest(button, button.dataset.url, {
       method: "DELETE",
       button,
       success: () => this._visit(this.homeUrlValue),
@@ -257,8 +307,19 @@ export default class extends Controller {
     const previous = row?.previousElementSibling;
     if (!row || !previous || previous.dataset.pageId === "home") return;
 
+    const container = row.closest("[data-order-url]");
+    if (!container) {
+      this._showError(
+        this.orderErrorValue,
+        this._errorTargetFor(event.currentTarget),
+      );
+      return;
+    }
+    if (this._pageOrderRequests?.has(container)) return;
+
+    const confirmedIds = this._pageOrderIds(container);
     row.parentElement.insertBefore(row, previous);
-    this._persistPageOrder(row);
+    this._persistPageOrder(container, confirmedIds);
   }
 
   movePageDown(event) {
@@ -268,19 +329,69 @@ export default class extends Controller {
     const next = row?.nextElementSibling;
     if (!row || !next || row.dataset.pageId === "home") return;
 
+    const container = row.closest("[data-order-url]");
+    if (!container) {
+      this._showError(
+        this.orderErrorValue,
+        this._errorTargetFor(event.currentTarget),
+      );
+      return;
+    }
+    if (this._pageOrderRequests?.has(container)) return;
+
+    const confirmedIds = this._pageOrderIds(container);
     row.parentElement.insertBefore(next, row);
-    this._persistPageOrder(row);
+    this._persistPageOrder(container, confirmedIds);
   }
 
-  async _persistPageOrder(row) {
-    const container = row.closest("[data-order-url]");
-    const ids = this.pageRowTargets.map((item) => item.dataset.pageId);
-    await this._request(container.dataset.orderUrl, {
-      method: "PATCH",
-      body: { page_ids: ids },
-      success: () => this._visit(this.returnUrlValue),
-      failure: () => this._visit(this.returnUrlValue),
+  async _persistPageOrder(container, confirmedIds) {
+    this._pageOrderRequests ||= new WeakSet();
+    if (this._pageOrderRequests.has(container)) return;
+
+    const ids = this._pageOrderIds(container);
+    const previousIds = confirmedIds || ids;
+    this._pageOrderRequests.add(container);
+    this._setPageMoveButtonsDisabled(container, true);
+
+    try {
+      await this._manageRequest(container, container.dataset.orderUrl, {
+        method: "PATCH",
+        body: { page_ids: ids },
+        success: () => this._visit(this.returnUrlValue),
+        failure: () => this._restorePageOrder(container, previousIds),
+      });
+    } finally {
+      this._pageOrderRequests.delete(container);
+      this._setPageMoveButtonsDisabled(container, false);
+    }
+  }
+
+  _pageOrderIds(container) {
+    return Array.from(
+      container.querySelectorAll("[data-dashboard-pages-target='pageRow']"),
+    ).map((item) => item.dataset.pageId);
+  }
+
+  _restorePageOrder(container, ids) {
+    const rowsById = new Map(
+      Array.from(
+        container.querySelectorAll("[data-dashboard-pages-target='pageRow']"),
+      ).map((row) => [row.dataset.pageId, row]),
+    );
+    ids.forEach((id) => {
+      const row = rowsById.get(id);
+      if (row) row.parentElement.appendChild(row);
     });
+  }
+
+  _setPageMoveButtonsDisabled(container, disabled) {
+    container
+      .querySelectorAll(
+        "[data-action~='click->dashboard-pages#movePageUp'], [data-action~='click->dashboard-pages#movePageDown']",
+      )
+      .forEach((button) => {
+        button.disabled = disabled;
+      });
   }
 
   _pageUrl(pageId) {
@@ -293,8 +404,15 @@ export default class extends Controller {
     window.Turbo.visit(url);
   }
 
-  async _request(url, { method, body, button, success, failure }) {
-    this._clearError();
+  _manageRequest(source, url, options) {
+    return this._request(url, {
+      ...options,
+      errorTarget: this._errorTargetFor(source),
+    });
+  }
+
+  async _request(url, { method, body, button, errorTarget, success, failure }) {
+    this._clearError(errorTarget);
     if (button) button.disabled = true;
 
     try {
@@ -315,7 +433,7 @@ export default class extends Controller {
 
       success?.(payload);
     } catch (error) {
-      this._showError(error.message);
+      this._showError(error.message, errorTarget);
       failure?.();
     } finally {
       if (button) button.disabled = false;
@@ -326,18 +444,62 @@ export default class extends Controller {
     return document.querySelector('meta[name="csrf-token"]')?.content || "";
   }
 
-  _clearError() {
-    if (!this.hasErrorTarget) return;
-    this.errorTarget.textContent = "";
-    this.errorTarget.classList.add("hidden");
+  _clearError(errorTarget) {
+    const target = this._errorTargets(errorTarget)[0];
+    if (!target) return;
+
+    target.textContent = "";
+    target.classList.add("hidden");
   }
 
-  _showError(message) {
-    if (!this.hasErrorTarget) {
-      console.error("[Dashboard Pages]", message);
-      return;
-    }
-    this.errorTarget.textContent = message;
-    this.errorTarget.classList.remove("hidden");
+  _showError(message, errorTarget) {
+    const target = this._errorTargets(errorTarget)[0];
+    if (!target) return;
+
+    target.textContent = message;
+    target.classList.remove("hidden");
+
+    const dialog = target.closest?.("dialog[open]");
+    const wasInView = this._isInView(target, dialog);
+    target.scrollIntoView?.({ block: "nearest" });
+    if (dialog && !wasInView) target.focus?.({ preventScroll: true });
+  }
+
+  _isInView(target, dialog) {
+    if (!target.getBoundingClientRect) return true;
+
+    const targetRect = target.getBoundingClientRect();
+    const boundary = dialog?.getBoundingClientRect?.() || {
+      top: 0,
+      bottom: window.innerHeight,
+    };
+    return (
+      targetRect.top >= boundary.top && targetRect.bottom <= boundary.bottom
+    );
+  }
+
+  _errorTargetFor(element) {
+    const owner = element?.closest("[data-error-target-id]");
+    const targetId = owner?.dataset.errorTargetId;
+    const explicitTarget = targetId ? document.getElementById(targetId) : null;
+    return this._errorTargets(explicitTarget, element)[0] || null;
+  }
+
+  _errorTargets(errorTarget, element) {
+    if (errorTarget) return [errorTarget];
+
+    const dialog = element?.closest("dialog");
+    const dialogTarget = dialog?.querySelector("[role='alert']");
+    if (dialogTarget) return [dialogTarget];
+
+    const localTarget = this.errorTargets.find(
+      (target) => target.dataset.errorScope === "local",
+    );
+    if (localTarget) return [localTarget];
+
+    const pageTarget = this.errorTargets.find(
+      (target) => target.dataset.errorScope === "page",
+    );
+    return pageTarget ? [pageTarget] : [];
   }
 }

@@ -1,16 +1,17 @@
 <%# locals: (pages:, create_url:, templates:, accounts: [], securities: [], draft_url: nil, apply_draft_url: nil, order_url:, can_create:, can_restore_investments:) %>
+<% error_target_id = "dashboard-manage-pages-error" %>
 <%= render DS::Dialog.new(id: "dashboard-manage-pages-dialog", auto_open: false, disable_frame: true, data: { testid: "dashboard-manage-pages-dialog", expandable_target: "dialog" }) do |dialog| %>
   <% dialog.with_header(title: t("pages.dashboard.pages.manage"), subtitle: t("pages.dashboard.pages.manage_description")) %>
   <% dialog.with_body do %>
-    <div class="space-y-4" data-order-url="<%= order_url %>">
-      <p class="hidden text-sm text-destructive" role="alert" data-dashboard-pages-target="error"></p>
+    <div class="space-y-4" data-order-url="<%= order_url %>" data-error-target-id="<%= error_target_id %>">
+      <%= render "pages/dashboard/local_error", id: error_target_id, scope: "manage-pages" %>
 
       <ol class="divide-y divide-tertiary" data-testid="dashboard-page-list">
         <% pages.each_with_index do |page, index| %>
           <li class="flex items-center gap-2 py-3" data-dashboard-pages-target="pageRow" data-page-id="<%= page[:id] %>">
             <div class="min-w-0 flex-1">
               <% if page[:custom] %>
-                <form class="flex items-center gap-2" data-action="submit->dashboard-pages#renamePage" data-url="<%= page[:update_url] %>">
+                <form class="flex items-center gap-2" data-action="submit->dashboard-pages#renamePage" data-url="<%= page[:update_url] %>" data-error-target-id="<%= error_target_id %>">
                   <label class="sr-only" for="dashboard-page-name-<%= page[:id] %>"><%= t("pages.dashboard.pages.name_label") %></label>
                   <input id="dashboard-page-name-<%= page[:id] %>" name="name" value="<%= page[:name] %>" maxlength="<%= User::MAX_DASHBOARD_PAGE_NAME %>" required
                          class="min-w-0 flex-1 rounded-lg border border-primary bg-container px-3 py-2 text-sm text-primary focus-ring">
@@ -24,19 +25,19 @@
             <div class="flex shrink-0 items-center gap-1">
               <% if index > 1 %>
                 <button type="button" class="flex h-11 w-11 items-center justify-center rounded-md text-secondary hover:bg-container-inset-hover hover:text-primary focus-ring"
-                        data-action="click->dashboard-pages#movePageUp" aria-label="<%= t("pages.dashboard.pages.move_up", name: page[:name]) %>">
+                        data-action="click->dashboard-pages#movePageUp" data-error-target-id="<%= error_target_id %>" aria-label="<%= t("pages.dashboard.pages.move_up", name: page[:name]) %>">
                   <%= icon("arrow-up", size: "sm") %>
                 </button>
               <% end %>
               <% if index.positive? && index < pages.length - 1 %>
                 <button type="button" class="flex h-11 w-11 items-center justify-center rounded-md text-secondary hover:bg-container-inset-hover hover:text-primary focus-ring"
-                        data-action="click->dashboard-pages#movePageDown" aria-label="<%= t("pages.dashboard.pages.move_down", name: page[:name]) %>">
+                        data-action="click->dashboard-pages#movePageDown" data-error-target-id="<%= error_target_id %>" aria-label="<%= t("pages.dashboard.pages.move_down", name: page[:name]) %>">
                   <%= icon("arrow-down", size: "sm") %>
                 </button>
               <% end %>
               <% if page[:delete_url] %>
                 <button type="button" class="flex h-11 w-11 items-center justify-center rounded-md text-secondary hover:bg-container-inset-hover hover:text-destructive focus-ring"
-                        data-action="click->dashboard-pages#deletePage" data-url="<%= page[:delete_url] %>" data-page-id="<%= page[:id] %>"
+                        data-action="click->dashboard-pages#deletePage" data-url="<%= page[:delete_url] %>" data-page-id="<%= page[:id] %>" data-error-target-id="<%= error_target_id %>"
                         data-confirm="<%= t("pages.dashboard.pages.delete_confirm", name: page[:name]) %>"
                         aria-label="<%= t("pages.dashboard.pages.delete", name: page[:name]) %>">
                   <%= icon("trash-2", size: "sm") %>
@@ -48,7 +49,7 @@
       </ol>
 
       <% if can_create %>
-        <form class="grid gap-3 border-t border-tertiary pt-4 sm:grid-cols-2" data-action="submit->dashboard-pages#createPage" data-url="<%= create_url %>">
+        <form id="dashboard-create-page" class="grid gap-3 border-t border-tertiary pt-4 sm:grid-cols-2" data-action="submit->dashboard-pages#createPage" data-url="<%= create_url %>" data-error-target-id="<%= error_target_id %>">
           <div class="min-w-0">
             <label class="mb-1 block text-sm font-medium text-primary" for="dashboard-new-page-name"><%= t("pages.dashboard.pages.new_name") %></label>
             <input id="dashboard-new-page-name" name="name" maxlength="<%= User::MAX_DASHBOARD_PAGE_NAME %>" required
@@ -77,7 +78,7 @@
           <p class="text-sm font-medium text-primary"><%= t("pages.dashboard.ai_draft.title") %></p>
           <p class="text-xs text-secondary"><%= t("pages.dashboard.ai_draft.description") %></p>
         </div>
-        <form class="space-y-3" data-action="submit->dashboard-pages#previewDraft" data-url="<%= draft_url %>">
+        <form class="space-y-3" data-action="submit->dashboard-pages#previewDraft" data-url="<%= draft_url %>" data-error-target-id="<%= error_target_id %>">
           <label class="sr-only" for="dashboard-ai-draft-input"><%= t("pages.dashboard.ai_draft.structured_label") %></label>
           <textarea id="dashboard-ai-draft-input" rows="6" class="form-field__input font-mono text-xs" required data-dashboard-pages-target="draftInput" data-invalid-message="<%= t("pages.dashboard.ai_draft.invalid_json") %>" placeholder="<%= t("pages.dashboard.ai_draft.placeholder") %>"></textarea>
           <div class="grid gap-3 sm:grid-cols-2">
@@ -104,10 +105,10 @@
           <textarea rows="8" class="form-field__input font-mono text-xs" data-dashboard-pages-target="draftValidated" data-invalid-message="<%= t("pages.dashboard.ai_draft.invalid_edited_json") %>"></textarea>
           <div class="flex flex-wrap gap-2">
             <% if can_create %>
-              <%= render DS::Button.new(type: :button, size: :sm, text: t("pages.dashboard.ai_draft.create"), data: { action: "click->dashboard-pages#createFromDraft", url: create_url, confirm: t("pages.dashboard.ai_draft.create_confirm") }) %>
+              <%= render DS::Button.new(type: :button, size: :sm, text: t("pages.dashboard.ai_draft.create"), data: { action: "click->dashboard-pages#createFromDraft", url: create_url, confirm: t("pages.dashboard.ai_draft.create_confirm"), error_target_id: error_target_id }) %>
             <% end %>
             <% if apply_draft_url %>
-              <%= render DS::Button.new(type: :button, variant: "outline", size: :sm, text: t("pages.dashboard.ai_draft.apply_empty"), data: { action: "click->dashboard-pages#applyDraft", url: apply_draft_url, confirm: t("pages.dashboard.ai_draft.apply_confirm") }) %>
+              <%= render DS::Button.new(type: :button, variant: "outline", size: :sm, text: t("pages.dashboard.ai_draft.apply_empty"), data: { action: "click->dashboard-pages#applyDraft", url: apply_draft_url, confirm: t("pages.dashboard.ai_draft.apply_confirm"), error_target_id: error_target_id }) %>
             <% end %>
           </div>
         </div>
@@ -120,7 +121,7 @@
             variant: "outline",
             icon: "rotate-ccw",
             text: t("pages.dashboard.pages.restore_investments"),
-            data: { action: "click->dashboard-pages#restoreInvestments", url: create_url }
+            data: { action: "click->dashboard-pages#restoreInvestments", url: create_url, error_target_id: error_target_id }
           ) %>
         </div>
       <% end %>
