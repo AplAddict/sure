@@ -1,0 +1,14 @@
+<%# locals: (settings:, field_id_prefix:) %>
+<% settings.each do |setting| %>
+  <div>
+    <label class="mb-1 block text-xs font-medium text-secondary" for="<%= field_id_prefix %>-<%= setting[:key] %>"><%= t("pages.dashboard.settings.labels.#{setting[:key]}") %></label>
+    <% if setting[:type] == "integer" %>
+      <input id="<%= field_id_prefix %>-<%= setting[:key] %>" class="form-field__input" type="number" name="<%= setting[:key] %>" value="<%= setting[:value] %>" min="<%= setting[:minimum] %>" max="<%= setting[:maximum] %>" data-setting-type="integer" data-default-value="<%= setting[:default] %>">
+    <% else %>
+      <select id="<%= field_id_prefix %>-<%= setting[:key] %>" class="form-field__input" name="<%= setting[:key] %>" data-setting-type="<%= setting[:type] %>" data-default-value="<%= setting[:default] %>">
+        <% if setting[:type] == "identifier" %><option value=""><%= t("pages.dashboard.settings.none") %></option><% end %>
+        <% setting[:options].each do |label, value| %><option value="<%= value %>" <%= "selected" if setting[:value].to_s == value.to_s %>><%= label %></option><% end %>
+      </select>
+    <% end %>
+  </div>
+<% end %>

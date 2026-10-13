@@ -1,6 +1,8 @@
-<%# locals: (current:, title:, subtitle:) %>
-<div class="mb-5 space-y-1" data-testid="investment-workspace-header">
-  <%= render "investments/subnav", current: current %>
-  <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= title %></h1>
-  <p class="max-w-3xl text-sm text-secondary"><%= subtitle %></p>
+<%# locals: (current: nil, title:, subtitle:) %>
+<div class="mb-6 space-y-3" data-testid="investment-workspace-header">
+  <%= render DS::Link.new(text: t("investments.back_to_dashboard"), href: root_path(page: "investments"), variant: "outline", size: "sm", icon: "arrow-left", data: { turbo_frame: "_top" }) %>
+  <div class="space-y-1">
+    <h1 class="text-xl font-medium text-primary lg:text-3xl"><%= title %></h1>
+    <p class="max-w-3xl text-sm text-secondary"><%= subtitle %></p>
+  </div>
 </div>

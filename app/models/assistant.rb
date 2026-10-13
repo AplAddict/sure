@@ -99,7 +99,8 @@ module Assistant
         Function::CreateTransaction,
         Function::DeleteTransaction,
         Function::UpdateBudget,
-        Function::ArchiveChatDocument
+        Function::ArchiveChatDocument,
+        Function::DraftDashboardTemplate
       ]
 
       classes += PREVIEW_FUNCTION_CLASSES if user&.preview_features_enabled?

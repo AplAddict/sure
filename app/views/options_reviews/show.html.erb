@@ -4,9 +4,7 @@
 
 <%= turbo_frame_tag "investment_workspace", target: "_top" do %>
   <div class="mb-6 space-y-1">
-    <%= render "investments/subnav", current: :options %>
-    <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t(".title") %></h1>
-    <p class="max-w-3xl text-sm text-secondary"><%= t(".subtitle") %></p>
+    <%= render "investments/workspace_header", current: :options, title: t(".title"), subtitle: t(".subtitle") %>
   </div>
   <div class="space-y-4 pb-6 lg:pb-12">
   <% if review.rows.empty? %>

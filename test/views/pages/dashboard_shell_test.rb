@@ -16,9 +16,9 @@ class DashboardShellTest < ActionView::TestCase
       { key: "investing", title: "Investing", path: "/?page=investing" }
     ]
     @add_widget = { id: "add-widget-dialog", url: "/dashboard/pages/investing/widgets", page_key: "investing",
-                    widgets: [ { key: "home.net_worth_chart", title: "Net Worth" }, { key: "home.balance_sheet", title: "Balance Sheet" } ] }
+                    widgets: [ { key: :portfolio, label: "Portfolio", widgets: [ { key: "home.net_worth_chart", title: "Net Worth" }, { key: "home.balance_sheet", title: "Balance Sheet" } ] } ] }
     @page_management = {
-      pages: [], create_url: "/dashboard/pages", order_url: "/dashboard/pages/order",
+      pages: [], create_url: "/dashboard/pages", templates: [ { key: "blank", name: "Blank page" } ], order_url: "/dashboard/pages/order",
       can_create: true, can_restore_investments: false
     }
   end
@@ -88,9 +88,11 @@ class DashboardShellTest < ActionView::TestCase
     catalog = dashboard_widget_catalog(except: %w[home.net_worth_chart])
     expected = Dashboard::WidgetRegistry.keys - %w[home.insights_feed home.net_worth_chart]
 
-    assert_equal expected, catalog.map { |widget| widget[:key] }
-    assert_equal I18n.t("pages.dashboard.balance_sheet.title"), catalog.find { |widget| widget[:key] == "home.balance_sheet" }[:title]
-    assert_equal I18n.t("investment_incomes.show.performance"), catalog.find { |widget| widget[:key] == "investments.income_performance" }[:title]
+    widgets = catalog.flat_map { |group| group[:widgets] }
+    assert_equal expected.sort, widgets.map { |widget| widget[:key] }.sort
+    assert_equal I18n.t("pages.dashboard.balance_sheet.title"), widgets.find { |widget| widget[:key] == "home.balance_sheet" }[:title]
+    assert_equal I18n.t("pages.dashboard.investment_widgets.income_performance"), widgets.find { |widget| widget[:key] == "investments.income_performance" }[:title]
+    assert_equal Dashboard::WidgetCatalog::GROUPS & catalog.map { |group| group[:key] }, catalog.map { |group| group[:key] }
   end
 
   test "chart widgets take a per-instance DOM id so two copies cannot collide" do

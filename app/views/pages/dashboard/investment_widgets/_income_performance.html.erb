@@ -1,0 +1,9 @@
+<%# locals: (review:, currency:) %>
+<% risk = review.risk_metrics %>
+<% performance = review.money_weighted_return %>
+<div class="grid grid-cols-2 gap-3" data-testid="income-performance-widget">
+  <%= investment_stat(t("pages.dashboard.investment_widgets.income"), investment_money(review.income_total, currency)) %>
+  <%= investment_stat(t("pages.dashboard.investment_widgets.net_contributions"), investment_money(review.net_contributions, currency), hint: (review.missing_fx_count.positive? ? t("pages.dashboard.investment_widgets.missing_fx", count: review.missing_fx_count) : nil)) %>
+  <%= investment_stat(t("pages.dashboard.investment_widgets.money_weighted_return"), performance ? number_to_percentage(performance.rate * 100, precision: 1) : unavailable_cell) %>
+  <%= investment_stat(t("pages.dashboard.investment_widgets.max_drawdown"), risk ? number_to_percentage(risk.max_drawdown * 100, precision: 1) : unavailable_cell) %>
+</div>

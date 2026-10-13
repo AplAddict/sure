@@ -340,12 +340,16 @@ Rails.application.routes.draw do
   get "dashboard/cash_flow", to: "cash_flows#show", as: :dashboard_cash_flow
   patch "dashboard/preferences", to: "pages#update_preferences"
   scope "dashboard", format: false do
+    resources :template_drafts, controller: "dashboard_template_drafts", only: :create
     resources :pages, controller: "dashboard_pages", only: %i[index create update destroy] do
+      member do
+        patch :apply_draft
+      end
       collection do
         patch :current
         patch :order
       end
-      resources :widgets, controller: "dashboard_page_widgets", param: :widget_key, constraints: { widget_key: /[^\/]+/ }, only: %i[create update destroy] do
+      resources :widgets, controller: "dashboard_page_widgets", param: :instance_id, constraints: { instance_id: /w_[0-9a-z]{12}/ }, only: %i[create update destroy] do
         patch :order, on: :collection
       end
     end

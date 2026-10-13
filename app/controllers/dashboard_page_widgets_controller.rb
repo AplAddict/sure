@@ -2,7 +2,13 @@ class DashboardPageWidgetsController < ApplicationController
   rescue_from DashboardPageConfigurable::DashboardPagesValidationError, with: :render_validation_error
 
   def create
-    widget = Current.user.add_dashboard_widget!(params[:page_id], widget_params.fetch(:key, nil))
+    permitted = widget_params
+    widget = Current.user.add_dashboard_widget!(
+      params[:page_id],
+      permitted.fetch(:key, nil),
+      settings: permitted.key?(:settings) ? permitted[:settings] : nil,
+      allow_duplicate: permitted.fetch(:allow_duplicate, false)
+    )
     render json: { widget: widget }, status: :created
   end
 
@@ -10,20 +16,21 @@ class DashboardPageWidgetsController < ApplicationController
     permitted = widget_params
     widget = Current.user.update_dashboard_widget!(
       params[:page_id],
-      params[:widget_key],
+      params[:instance_id],
       collapsed: permitted.key?(:collapsed) ? permitted[:collapsed] : nil,
-      layout: permitted.key?(:layout) ? permitted[:layout] : nil
+      layout: permitted.key?(:layout) ? permitted[:layout] : nil,
+      settings: permitted.key?(:settings) ? permitted[:settings] : nil
     )
     render json: { widget: widget }
   end
 
   def destroy
-    Current.user.remove_dashboard_widget!(params[:page_id], params[:widget_key])
+    Current.user.remove_dashboard_widget!(params[:page_id], params[:instance_id])
     head :no_content
   end
 
   def order
-    page = Current.user.reorder_dashboard_widgets!(params[:page_id], params[:widget_keys])
+    page = Current.user.reorder_dashboard_widgets!(params[:page_id], params[:instance_ids])
     render json: { page: page }
   end
 
@@ -34,10 +41,12 @@ class DashboardPageWidgetsController < ApplicationController
         raise DashboardPageConfigurable::DashboardPagesValidationError, "widget must be an object"
       end
 
-      permitted = raw.permit(:key, :collapsed).to_h
-      if raw.key?(:layout)
-        layout = raw[:layout]
-        permitted[:layout] = layout.respond_to?(:to_unsafe_h) ? layout.to_unsafe_h : layout
+      permitted = raw.permit(:key, :collapsed, :allow_duplicate).to_h
+      %i[layout settings].each do |nested_key|
+        next unless raw.key?(nested_key)
+
+        nested = raw[nested_key]
+        permitted[nested_key] = nested.respond_to?(:to_unsafe_h) ? nested.to_unsafe_h : nested
       end
       permitted
     end

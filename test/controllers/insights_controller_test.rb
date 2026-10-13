@@ -30,9 +30,9 @@ class InsightsControllerTest < ActionDispatch::IntegrationTest
     get root_url
 
     assert_response :success
-    assert_select "#insights-feed", count: 1
-    assert_select "#insights-feed p", text: /#{Regexp.escape(I18n.t("insights.feed.header_new"))}/
-    assert_select "#insights-feed span", text: I18n.t("insights.card.new"), count: 0
+    assert_select "[data-dashboard-insights-feed]", count: 1
+    assert_select "[data-dashboard-insights-feed] p", text: /#{Regexp.escape(I18n.t("insights.feed.header_new"))}/
+    assert_select "[data-dashboard-insights-feed] span", text: I18n.t("insights.card.new"), count: 0
   end
 
   test "insights feed leads the dashboard for users with a saved order that predates it" do
@@ -43,8 +43,8 @@ class InsightsControllerTest < ActionDispatch::IntegrationTest
     get root_url
 
     assert_response :success
-    feed_position = response.body.index('data-section-key="insights_feed"')
-    sankey_position = response.body.index('data-section-key="cashflow_sankey"')
+    feed_position = response.body.index('data-widget-key="home.insights_feed"')
+    sankey_position = response.body.index('data-widget-key="home.cashflow_sankey"')
     assert feed_position.present? && feed_position < sankey_position,
       "insights_feed should be prepended, not appended, for saved orders that predate it"
   end
@@ -104,8 +104,8 @@ class InsightsControllerTest < ActionDispatch::IntegrationTest
     patch acknowledge_insight_url(@insight), as: :turbo_stream
 
     assert_response :success
-    assert_select "turbo-stream[action=remove][targets=?]", "[data-section-key='insights_feed']"
-    assert_select "turbo-stream[action=replace][target=?]", "insights-feed", count: 0
+    assert_select "turbo-stream[action=remove][targets=?]", "[data-widget-key='home.insights_feed']"
+    assert_select "turbo-stream[action=update][targets=?]", "[data-dashboard-insights-feed]", count: 0
   end
 
   test "unacknowledge restores the insight as read and re-renders the list" do
@@ -126,7 +126,7 @@ class InsightsControllerTest < ActionDispatch::IntegrationTest
     get root_url
 
     assert_response :success
-    assert_select "#insights-feed form[action=?]", acknowledge_insight_path(@insight)
+    assert_select "[data-dashboard-insights-feed] form[action=?]", acknowledge_insight_path(@insight)
   end
 
   # The widget shows the top N, so clearing one has to promote the next into the
@@ -228,7 +228,7 @@ class InsightsControllerTest < ActionDispatch::IntegrationTest
     get root_url
 
     assert_response :success
-    assert_select "#insights-feed", count: 0
+    assert_select "[data-dashboard-insights-feed]", count: 0
     assert_select "a[href=?]", insights_path, count: 0
   end
 

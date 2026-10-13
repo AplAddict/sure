@@ -13,8 +13,20 @@ class DashboardPagesController < ApplicationController
 
   def create
     permitted = page_params
-    page = Current.user.create_dashboard_page!(permitted[:name], page_id: permitted[:id])
+    page = Current.user.create_dashboard_page!(
+      permitted[:name],
+      page_id: permitted[:id],
+      template_key: permitted[:template],
+      template_account_id: permitted[:account_id],
+      draft: permitted[:draft],
+      provenance: permitted[:provenance]
+    )
     render json: { page: page }, status: :created
+  end
+
+  def apply_draft
+    page = Current.user.apply_dashboard_draft!(params[:id], draft_params)
+    render json: { page: page }
   end
 
   def update
@@ -38,13 +50,23 @@ class DashboardPagesController < ApplicationController
   end
 
   private
+    def draft_params
+      raw = params.fetch(:draft, nil)
+      raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : raw
+    end
+
     def page_params
       raw = params.fetch(:page, ActionController::Parameters.new)
       unless raw.respond_to?(:permit)
         raise DashboardPageConfigurable::DashboardPagesValidationError, "page must be an object"
       end
 
-      raw.permit(:id, :name)
+      permitted = raw.permit(:id, :name, :template, :account_id, :provenance).to_h
+      if raw.key?(:draft)
+        draft = raw[:draft]
+        permitted[:draft] = draft.respond_to?(:to_unsafe_h) ? draft.to_unsafe_h : draft
+      end
+      permitted
     end
 
     def render_validation_error(error)

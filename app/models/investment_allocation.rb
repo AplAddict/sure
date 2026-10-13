@@ -18,9 +18,10 @@ class InvestmentAllocation
 
   attr_reader :user, :by
 
-  def initialize(user:, by: "security")
+  def initialize(user:, by: "security", account_id: nil)
     @user = user
     @by = GROUPINGS.include?(by.to_s) ? by.to_s : "security"
+    @account_id = account_id.presence
   end
 
   def family = user.family
@@ -77,7 +78,10 @@ class InvestmentAllocation
   end
 
   def accounts
-    @accounts ||= family.accounts.visible.included_in_reports.where(accountable_type: %w[Investment Crypto]).included_in_finances_for(user)
+    @accounts ||= begin
+      scope = family.accounts.visible.included_in_reports.where(accountable_type: %w[Investment Crypto]).included_in_finances_for(user)
+      @account_id ? scope.where(id: @account_id) : scope
+    end
   end
 
   def data_quality(as_of: Date.current)

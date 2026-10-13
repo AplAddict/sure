@@ -2,11 +2,7 @@
 
 <%= turbo_frame_tag "investment_workspace", target: "_top" do %>
   <div class="mb-6">
-    <%= render "investments/subnav", current: :income %>
-    <div class="space-y-1">
-      <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t(".title") %></h1>
-      <p class="max-w-3xl text-sm text-secondary"><%= t(".subtitle", period: @period.label.downcase, from: l(@period.start_date), to: l(@period.end_date)) %></p>
-    </div>
+    <%= render "investments/workspace_header", current: :income, title: t(".title"), subtitle: t(".subtitle", period: @period.label.downcase, from: l(@period.start_date), to: l(@period.end_date)) %>
     <nav class="flex flex-wrap gap-2 pt-3" aria-label="<%= t(".period_label") %>">
       <% %w[current_month last_month last_90_days current_year].each do |key| %>
         <%= link_to Period.from_key(key).label_short, investment_income_path(period: key),

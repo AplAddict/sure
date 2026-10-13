@@ -15,9 +15,10 @@ class InvestmentIncomeReview
 
   attr_reader :user, :period
 
-  def initialize(user:, period:)
+  def initialize(user:, period:, account_id: nil)
     @user = user
     @period = period
+    @account_id = account_id.presence
   end
 
   def family
@@ -197,7 +198,8 @@ class InvestmentIncomeReview
   def accounts
     @accounts ||= begin
       scope = family.accounts.visible.included_in_reports.where(accountable_type: %w[Investment Crypto])
-      scope.included_in_finances_for(user)
+      scope = scope.included_in_finances_for(user)
+      @account_id ? scope.where(id: @account_id) : scope
     end
   end
 

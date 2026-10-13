@@ -3,11 +3,7 @@
 
 <%= turbo_frame_tag "investment_workspace", target: "_top" do %>
   <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
-    <%= render "investments/subnav", current: :holdings %>
-    <div class="space-y-1">
-      <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t("portfolio_holdings.title") %></h1>
-      <p class="text-sm text-secondary max-w-3xl"><%= t("portfolio_holdings.subtitle") %></p>
-    </div>
+    <%= render "investments/workspace_header", current: :holdings, title: t("portfolio_holdings.title"), subtitle: t("portfolio_holdings.subtitle") %>
     <%= form_with url: portfolio_holdings_path, method: :get, class: "flex items-center gap-2", data: { controller: "auto-submit-form", turbo_action: "advance" } do |f| %>
       <%= f.hidden_field :sort, value: portfolio.sort %>
       <%= f.hidden_field :dir, value: portfolio.direction %>

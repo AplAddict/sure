@@ -198,35 +198,27 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "h1", text: I18n.t("investment_decision_center.title")
     assert_match "DCLOSS", response.body
-    assert_select "[aria-current='true']", text: I18n.t("investment_decision_center.switch.decision")
+    assert_select "a[href=?]", root_path(page: "investments"), text: I18n.t("investments.back_to_dashboard")
   end
 
-  test "investment tabs replace the current workspace frame instead of doing a full-page visit" do
+  test "decision workspace stays in its canonical frame with one back control" do
     sign_in @owner
     get root_path(view: "decision")
 
     assert_response :success
     assert_select "turbo-frame#investment_workspace" do
-      assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label") do
-        [ portfolio_holdings_path, investment_income_path, tax_lot_review_path, options_review_path,
-          market_events_path, research_watchlist_entries_path, research_news_path ].each do |path|
-          assert_select "a[href=?][data-turbo-frame=investment_workspace]", path
-        end
-      end
+      assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label"), count: 0
+      assert_select "a[href=?]", root_path(page: "investments"), text: I18n.t("investments.back_to_dashboard"), count: 1
     end
   end
 
-  test "every investment page is reachable from the shared sub-navigation" do
+  test "investment workspace navigation is supplied by dashboard widgets instead of a second app strip" do
     sign_in @owner
-    get root_path(view: "decision")
+    get root_path(page: "investments")
 
     assert_response :success
-    assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label") do
-      [ portfolio_holdings_path, investment_income_path, tax_lot_review_path, options_review_path, market_events_path, research_watchlist_entries_path, research_news_path ].each do |path|
-        assert_select "a[href=?]", path
-      end
-      assert_select "a[aria-current=page]", text: I18n.t("investments.subnav.decision")
-    end
+    assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label"), count: 0
+    assert_select "section[data-widget-key^='investments.'] [data-testid=open-investment-workspace]", minimum: 1
   end
 
   test "revoking a shared account takes its positions out of the member's cached actions at once" do
@@ -342,5 +334,4 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     get root_path(view: "decision")
     assert_equal %w[pulse source_health actions monitor], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
   end
-
 end

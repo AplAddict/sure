@@ -1,0 +1,10 @@
+<%# locals: (review:) %>
+<div class="space-y-3" data-testid="options-widget">
+  <%= render "options_reviews/summary", review: review %>
+  <% dated = review.rows.select { |row| row.position.expiration }.first(3) %>
+  <% if dated.any? %>
+    <ul class="divide-y divide-tertiary" aria-label="<%= t("pages.dashboard.investment_widgets.nearest_expiries") %>">
+      <% dated.each do |row| %><li class="flex items-center justify-between gap-3 py-2 text-sm"><span class="truncate text-primary"><%= row.position.contract %></span><span class="shrink-0 text-secondary"><%= l(row.position.expiration, format: :long) %></span></li><% end %>
+    </ul>
+  <% end %>
+</div>

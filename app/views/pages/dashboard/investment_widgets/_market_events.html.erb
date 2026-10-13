@@ -1,0 +1,8 @@
+<%# locals: (events:, next_wash_deadline:, source_status:) %>
+<div class="space-y-3" data-testid="market-events-widget">
+  <div class="grid grid-cols-2 gap-3">
+    <%= investment_stat(t("pages.dashboard.investment_widgets.upcoming_events"), events.size) %>
+    <%= investment_stat(t("pages.dashboard.investment_widgets.wash_deadline"), next_wash_deadline ? l(next_wash_deadline, format: :long) : unavailable_cell, hint: source_status[:reason]) %>
+  </div>
+  <% if events.any? %><ul class="divide-y divide-tertiary"><% events.first(3).each do |event| %><li class="flex items-center justify-between gap-3 py-2 text-sm"><span class="truncate text-primary"><%= event.ticker %> · <%= event.title %></span><span class="shrink-0 text-secondary"><%= l(event.date, format: :short) %></span></li><% end %></ul><% else %><p class="text-sm text-secondary"><%= t("pages.dashboard.investment_widgets.no_upcoming_events") %></p><% end %>
+</div>

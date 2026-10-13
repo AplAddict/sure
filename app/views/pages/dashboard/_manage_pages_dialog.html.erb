@@ -1,4 +1,4 @@
-<%# locals: (pages:, create_url:, order_url:, can_create:, can_restore_investments:) %>
+<%# locals: (pages:, create_url:, templates:, accounts: [], securities: [], draft_url: nil, apply_draft_url: nil, order_url:, can_create:, can_restore_investments:) %>
 <%= render DS::Dialog.new(id: "dashboard-manage-pages-dialog", auto_open: false, disable_frame: true, data: { testid: "dashboard-manage-pages-dialog", expandable_target: "dialog" }) do |dialog| %>
   <% dialog.with_header(title: t("pages.dashboard.pages.manage"), subtitle: t("pages.dashboard.pages.manage_description")) %>
   <% dialog.with_body do %>
@@ -48,15 +48,70 @@
       </ol>
 
       <% if can_create %>
-        <form class="flex items-end gap-2 border-t border-tertiary pt-4" data-action="submit->dashboard-pages#createPage" data-url="<%= create_url %>">
-          <div class="min-w-0 flex-1">
+        <form class="grid gap-3 border-t border-tertiary pt-4 sm:grid-cols-2" data-action="submit->dashboard-pages#createPage" data-url="<%= create_url %>">
+          <div class="min-w-0">
             <label class="mb-1 block text-sm font-medium text-primary" for="dashboard-new-page-name"><%= t("pages.dashboard.pages.new_name") %></label>
             <input id="dashboard-new-page-name" name="name" maxlength="<%= User::MAX_DASHBOARD_PAGE_NAME %>" required
                    class="w-full rounded-lg border border-primary bg-container px-3 py-2 text-sm text-primary focus-ring">
           </div>
-          <%= render DS::Button.new(type: :submit, icon: "plus", text: t("pages.dashboard.pages.create")) %>
+          <div class="min-w-0">
+            <label class="mb-1 block text-sm font-medium text-primary" for="dashboard-new-page-template"><%= t("pages.dashboard.pages.template") %></label>
+            <select id="dashboard-new-page-template" name="template" class="form-field__input">
+              <% templates.each do |template| %><option value="<%= template[:key] %>"><%= template[:name] %></option><% end %>
+            </select>
+          </div>
+          <div class="min-w-0 sm:col-span-2">
+            <label class="mb-1 block text-sm font-medium text-primary" for="dashboard-new-page-account"><%= t("pages.dashboard.pages.account_scope") %></label>
+            <select id="dashboard-new-page-account" name="account_id" class="form-field__input">
+              <option value=""><%= t("pages.dashboard.settings.overall") %></option>
+              <% accounts.each do |account| %><option value="<%= account[:id] %>"><%= account[:name] %></option><% end %>
+            </select>
+            <p class="mt-1 text-xs text-secondary"><%= t("pages.dashboard.pages.account_scope_hint") %></p>
+          </div>
+          <div class="sm:col-span-2"><%= render DS::Button.new(type: :submit, icon: "plus", text: t("pages.dashboard.pages.create")) %></div>
         </form>
       <% end %>
+
+      <div class="space-y-3 border-t border-tertiary pt-4" data-testid="dashboard-ai-draft">
+        <div>
+          <p class="text-sm font-medium text-primary"><%= t("pages.dashboard.ai_draft.title") %></p>
+          <p class="text-xs text-secondary"><%= t("pages.dashboard.ai_draft.description") %></p>
+        </div>
+        <form class="space-y-3" data-action="submit->dashboard-pages#previewDraft" data-url="<%= draft_url %>">
+          <label class="sr-only" for="dashboard-ai-draft-input"><%= t("pages.dashboard.ai_draft.structured_label") %></label>
+          <textarea id="dashboard-ai-draft-input" rows="6" class="form-field__input font-mono text-xs" required data-dashboard-pages-target="draftInput" data-invalid-message="<%= t("pages.dashboard.ai_draft.invalid_json") %>" placeholder="<%= t("pages.dashboard.ai_draft.placeholder") %>"></textarea>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-sm font-medium text-primary" for="dashboard-ai-draft-account"><%= t("pages.dashboard.ai_draft.account_picker") %></label>
+              <select id="dashboard-ai-draft-account" class="form-field__input" data-dashboard-pages-target="draftAccountSelection">
+                <option value=""><%= t("pages.dashboard.settings.none") %></option>
+                <% accounts.each do |account| %><option value="<%= account[:id] %>"><%= account[:name] %></option><% end %>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-primary" for="dashboard-ai-draft-security"><%= t("pages.dashboard.ai_draft.security_picker") %></label>
+              <select id="dashboard-ai-draft-security" class="form-field__input" data-dashboard-pages-target="draftSecuritySelection">
+                <option value=""><%= t("pages.dashboard.settings.none") %></option>
+                <% securities.each do |security| %><option value="<%= security[:id] %>"><%= security[:label] %></option><% end %>
+              </select>
+            </div>
+          </div>
+          <p class="text-xs text-secondary"><%= t("pages.dashboard.ai_draft.local_picker_hint") %></p>
+          <%= render DS::Button.new(type: :submit, variant: "outline", size: :sm, text: t("pages.dashboard.ai_draft.preview")) %>
+        </form>
+        <div class="hidden space-y-3" data-dashboard-pages-target="draftPreview">
+          <p class="text-xs text-secondary"><%= t("pages.dashboard.ai_draft.edit_hint") %></p>
+          <textarea rows="8" class="form-field__input font-mono text-xs" data-dashboard-pages-target="draftValidated" data-invalid-message="<%= t("pages.dashboard.ai_draft.invalid_edited_json") %>"></textarea>
+          <div class="flex flex-wrap gap-2">
+            <% if can_create %>
+              <%= render DS::Button.new(type: :button, size: :sm, text: t("pages.dashboard.ai_draft.create"), data: { action: "click->dashboard-pages#createFromDraft", url: create_url, confirm: t("pages.dashboard.ai_draft.create_confirm") }) %>
+            <% end %>
+            <% if apply_draft_url %>
+              <%= render DS::Button.new(type: :button, variant: "outline", size: :sm, text: t("pages.dashboard.ai_draft.apply_empty"), data: { action: "click->dashboard-pages#applyDraft", url: apply_draft_url, confirm: t("pages.dashboard.ai_draft.apply_confirm") }) %>
+            <% end %>
+          </div>
+        </div>
+      </div>
 
       <% if can_restore_investments %>
         <div class="border-t border-tertiary pt-4">

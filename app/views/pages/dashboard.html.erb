@@ -28,16 +28,6 @@
 <%= turbo_frame_tag "dashboard_sections", target: "_top" do %>
   <%= render "pages/dashboard/page_tabs", pages: @dashboard_tabs, current: @dashboard_page_id %>
 
-  <% if @dashboard_page_id == "investments" %>
-    <turbo-frame id="investment_workspace" target="_top">
-  <% end %>
-
-  <% if @dashboard_page_id == "investments" %>
-    <div class="mb-5">
-      <%= render "investments/subnav", current: :decision %>
-    </div>
-  <% end %>
-
   <% if @accounts.any? %>
     <div class="mb-4 flex items-center justify-end">
       <%= render UI::PeriodPicker.new(selected: @period, url: root_path(page: @dashboard_page_id), frame: "dashboard_sections") %>
@@ -66,10 +56,11 @@
                  class="group rounded-xl bg-container shadow-border-xs transition-all focus-ring <%= "2xl:col-span-2" if two_column && section[:layout][:col_span] == "full" %>"
                  style="<%= "--dash-widget-h: #{section[:layout][:height_px]}px;" if section[:layout][:grow] %>"
                  data-dashboard-sortable-target="section"
-                 data-section-key="<%= section[:legacy_key] %>"
+                 data-section-key="<%= section[:instance_id] %>"
                  data-widget-key="<%= section[:key] %>"
+                 data-widget-instance-id="<%= section[:instance_id] %>"
                  data-controller="dashboard-section<%= " cashflow-expand" if section[:legacy_key] == "cashflow_sankey" %>"
-                 data-dashboard-section-section-key-value="<%= section[:key] %>"
+                 data-dashboard-section-section-key-value="<%= section[:instance_id] %>"
                  data-dashboard-section-collapsed-value="<%= section[:collapsed] %>"
                  data-dashboard-section-url-value="<%= section[:update_url] %>"
                  draggable="true"
@@ -88,10 +79,23 @@
                       aria-expanded="<%= !section[:collapsed] %>">
                 <%= icon("chevron-down", size: "sm", class: "transition-transform", data: { dashboard_section_target: "chevron" }) %>
               </button>
-              <h2 class="truncate text-base font-medium"><%= t(section[:title]) %></h2>
+              <div class="min-w-0">
+                <h2 class="truncate text-base font-medium"><%= t(section[:title]) %></h2>
+                <% if section[:scope_label].present? %><p class="truncate text-xs text-secondary"><%= section[:scope_label] %></p><% end %>
+              </div>
             </div>
 
             <div class="flex items-center gap-1">
+              <% if section[:workspace_url] %>
+                <%= render DS::Link.new(
+                  variant: "icon",
+                  icon: "maximize-2",
+                  href: section[:workspace_url],
+                  aria_label: t("pages.dashboard.widgets.open_workspace", title: t(section[:title])),
+                  data: { turbo_frame: "_top", testid: "open-investment-workspace" }
+                ) %>
+              <% end %>
+
               <% if section[:legacy_key] == "balance_sheet" && !section[:unavailable] && section[:locals][:balance_sheet].classification_groups.any? { |group| group.account_groups.any? } %>
                 <button type="button"
                         class="flex h-6 w-6 items-center justify-center rounded-md text-secondary opacity-0 transition-colors hover:bg-container-inset-hover hover:text-primary focus-ring group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:opacity-100"
@@ -112,6 +116,10 @@
                         aria-label="<%= t("global.expand") %>">
                   <%= icon("maximize-2", size: "sm") %>
                 </button>
+              <% end %>
+
+              <% if section[:settings].any? %>
+                <%= render "pages/dashboard/widget_settings", settings: section[:settings], update_url: section[:update_url], instance_id: section[:instance_id] %>
               <% end %>
 
               <% layout = section[:layout] %>
@@ -178,16 +186,12 @@
             <% else %>
               <%= render partial: section[:partial], locals: section[:locals] %>
               <% if section[:legacy_key] == "cashflow_sankey" && preview_features_enabled? %>
-                <%= render "pages/dashboard/cashflow_preview", period: @period, legacy_data: section[:locals][:sankey_data] %>
+                <%= render "pages/dashboard/cashflow_preview", period: @period, legacy_data: section[:locals][:sankey_data], preview_id: "#{section[:instance_id]}-cashflow-preview" %>
               <% end %>
             <% end %>
           </div>
         </section>
       <% end %>
     </div>
-  <% end %>
-
-  <% if @dashboard_page_id == "investments" %>
-    </turbo-frame>
   <% end %>
 <% end %>

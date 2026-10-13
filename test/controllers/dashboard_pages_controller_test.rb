@@ -43,23 +43,25 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
 
     post "/dashboard/pages/#{page_id}/widgets", params: { widget: { key: "home.spending_trend" } }, as: :json
     assert_response :created
+    spending = response.parsed_body.fetch("widget")
 
     post "/dashboard/pages/#{page_id}/widgets", params: { widget: { key: "home.balance_sheet" } }, as: :json
     assert_response :created
+    balance = response.parsed_body.fetch("widget")
 
-    patch "/dashboard/pages/#{page_id}/widgets/home.spending_trend", params: { widget: { collapsed: true, layout: { col_width: 12, height: 6 } } }, as: :json
+    patch page_widget_path(page_id, spending.fetch("id")), params: { widget: { collapsed: true, layout: { col_width: 12, height: 6 } } }, as: :json
     assert_response :success
     widget = JSON.parse(response.body).fetch("widget")
     assert widget.fetch("collapsed")
     assert_equal({ "col_width" => 12, "height" => 6 }, widget.fetch("layout"))
 
-    patch "/dashboard/pages/#{page_id}/widgets/order", params: { widget_keys: %w[home.balance_sheet home.spending_trend] }, as: :json
+    patch order_page_widgets_path(page_id), params: { instance_ids: [ balance.fetch("id"), spending.fetch("id") ] }, as: :json
     assert_response :success
-    assert_equal %w[home.balance_sheet home.spending_trend], JSON.parse(response.body).fetch("page").fetch("widgets").map { |row| row.fetch("key") }
+    assert_equal [ balance.fetch("id"), spending.fetch("id") ], response.parsed_body.fetch("page").fetch("widgets").map { |row| row.fetch("id") }
 
-    delete "/dashboard/pages/#{page_id}/widgets/home.spending_trend", as: :json
+    delete page_widget_path(page_id, spending.fetch("id")), as: :json
     assert_response :no_content
-    assert_not_includes @user.reload.dashboard_pages.find { |page| page["id"] == page_id }["widgets"].map { |row| row["key"] }, "home.spending_trend"
+    assert_not_includes @user.reload.dashboard_pages.find { |page| page["id"] == page_id }["widgets"].map { |row| row["id"] }, spending.fetch("id")
   end
 
   test "invalid widget layouts and duplicate adds return 422 atomically" do
@@ -67,28 +69,30 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     page_id = JSON.parse(response.body).dig("page", "id")
     post "/dashboard/pages/#{page_id}/widgets", params: { widget: { key: "home.spending_trend" } }, as: :json
     assert_response :created
+    spending_id = response.parsed_body.dig("widget", "id")
     post "/dashboard/pages/#{page_id}/widgets", params: { widget: { key: "home.outflows_donut" } }, as: :json
     assert_response :created
+    outflows_id = response.parsed_body.dig("widget", "id")
     original = @user.reload.preferences.deep_dup
 
     post "/dashboard/pages/#{page_id}/widgets", params: { widget: { key: "home.spending_trend" } }, as: :json
     assert_response :unprocessable_entity
-    assert_equal "widget already exists on page", JSON.parse(response.body).fetch("message")
+    assert_equal "an identical widget already exists on page", JSON.parse(response.body).fetch("message")
     assert_equal original, @user.reload.preferences
 
     [
-      [ "home.spending_trend", { col_width: 7 } ],
-      [ "home.spending_trend", { height: 5 } ],
-      [ "home.spending_trend", { width: 12 } ],
-      [ "home.spending_trend", "invalid" ],
-      [ "home.outflows_donut", { col_width: 12 } ]
-    ].each do |widget_key, layout|
-      patch "/dashboard/pages/#{page_id}/widgets/#{widget_key}", params: { widget: { collapsed: true, layout: layout } }, as: :json
+      [ spending_id, { col_width: 7 } ],
+      [ spending_id, { height: 5 } ],
+      [ spending_id, { width: 12 } ],
+      [ spending_id, "invalid" ],
+      [ outflows_id, { col_width: 12 } ]
+    ].each do |instance_id, layout|
+      patch page_widget_path(page_id, instance_id), params: { widget: { collapsed: true, layout: layout } }, as: :json
       assert_response :unprocessable_entity
       assert_equal original, @user.reload.preferences
     end
 
-    patch "/dashboard/pages/#{page_id}/widgets/home.spending_trend", params: { widget: { layout: { col_width: 12, height: 6 } } }, as: :json
+    patch page_widget_path(page_id, spending_id), params: { widget: { layout: { col_width: 12, height: 6 } } }, as: :json
     assert_response :success
   end
 
@@ -136,12 +140,13 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
 
   test "malformed page and widget objects return validation errors without storage" do
     custom = @user.create_dashboard_page!("Payloads")
+    home_balance_id = @user.dashboard_pages.find { |page| page["id"] == "home" }.fetch("widgets").find { |widget| widget["key"] == "home.balance_sheet" }.fetch("id")
     original = @user.reload.preferences.deep_dup
     requests = [
       [ :post, pages_path, :page ],
       [ :patch, page_path(custom.fetch("id")), :page ],
       [ :post, page_widgets_path(custom.fetch("id")), :widget ],
-      [ :patch, page_widget_path("home", "home.balance_sheet"), :widget ]
+      [ :patch, page_widget_path("home", home_balance_id), :widget ]
     ]
 
     requests.each do |method, path, root_key|
@@ -168,7 +173,8 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "validation_failed", JSON.parse(response.body).fetch("error")
     assert_equal original, @user.reload.preferences
 
-    patch "/dashboard/pages/home/widgets/home.balance_sheet", params: { widget: { collapsed: "sometimes", layout: { col_width: 99 } } }, as: :json
+    home_balance_id = @user.dashboard_pages.find { |page| page["id"] == "home" }.fetch("widgets").find { |widget| widget["key"] == "home.balance_sheet" }.fetch("id")
+    patch page_widget_path("home", home_balance_id), params: { widget: { collapsed: "sometimes", layout: { col_width: 99 } } }, as: :json
     assert_response :unprocessable_entity
     assert_equal original, @user.reload.preferences
   end
@@ -225,7 +231,7 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     get root_path(view: "decision")
     assert_response :success
     assert_select "turbo-frame#investment_workspace h1", text: I18n.t("investment_decision_center.title")
-    assert_select "[data-dashboard-pages-current-page-url-value=?] a[data-dashboard-page-key=home][data-action='click->dashboard-pages#selectPage']", current_pages_path
+    assert_select "turbo-frame#investment_workspace a[href=?]", root_path(page: "investments"), text: I18n.t("investments.back_to_dashboard")
     assert_equal original, @user.reload.preferences
 
     get root_path(view: "overview")
@@ -264,9 +270,9 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-dashboard-sortable-url-value=?]", order_page_widgets_path("home")
     assert_select "section[data-widget-key]" do |sections|
       sections.each do |section|
-        key = section["data-widget-key"]
-        assert_equal page_widget_path("home", key), section["data-dashboard-section-url-value"]
-        assert_select section, "button[data-url=?][aria-label]", page_widget_path("home", key), minimum: 1
+        instance_id = section["data-widget-instance-id"]
+        assert_equal page_widget_path("home", instance_id), section["data-dashboard-section-url-value"]
+        assert_select section, "button[data-url=?][aria-label]", page_widget_path("home", instance_id), minimum: 1
       end
     end
 
@@ -275,11 +281,8 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "[data-testid=dashboard-page-tabs] a[aria-current=page][data-dashboard-page-key=investments]", text: "Investments"
     assert_select "h1", text: I18n.t("investment_decision_center.title")
-    assert_select "turbo-frame#investment_workspace" do
-      assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label") do
-        assert_select "a[data-turbo-frame=investment_workspace]", minimum: 1
-      end
-    end
+    assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label"), count: 0
+    assert_select "section[data-widget-key^='investments.']", minimum: 1
   end
 
   test "all supported widgets can be added and removed independently" do
@@ -288,11 +291,10 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     Dashboard::WidgetRegistry.keys.each do |key|
       post page_widgets_path(page.fetch("id")), params: { widget: { key: key } }, as: :json
       assert_response :created, "expected #{key} to be addable"
-    end
-    assert_equal Dashboard::WidgetRegistry.keys, @user.reload.dashboard_pages.find { |item| item["id"] == page.fetch("id") }.fetch("widgets").map { |widget| widget.fetch("key") }
+      widget = response.parsed_body.fetch("widget")
+      assert_equal key, widget.fetch("key")
 
-    Dashboard::WidgetRegistry.keys.each do |key|
-      delete page_widget_path(page.fetch("id"), key), as: :json
+      delete page_widget_path(page.fetch("id"), widget.fetch("id")), as: :json
       assert_response :no_content, "expected #{key} to be removable"
     end
     assert_empty @user.reload.dashboard_pages.find { |item| item["id"] == page.fetch("id") }.fetch("widgets")
@@ -301,16 +303,17 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
   test "two pages render independent widget order collapse size and unique ids" do
     first = @user.create_dashboard_page!("First")
     second = @user.create_dashboard_page!("Second")
-    %w[home.spending_trend home.balance_sheet].each { |key| @user.add_dashboard_widget!(first.fetch("id"), key) }
-    %w[home.balance_sheet home.spending_trend].each { |key| @user.add_dashboard_widget!(second.fetch("id"), key) }
-    @user.update_dashboard_widget!(first.fetch("id"), "home.spending_trend", collapsed: true, layout: { "col_width" => 12, "height" => 6 })
+    first_widgets = %w[home.spending_trend home.balance_sheet].map { |key| @user.add_dashboard_widget!(first.fetch("id"), key) }
+    second_widgets = %w[home.balance_sheet home.spending_trend].map { |key| @user.add_dashboard_widget!(second.fetch("id"), key) }
+    spending = first_widgets.find { |widget| widget["key"] == "home.spending_trend" }
+    @user.update_dashboard_widget!(first.fetch("id"), spending.fetch("id"), collapsed: true, layout: { "col_width" => 12, "height" => 6 })
 
     get root_path(page: first.fetch("id"))
 
     assert_response :success
     assert_equal %w[home.spending_trend home.balance_sheet], css_select("section[data-widget-key]").map { |node| node["data-widget-key"] }
     assert_select "section[data-widget-key='home.spending_trend'][data-dashboard-section-collapsed-value=true][style*='416px']"
-    assert_select "##{first.fetch("id")}-spending-trend"
+    assert_select "#widget-#{spending.fetch("id")}"
     ids = css_select("#dashboard_sections [id]").map { |node| node["id"] }
     assert_equal ids.uniq, ids
 
@@ -319,7 +322,8 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal %w[home.balance_sheet home.spending_trend], css_select("section[data-widget-key]").map { |node| node["data-widget-key"] }
     assert_select "section[data-widget-key='home.spending_trend'][data-dashboard-section-collapsed-value=false][style*='288px']"
-    assert_select "##{second.fetch("id")}-spending-trend"
+    second_spending = second_widgets.find { |widget| widget["key"] == "home.spending_trend" }
+    assert_select "#widget-#{second_spending.fetch("id")}"
   end
 
   test "page management exposes only actions accepted for each page" do
@@ -354,8 +358,7 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
   test "investment allocation and income widgets render real scoped loaders" do
     custom = @user.create_dashboard_page!("Portfolio")
     keys = %w[
-      investments.holdings_allocation investments.holdings_data_quality
-      investments.income_performance investments.income_cash_flows
+      investments.holdings investments.income_performance
     ]
     keys.each { |key| @user.add_dashboard_widget!(custom.fetch("id"), key) }
 
@@ -363,9 +366,45 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal keys, css_select("section[data-widget-key]").map { |node| node["data-widget-key"] }
-    assert_select "[data-testid=allocation-section]"
-    assert_select "[data-testid=data-quality-section], [data-testid=data-quality-clear]", minimum: 1
-    assert_no_match(/watchlist|options mutation/i, response.body)
+    assert_select "[data-testid=holdings-widget]"
+    assert_select "[data-testid=income-performance-widget]"
+    assert_no_match(/options mutation/i, response.body)
+  end
+
+  test "page creation applies a template atomically and rejects inaccessible or unknown templates" do
+    post pages_path, params: { page: { name: "Tax desk", template: "tax_review" } }, as: :json
+
+    assert_response :created
+    page = JSON.parse(response.body).fetch("page")
+    assert_equal Dashboard::PageTemplateRegistry.fetch("tax_review").widget_keys, page.fetch("widgets").map { |widget| widget.fetch("key") }
+
+    original = @user.reload.preferences.deep_dup
+    post pages_path, params: { page: { name: "Broken", template: "not-a-template" } }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal original, @user.reload.preferences
+
+    reset!
+    member = users(:empty)
+    member.update!(preferences: {})
+    sign_in member
+    original = member.preferences.deep_dup
+    post pages_path, params: { page: { name: "Private", template: "investment_focus" } }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal original, member.reload.preferences
+  end
+
+  test "all eight investment workflow widgets expose an explicit workspace action and unique ids" do
+    SnaptradeAccount.stubs(:linked_to).returns([])
+    page = @user.create_dashboard_page!("Investment workflows", template_key: "blank")
+    Dashboard::WidgetRegistry.investment_keys.each { |key| @user.add_dashboard_widget!(page.fetch("id"), key) }
+
+    get root_path(page: page.fetch("id"))
+
+    assert_response :success
+    assert_equal Dashboard::WidgetRegistry.investment_keys, css_select("section[data-widget-key]").map { |node| node["data-widget-key"] }
+    assert_select "[data-testid=open-investment-workspace]", count: 8
+    ids = css_select("#dashboard_sections [id]").map { |node| node["id"] }
+    assert_equal ids.uniq, ids
   end
 
   test "requires authentication" do

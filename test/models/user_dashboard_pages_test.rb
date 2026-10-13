@@ -19,7 +19,7 @@ class UserDashboardPagesTest < ActiveSupport::TestCase
     assert_equal %w[home investments], pages.map { |page| page["id"] }
     assert_equal %w[home.balance_sheet home.cashflow_sankey], pages.first["widgets"].first(2).map { |widget| widget["key"] }
     assert pages.first["widgets"].first["collapsed"]
-    assert_equal %w[investments.decision_monitor investments.decision_pulse investments.decision_action], pages.last["widgets"].map { |widget| widget["key"] }
+    assert_equal Dashboard::WidgetRegistry.investment_keys, pages.last["widgets"].map { |widget| widget["key"] }
     assert_equal "investments", @user.dashboard_current_page
     assert_not @user.reload.preferences.key?("dashboard_pages")
   end
@@ -48,6 +48,19 @@ class UserDashboardPagesTest < ActiveSupport::TestCase
     assert_match(/\Ap_[0-9a-z]{8}\z/, page.fetch("id"))
     assert_equal "My page", page.fetch("name")
     assert_equal page.fetch("id"), @user.reload.dashboard_current_page
+  end
+
+  test "malformed draft types do not change preferences" do
+    original = @user.preferences.deep_dup
+
+    [ "not-an-object", [ { "name" => "Array draft" } ] ].each do |draft|
+      error = assert_raises(User::DashboardPagesValidationError) do
+        @user.create_dashboard_page!("Malformed", draft: draft, provenance: "ai_draft")
+      end
+
+      assert_equal "draft must be an object", error.message
+      assert_equal original, @user.reload.preferences
+    end
   end
 
   test "investments starts second, can be removed, and is only restored explicitly" do
@@ -85,7 +98,7 @@ class UserDashboardPagesTest < ActiveSupport::TestCase
       @user.add_dashboard_widget!("home", "home.balance_sheet")
     end
 
-    assert_equal "widget already exists on page", error.message
+    assert_equal "an identical widget already exists on page", error.message
     assert_equal original, @user.reload.preferences
   end
 

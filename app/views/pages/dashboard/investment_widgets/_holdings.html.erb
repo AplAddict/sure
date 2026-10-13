@@ -1,0 +1,13 @@
+<%# locals: (allocation:, currency:) %>
+<% issues = allocation.data_quality %>
+<div class="space-y-4" data-testid="holdings-widget">
+  <div class="grid grid-cols-2 gap-3">
+    <%= investment_stat(t("pages.dashboard.investment_widgets.measured_value"), investment_money(allocation.total, currency)) %>
+    <%= investment_stat(t("pages.dashboard.investment_widgets.data_issues"), issues.size, hint: (allocation.excluded_count.positive? ? t("pages.dashboard.investment_widgets.fx_excluded", count: allocation.excluded_count) : nil), tone: issues.any? ? "text-warning" : "text-primary") %>
+  </div>
+  <% if allocation.segments.any? %>
+    <ol class="divide-y divide-tertiary" aria-label="<%= t("pages.dashboard.investment_widgets.top_positions") %>">
+      <% allocation.segments.first(5).each do |segment| %><li class="flex items-center justify-between gap-3 py-2 text-sm"><span class="truncate text-primary"><%= segment.label %></span><span class="shrink-0 text-secondary"><%= segment.weight ? number_to_percentage(segment.weight, precision: 1) : unavailable_cell %></span></li><% end %>
+    </ol>
+  <% else %><p class="text-sm text-secondary"><%= t("pages.dashboard.investment_widgets.no_holdings") %></p><% end %>
+</div>

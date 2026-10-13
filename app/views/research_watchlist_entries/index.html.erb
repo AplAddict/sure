@@ -1,9 +1,7 @@
 <% content_for :page_title, t(".title") %>
 <%= turbo_frame_tag "investment_workspace", target: "_top" do %>
   <div class="mb-6">
-    <%= render "investments/subnav", current: :watchlist %>
-    <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t(".title") %></h1>
-    <p class="mt-1 max-w-3xl text-sm text-secondary"><%= t(".subtitle") %></p>
+    <%= render "investments/workspace_header", current: :watchlist, title: t(".title"), subtitle: t(".subtitle") %>
   </div>
   <div class="space-y-6 pb-6 lg:pb-12">
   <%= render "investments/sections",

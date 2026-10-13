@@ -3,12 +3,7 @@
 
 <%= turbo_frame_tag "investment_workspace", target: "_top" do %>
   <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
-    <%= render "investments/subnav", current: :events %>
-    <div class="space-y-1">
-      <p class="text-xs font-medium uppercase tracking-wide text-secondary"><%= t(".eyebrow") %></p>
-      <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t(".title") %></h1>
-      <p class="max-w-3xl text-sm text-secondary"><%= t(".subtitle") %></p>
-    </div>
+    <%= render "investments/workspace_header", current: :events, title: t(".title"), subtitle: t(".subtitle") %>
     <%= link_to t(".research_link"), research_search_path, class: "text-sm font-medium text-link hover:underline focus-ring rounded", data: { turbo_frame: "_top" } %>
   </div>
   <div class="space-y-5 pb-8">

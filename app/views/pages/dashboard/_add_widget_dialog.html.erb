@@ -5,27 +5,50 @@
     <% if widgets.empty? %>
       <%= render DS::EmptyState.new(icon: "layout-grid", title: t("pages.dashboard.widgets.none_left_title"), description: t("pages.dashboard.widgets.none_left_description")) %>
     <% else %>
-      <ul class="divide-y divide-tertiary" data-testid="dashboard-widget-catalog">
-        <% widgets.each do |widget| %>
-          <li class="flex items-center justify-between gap-3 py-3">
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-primary"><%= widget[:title] %></p>
-              <% if widget[:description].present? %>
-                <p class="text-xs text-secondary"><%= widget[:description] %></p>
+      <div class="space-y-5" data-testid="dashboard-widget-catalog">
+        <div>
+          <label class="sr-only" for="dashboard-widget-search-<%= page_key %>"><%= t("pages.dashboard.widgets.search") %></label>
+          <input id="dashboard-widget-search-<%= page_key %>" type="search" class="form-field__input" placeholder="<%= t("pages.dashboard.widgets.search") %>" data-action="input->dashboard-pages#filterCatalog">
+        </div>
+        <% widgets.each do |group| %>
+          <section aria-labelledby="widget-group-<%= page_key %>-<%= group[:key] %>">
+            <h3 id="widget-group-<%= page_key %>-<%= group[:key] %>" class="text-xs font-semibold uppercase tracking-wide text-secondary"><%= group[:label] %></h3>
+            <ul class="mt-1 divide-y divide-tertiary">
+              <% group[:widgets].each do |widget| %>
+                <li class="py-3" data-dashboard-pages-target="catalogItem" data-search-text="<%= "#{widget[:title]} #{widget[:description]} #{group[:label]}".downcase %>">
+                  <form class="space-y-2" data-dashboard-widget-add-form>
+                    <div class="flex items-center justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="text-sm font-medium text-primary"><%= widget[:title] %></p>
+                        <% if widget[:description].present? %><p class="text-xs text-secondary"><%= widget[:description] %></p><% end %>
+                      </div>
+                      <button type="button"
+                          class="shrink-0 cursor-pointer rounded-lg border border-tertiary px-3 py-1.5 text-sm font-medium text-primary hover:bg-container-inset-hover focus-ring pointer-coarse:py-2.5"
+                          data-action="click->dashboard-pages#addWidget"
+                          data-url="<%= url %>"
+                          data-widget-key="<%= widget[:key] %>"
+                          data-page-key="<%= page_key %>"
+                          data-duplicate-type="<%= widget[:duplicate_type] %>"
+                          data-duplicate-confirm="<%= t("pages.dashboard.widgets.duplicate_confirm", title: widget[:title]) %>"
+                          aria-label="<%= t("pages.dashboard.widgets.add_to_page", title: widget[:title]) %>">
+                        <%= t("pages.dashboard.widgets.add") %>
+                      </button>
+                    </div>
+                    <% if Array(widget[:settings]).any? %>
+                      <details class="rounded-lg border border-tertiary p-2">
+                        <summary class="cursor-pointer text-xs font-medium text-secondary"><%= t("pages.dashboard.settings.title") %></summary>
+                        <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                          <%= render "pages/dashboard/widget_setting_fields", settings: widget[:settings], field_id_prefix: "catalog-#{page_key}-#{widget[:key].tr('.', '-')}" %>
+                        </div>
+                      </details>
+                    <% end %>
+                  </form>
+                </li>
               <% end %>
-            </div>
-            <button type="button"
-                    class="shrink-0 cursor-pointer rounded-lg border border-tertiary px-3 py-1.5 text-sm font-medium text-primary hover:bg-container-inset-hover focus-ring pointer-coarse:py-2.5"
-                    data-action="click->dashboard-pages#addWidget"
-                    data-url="<%= url %>"
-                    data-widget-key="<%= widget[:key] %>"
-                    data-page-key="<%= page_key %>"
-                    aria-label="<%= t("pages.dashboard.widgets.add_to_page", title: widget[:title]) %>">
-              <%= t("pages.dashboard.widgets.add") %>
-            </button>
-          </li>
+            </ul>
+          </section>
         <% end %>
-      </ul>
+      </div>
     <% end %>
   <% end %>
 <% end %>

@@ -1,9 +1,10 @@
-<%# locals: (period:, legacy_data:) %>
+<%# locals: (period:, legacy_data:, preview_id:) %>
 <% feedback = feedback_config(:sankey) %>
 <% if feedback[:api_key].present? %>
   <%= render "shared/posthog_bootstrap" %>
 <% end %>
-<section id="cashflow-preview" class="mt-6 border-t border-primary pt-4 space-y-4 ph-no-capture group/sankey-preview"
+<section id="<%= preview_id %>" class="mt-6 border-t border-primary pt-4 space-y-4 ph-no-capture group/sankey-preview"
+  data-dashboard-cashflow-preview
   data-controller="sankey-preview"
   data-sankey-preview-sure-version-value="<%= Sure.version.to_s %>"
   data-sankey-preview-legacy-data-value="<%= legacy_data.to_json %>"
@@ -31,7 +32,7 @@
     </div>
     <div data-cash-flow-target="content" hidden>
       <div class="w-full h-96 overflow-x-auto overscroll-x-contain" tabindex="0" role="region" aria-label="<%= t("pages.dashboard.cashflow_preview.title") %>"><%= render "pages/dashboard/cashflow_preview_chart", period: period %></div>
-      <%= render DS::Dialog.new(id: "cashflow-preview-expanded-dialog", auto_open: false, width: "expanded", disable_frame: true,
+      <%= render DS::Dialog.new(id: "#{preview_id}-expanded-dialog", auto_open: false, width: "expanded", disable_frame: true,
         data: { sankey_preview_target: "expandedDialog", action: "close->sankey-preview#restoreDrag" }) do |dialog| %>
         <% dialog.with_header(title: t("pages.dashboard.cashflow_preview.title")) %>
         <% dialog.with_body do %>
@@ -54,7 +55,7 @@
         data: { action: "sankey-preview#feedback", sankey_preview_rating_param: "positive" }) %>
     </div>
   </div>
-  <%= render DS::Dialog.new(id: "cashflow-preview-feedback-dialog", auto_open: false, disable_frame: true,
+  <%= render DS::Dialog.new(id: "#{preview_id}-feedback-dialog", auto_open: false, disable_frame: true,
     data: { sankey_preview_target: "feedbackDialog", action: "close->sankey-preview#dismiss" }) do |dialog| %>
     <% dialog.with_header(title: t("pages.dashboard.cashflow_preview.feedback_title")) %>
     <% dialog.with_body do %>
@@ -63,11 +64,11 @@
         data-unavailable="<%= t("pages.dashboard.cashflow_preview.feedback_unavailable") %>"
         data-thanks="<%= t("pages.dashboard.cashflow_preview.feedback_thanks") %>"></p>
       <form hidden data-sankey-preview-target="form" data-action="submit->sankey-preview#submit" class="space-y-4 ph-no-capture">
-        <label for="cashflow-preview-feedback" class="block text-sm font-medium" data-feedback-question></label>
-        <textarea id="cashflow-preview-feedback" name="feedback" rows="4" maxlength="2000"
-          aria-describedby="cashflow-preview-feedback-privacy"
+        <label for="<%= preview_id %>-feedback" class="block text-sm font-medium" data-feedback-question></label>
+        <textarea id="<%= preview_id %>-feedback" name="feedback" rows="4" maxlength="2000"
+          aria-describedby="<%= preview_id %>-feedback-privacy"
           class="w-full rounded-lg border border-primary bg-container text-primary ph-no-capture"></textarea>
-        <p id="cashflow-preview-feedback-privacy" class="text-xs text-secondary"><%= t("pages.dashboard.cashflow_preview.feedback_privacy") %></p>
+        <p id="<%= preview_id %>-feedback-privacy" class="text-xs text-secondary"><%= t("pages.dashboard.cashflow_preview.feedback_privacy") %></p>
         <%= render DS::Button.new(text: t("pages.dashboard.cashflow_preview.feedback_submit"), type: :submit) %>
       </form>
     <% end %>

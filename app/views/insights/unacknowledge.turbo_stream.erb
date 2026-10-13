@@ -7,6 +7,4 @@
     comes back on the next dashboard render — this action has no UI entry point
     since the undo toast was dropped, so it isn't worth rebuilding the section
     shell from here. %>
-<%= turbo_stream.replace "insights-feed" do %>
-  <%= render "pages/dashboard/insights_feed", insights: @feed_insights %>
-<% end %>
+<%= turbo_stream_action_tag "update", targets: "[data-dashboard-insights-feed]", template: render("pages/dashboard/insights_feed", insights: @feed_insights, wrapper: false) %>

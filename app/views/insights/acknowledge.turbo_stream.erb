@@ -21,14 +21,12 @@
 <% if @feed_insights.any? %>
   <%# Dashboard: re-render the well rather than removing a row, so the next
       insight is promoted into the freed slot instead of leaving a gap. %>
-  <%= turbo_stream.replace "insights-feed" do %>
-    <%= render "pages/dashboard/insights_feed", insights: @feed_insights %>
-  <% end %>
+  <%= turbo_stream_action_tag "update", targets: "[data-dashboard-insights-feed]", template: render("pages/dashboard/insights_feed", insights: @feed_insights, wrapper: false) %>
 <% else %>
   <%# Nothing left to show: drop the whole dashboard section, not just the well
       inside it, or the section shell lingers with its header and an empty box.
       Matches what a reload does — PagesController#insights_feed_section sets
       `visible: @feed_insights.any?`. Targeted by attribute because the section
       element is emitted by the shared dashboard loop and carries no id. %>
-  <%= turbo_stream.remove_all "[data-section-key='insights_feed']" %>
+  <%= turbo_stream.remove_all "[data-widget-key='home.insights_feed']" %>
 <% end %>

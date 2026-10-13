@@ -201,7 +201,9 @@ export default class extends Controller {
   // Highlights segment and shows segment specific content (all other segments are grayed out)
   #handleSegmentHover(event) {
     const segmentId = event.target.dataset.segmentId;
-    const template = this.element.querySelector(`#segment_${segmentId}`);
+    const template = Array.from(this.contentContainerTarget.children).find(
+      (child) => child.dataset.donutSegmentTemplateId === segmentId,
+    );
     const unusedSegmentId = this.unusedSegmentIdValue;
 
     if (!template) return;

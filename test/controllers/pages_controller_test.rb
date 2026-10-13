@@ -57,11 +57,72 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
     ids = css_select("#dashboard_sections [id]").map { |node| node["id"] }
     assert_equal ids.uniq, ids
-    assert_select "section#dashboard-section-net_worth_chart #net-worth-chart #netWorthChart"
-    assert_select "section#dashboard-section-balance_sheet #balance-sheet"
+    assert_select "section[data-widget-key='home.net_worth_chart'] [data-controller~='time-series-chart']"
+    assert_select "section[data-widget-key='home.balance_sheet'] [data-dashboard-section-target='content']"
     assert_select "[data-testid=dashboard-header-actions] a[href=?]", new_account_path, minimum: 1
     assert_select "[data-testid=dashboard-add-widget]", count: 1
     assert_select "[data-testid=dashboard-manage-pages]", count: 1
+    assert_select "[data-testid=dashboard-widget-catalog] form[data-dashboard-widget-add-form] [data-widget-key='portfolio.allocation']"
+    assert_select "#catalog-home-portfolio-allocation-scope"
+    assert_select "#catalog-home-portfolio-allocation-account_id option[value=?]", accounts(:investment).id
+    assert_select "#catalog-home-portfolio-allocation-account_id option[value=?]", accounts(:depository).id, count: 0
+    assert_select "#dashboard-ai-draft-account option[value=?]", accounts(:investment).id
+    assert_select "#dashboard-ai-draft-account option[value=?]", accounts(:depository).id, count: 0
+    assert_select "#dashboard-ai-draft-security option[value=?]", securities(:aapl).id
+    assert_select "#catalog-home-portfolio-allocation-grouping"
+    assert_select "#catalog-home-portfolio-allocation-rows"
+  end
+
+  test "mixed-currency holdings total is unavailable when FX is unavailable" do
+    euro_account = @family.accounts.create!(
+      name: "Euro Brokerage", balance: 100, cash_balance: 0, currency: "EUR",
+      accountable: Investment.new, owner: @user
+    )
+    euro_security = Security.create!(ticker: "EURX#{SecureRandom.hex(2)}", name: "Euro Holding")
+    euro_account.holdings.create!(
+      security: euro_security, date: Date.current, qty: 1, price: 100,
+      amount: 100, currency: "EUR"
+    )
+    page = @user.create_dashboard_page!("Mixed currencies")
+    @user.add_dashboard_widget!(page.fetch("id"), "portfolio.top_holdings")
+    ExchangeRate.stubs(:rates_for).returns("EUR" => 1)
+    ExchangeRate.expects(:rates_for)
+      .with([ "EUR" ], to: "USD", date: Date.current, fallback: nil)
+      .returns("EUR" => nil)
+
+    get root_path(page: page.fetch("id"))
+
+    assert_response :ok
+    assert_select "section[data-widget-key='portfolio.top_holdings'] [data-testid='granular-investment-widget'] .grid > div", count: 1 do |tiles|
+      assert_includes tiles.first.text, I18n.t("pages.dashboard.granular_data.measured_value")
+      assert_equal "—", tiles.first.css("p").last.text
+    end
+  end
+
+  test "same-currency holdings preserve an actual zero total" do
+    zero_account = @family.accounts.create!(
+      name: "Zero Brokerage", balance: 0, cash_balance: 0, currency: "USD",
+      accountable: Investment.new, owner: @user
+    )
+    zero_security = Security.create!(ticker: "ZERO#{SecureRandom.hex(2)}", name: "Zero Holding")
+    zero_account.holdings.create!(
+      security: zero_security, date: Date.current, qty: 1, price: 0,
+      amount: 0, currency: "USD"
+    )
+    page = @user.create_dashboard_page!("Zero holdings")
+    @user.add_dashboard_widget!(
+      page.fetch("id"), "portfolio.top_holdings",
+      settings: { scope: "account", account_id: zero_account.id, rows: 5, sort: "market_value" }
+    )
+    ExchangeRate.expects(:rates_for).with([], to: "USD", date: Date.current, fallback: nil).returns({})
+
+    get root_path(page: page.fetch("id"))
+
+    assert_response :ok
+    assert_select "section[data-widget-key='portfolio.top_holdings'] [data-testid='granular-investment-widget'] .grid > div", count: 1 do |tiles|
+      assert_not_equal "—", tiles.first.css("p").last.text
+      assert_includes tiles.first.css("p").last.text, "0"
+    end
   end
 
   test "dashboard investment summary lists balance-only investment accounts as positions" do
@@ -73,7 +134,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     get root_path
 
     assert_response :ok
-    assert_select "#investment-summary table tbody tr" do |rows|
+    assert_select "section[data-widget-key='home.investment_summary'] table tbody tr" do |rows|
       row = rows.find { |r| r.text.include?("Workplace Pension") }
       assert row, "expected a row for the balance-only account"
       assert_select row, "a[href=?]", account_path(pension)
@@ -85,7 +146,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     get root_path
 
     assert_response :ok
-    assert_select "#netWorthChart[data-time-series-chart-selectable-value='true'][draggable='false']"
+    assert_select "section[data-widget-key='home.net_worth_chart'] [data-time-series-chart-selectable-value='true'][draggable='false']"
   end
 
   test "inactive user's existing session is revoked" do
@@ -468,7 +529,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     get root_path
 
     assert_response :ok
-    assert_select "#spending-trend-section"
+    assert_select "section[data-widget-key='home.spending_trend']"
   end
 
   test "dashboard spending trend widget accumulates the selected month against the previous one" do
@@ -619,7 +680,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     # The real month name replaces the generic "Previous month" label, which
     # truncated on mobile ("Previous mon…").
     expected_label = I18n.l(previous_month, format: :month_year).capitalize
-    assert_select "#spending-trend-section p", text: expected_label
+    assert_select "section[data-widget-key='home.spending_trend'] p", text: expected_label
     chart_element = css_select("[data-controller='spending-chart']").first
     assert_equal expected_label, chart_element["data-spending-chart-previous-label-value"]
   end
@@ -696,7 +757,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
       get root_path, params: { spending_month: Date.current.beginning_of_month.iso8601 }
       assert_response :ok
 
-      assert_select "#spending-trend-section span",
+      assert_select "section[data-widget-key='home.spending_trend'] span",
         text: I18n.t("pages.dashboard.spending_trend.previous_comparison_days", end_day: Date.current.day)
     end
   end
@@ -722,7 +783,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
       assert_equal previous_month.end_of_month.iso8601, previous_series.last.fetch("date")
       assert_equal money_text(111), previous_total
       refute_equal money_text(previous_series.last.fetch("value")), previous_total
-      assert_select "#spending-trend-section span",
+      assert_select "section[data-widget-key='home.spending_trend'] span",
         text: I18n.t("pages.dashboard.spending_trend.previous_comparison_days", end_day: Date.current.day)
     end
   end
@@ -745,7 +806,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     # A month that has fully elapsed is still compared whole-to-whole.
     assert_equal money_text(previous_series.last.fetch("value")), previous_total
     # ...and the header does not claim to be comparing a partial range.
-    assert_select "#spending-trend-section span",
+    assert_select "section[data-widget-key='home.spending_trend'] span",
       text: I18n.t("pages.dashboard.spending_trend.previous_comparison_days", end_day: selected_month.end_of_month.day),
       count: 0
   end
@@ -773,7 +834,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_equal previous_month.end_of_month.iso8601, previous_series.last.fetch("date")
     assert_equal 1110.0, previous_series.last.fetch("value")
     assert_equal money_text(previous_series.last.fetch("value")), previous_total
-    assert_select "#spending-trend-section span",
+    assert_select "section[data-widget-key='home.spending_trend'] span",
       text: I18n.t("pages.dashboard.spending_trend.previous_comparison_days", end_day: selected_month.end_of_month.day),
       count: 0
   end
@@ -821,11 +882,11 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     # The two large figures in the widget header: the selected month's
     # month-to-date total and the previous month's comparison total.
     def spending_trend_header_totals
-      css_select("#spending-trend-section .text-lg").map { |node| node.text.strip }
+      css_select("section[data-widget-key='home.spending_trend'] .text-lg").map { |node| node.text.strip }
     end
 
     def spending_trend_header_delta
-      css_select("#spending-trend-section span.text-sm.tabular-nums").first.text.strip
+      css_select("section[data-widget-key='home.spending_trend'] span.text-sm.tabular-nums").first.text.strip
     end
 
     def money_text(amount)

@@ -1,7 +1,16 @@
 import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
-  static targets = ["error", "pageRow"];
+  static targets = [
+    "error",
+    "pageRow",
+    "catalogItem",
+    "draftInput",
+    "draftPreview",
+    "draftValidated",
+    "draftAccountSelection",
+    "draftSecuritySelection",
+  ];
   static values = {
     returnUrl: String,
     homeUrl: String,
@@ -23,9 +32,21 @@ export default class extends Controller {
 
   async addWidget(event) {
     const button = event.currentTarget;
+    const duplicateType = button.dataset.duplicateType === "true";
+    if (duplicateType && !window.confirm(button.dataset.duplicateConfirm))
+      return;
+    const form = button.closest("[data-dashboard-widget-add-form]");
+    const settings = form ? this._settingsFromForm(form) : {};
+
     await this._request(button.dataset.url, {
       method: "POST",
-      body: { widget: { key: button.dataset.widgetKey } },
+      body: {
+        widget: {
+          key: button.dataset.widgetKey,
+          settings,
+          allow_duplicate: duplicateType,
+        },
+      },
       button,
       success: () => this._visit(this.returnUrlValue),
     });
@@ -43,12 +64,158 @@ export default class extends Controller {
   async createPage(event) {
     event.preventDefault();
     const form = event.currentTarget;
-    const name = new FormData(form).get("name");
+    const data = new FormData(form);
+    const name = data.get("name");
+    const template = data.get("template");
+    const accountId = data.get("account_id") || null;
     await this._request(form.dataset.url, {
       method: "POST",
-      body: { page: { name } },
+      body: { page: { name, template, account_id: accountId } },
       success: (payload) => this._visit(this._pageUrl(payload.page.id)),
     });
+  }
+
+  filterCatalog(event) {
+    const query = event.currentTarget.value.trim().toLowerCase();
+    this.catalogItemTargets.forEach((item) => {
+      item.classList.toggle("hidden", !item.dataset.searchText.includes(query));
+    });
+  }
+
+  stopPropagation(event) {
+    event.stopPropagation();
+  }
+
+  async saveWidgetSettings(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    await this._persistWidgetSettings(form);
+  }
+
+  async resetWidgetSettings(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    form.querySelectorAll("[data-default-value]").forEach((field) => {
+      field.value = field.dataset.defaultValue || "";
+    });
+    await this._persistWidgetSettings(form);
+  }
+
+  async _persistWidgetSettings(form) {
+    const settings = this._settingsFromForm(form);
+
+    await this._request(form.dataset.url, {
+      method: "PATCH",
+      body: { widget: { settings } },
+      success: () => this._visit(this.returnUrlValue),
+    });
+  }
+
+  _settingsFromForm(form) {
+    const settings = {};
+    new FormData(form).forEach((value, key) => {
+      const field = form.elements.namedItem(key);
+      if (field?.dataset.settingType === "integer") {
+        settings[key] = Number.parseInt(value, 10);
+      } else if (field?.dataset.settingType === "identifier") {
+        settings[key] = value || null;
+      } else {
+        settings[key] = value;
+      }
+    });
+
+    if (settings.scope === "overall") {
+      if (Object.hasOwn(settings, "account_id")) settings.account_id = null;
+      if (Object.hasOwn(settings, "security_id")) settings.security_id = null;
+    } else if (
+      settings.scope === "account" &&
+      Object.hasOwn(settings, "security_id")
+    ) {
+      settings.security_id = null;
+    } else if (
+      settings.scope === "security" &&
+      Object.hasOwn(settings, "account_id")
+    ) {
+      settings.account_id = null;
+    }
+
+    return settings;
+  }
+
+  async previewDraft(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    let draft;
+    try {
+      draft = JSON.parse(this.draftInputTarget.value);
+    } catch (_error) {
+      this._showError(this.draftInputTarget.dataset.invalidMessage);
+      return;
+    }
+
+    await this._request(form.dataset.url, {
+      method: "POST",
+      body: {
+        draft,
+        selections: {
+          account_id: this.hasDraftAccountSelectionTarget
+            ? this.draftAccountSelectionTarget.value || null
+            : null,
+          security_id: this.hasDraftSecuritySelectionTarget
+            ? this.draftSecuritySelectionTarget.value || null
+            : null,
+        },
+      },
+      success: (payload) => {
+        this.draftValidatedTarget.value = JSON.stringify(
+          payload.draft,
+          null,
+          2,
+        );
+        this.draftPreviewTarget.classList.remove("hidden");
+      },
+    });
+  }
+
+  async createFromDraft(event) {
+    const button = event.currentTarget;
+    const draft = this._validatedDraft();
+    if (!draft || !window.confirm(button.dataset.confirm)) return;
+
+    await this._request(button.dataset.url, {
+      method: "POST",
+      body: {
+        page: {
+          name: draft.name,
+          draft,
+          provenance: "ai_draft",
+        },
+      },
+      button,
+      success: (payload) => this._visit(this._pageUrl(payload.page.id)),
+    });
+  }
+
+  async applyDraft(event) {
+    const button = event.currentTarget;
+    const draft = this._validatedDraft();
+    if (!draft || !window.confirm(button.dataset.confirm)) return;
+
+    await this._request(button.dataset.url, {
+      method: "PATCH",
+      body: { draft },
+      button,
+      success: () => this._visit(this.returnUrlValue),
+    });
+  }
+
+  _validatedDraft() {
+    try {
+      return JSON.parse(this.draftValidatedTarget.value);
+    } catch (_error) {
+      this._showError(this.draftValidatedTarget.dataset.invalidMessage);
+      return null;
+    }
   }
 
   async restoreInvestments(event) {

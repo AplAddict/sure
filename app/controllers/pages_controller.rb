@@ -170,22 +170,28 @@ class PagesController < ApplicationController
         entry = Dashboard::WidgetCatalog.fetch(definition.key)
         next if entry.key == "home.insights_feed" && !preview_features_enabled?
 
-        content = dashboard_widget_content(entry)
+        settings = widget.fetch("settings")
+        content = dashboard_widget_content(entry, settings)
         layout = dashboard_widget_layout(definition, widget.fetch("layout"))
+        instance_id = widget.fetch("id")
 
         {
+          instance_id: instance_id,
           key: definition.key,
           legacy_key: entry.legacy_key,
-          dom_id: page.fetch("id") == "home" ? "dashboard-section-#{entry.legacy_key}" : "dashboard-section-#{page.fetch("id")}-#{entry.legacy_key}",
+          dom_id: "dashboard-widget-#{instance_id}",
           title: entry.title_key,
           partial: entry.partial,
           padded: entry.padded,
           collapsed: widget["collapsed"] == true,
           layout: layout,
-          locals: dashboard_widget_locals(entry, content.fetch(:locals, {}), page, layout),
+          settings: dashboard_widget_settings(definition, settings),
+          scope_label: dashboard_widget_scope_label(settings),
+          locals: dashboard_widget_locals(entry, content.fetch(:locals, {}), instance_id, layout),
           unavailable: content[:unavailable],
-          update_url: page_widget_path(page.fetch("id"), definition.key),
-          remove_url: page_widget_path(page.fetch("id"), definition.key)
+          workspace_url: dashboard_widget_workspace_path(entry),
+          update_url: page_widget_path(page.fetch("id"), instance_id),
+          remove_url: page_widget_path(page.fetch("id"), instance_id)
         }
       end
 
@@ -218,28 +224,66 @@ class PagesController < ApplicationController
       }
     end
 
-    def dashboard_widget_locals(entry, locals, page, layout)
+    def dashboard_widget_locals(entry, locals, instance_id, layout)
       result = locals.dup
       result[:col_span] = layout.fetch(:col_span) if entry.key == "home.money_flow"
-      return result if page.fetch("id") == "home" || !entry.key.start_with?("home.")
 
-      prefix = "#{page.fetch("id")}-#{entry.legacy_key.dasherize}"
-      result[:widget_id] = prefix
+      prefix = "widget-#{instance_id}"
+      if entry.key.start_with?("home.") || entry.key == "investments.news"
+        result[:widget_id] = prefix
+      end
       result[:chart_id] = "#{prefix}-chart" if entry.key == "home.net_worth_chart"
       result[:dialog_id] = "#{prefix}-dialog" if entry.key == "home.cashflow_sankey"
       result
     end
 
+    def dashboard_widget_settings(definition, values)
+      definition.settings.values.map do |setting|
+        options = case setting.key
+        when "account_id"
+          dashboard_scope_accounts.order(:name).pluck(:name, :id).map { |name, id| [ name, id.to_s ] }
+        when "security_id"
+          dashboard_accessible_securities.map { |security| [ "#{security.ticker} · #{security.name}", security.id.to_s ] }
+        else
+          Array(setting.values).map { |value| [ value.to_s.humanize, value ] }
+        end
+        { key: setting.key, type: setting.type, value: values[setting.key], default: setting.default, options: options, minimum: setting.minimum, maximum: setting.maximum }
+      end
+    end
+
+    def dashboard_widget_scope_label(settings)
+      case settings["scope"]
+      when "account"
+        Current.user.accessible_accounts.visible.find_by(id: settings["account_id"])&.name || t("pages.dashboard.settings.unavailable_scope")
+      when "security"
+        dashboard_accessible_securities.find { |security| security.id.to_s == settings["security_id"] }&.ticker || t("pages.dashboard.settings.unavailable_scope")
+      when "overall"
+        t("pages.dashboard.settings.overall")
+      end
+    end
+
+    def dashboard_accessible_securities
+      @dashboard_accessible_securities ||= begin
+        held = Holding.where(account_id: Current.user.accessible_accounts.visible.select(:id)).select(:security_id)
+        watched = Current.user.research_watchlist_entries.active.select(:security_id)
+        Security.where(id: held).or(Security.where(id: watched)).order(:ticker).to_a
+      end
+    end
+
+    def dashboard_scope_accounts
+      Current.user.accessible_accounts.visible.where(accountable_type: %w[Investment Crypto])
+    end
+
     # Locals for the widget's partial, or an unavailable state when the data
     # behind it cannot be supplied. Everything is scoped to Current.user and
     # loaded at most once per registry load group.
-    def dashboard_widget_content(entry)
+    def dashboard_widget_content(entry, settings)
       case entry.key
-      when "home.ticker_news"
-        articles = load_group(:home_news)
-        articles.any? ? { locals: { articles: articles } } : unavailable_widget(entry, "no_news")
+      when "home.ticker_news", "investments.news"
+        articles = scoped_news(load_group(:home_news), settings)
+        articles.any? ? { locals: { articles: articles.first(settings.fetch("rows", 8)) } } : unavailable_widget(entry, "no_news")
       when "home.insights_feed"
-        insights = load_group(:home_insights)
+        insights = load_group(:home_insights).first(settings.fetch("rows", Insight::FEED_LIMIT))
         insights.any? ? { locals: { insights: insights } } : unavailable_widget(entry, "no_insights")
       when "home.cashflow_sankey"
         { locals: { sankey_data: load_group(:home_cashflow).fetch(:sankey), period: @period } }
@@ -258,23 +302,14 @@ class PagesController < ApplicationController
         { locals: { balance_sheet: load_group(:home_net_worth), period: @period } }
       when "home.balance_sheet"
         { locals: { balance_sheet: load_group(:home_net_worth) } }
-      when "investments.decision_pulse"
+      when "investments.decision_center"
         center = load_group(:investment_decision)
-        center.available? ? { locals: { pulse: center.pulse } } : unavailable_widget(entry, "no_investments")
-      when "investments.decision_action"
-        center = load_group(:investment_decision)
-        center.available? ? { locals: { actions: center.actions } } : unavailable_widget(entry, "no_investments")
-      when "investments.decision_monitor"
-        center = load_group(:investment_decision)
-        center.available? ? { locals: { top_holdings: center.top_holdings, center: center } } : unavailable_widget(entry, "no_investments")
-      when "investments.holdings_allocation"
-        allocation = load_group(:investment_holdings)
+        center.available? ? { locals: { center: center } } : unavailable_widget(entry, "no_investments")
+      when "investments.holdings"
+        allocation = load_group(:investment_holdings, settings)
         allocation ? { locals: { allocation: allocation, currency: allocation.currency } } : unavailable_widget(entry, "failed")
-      when "investments.holdings_data_quality"
-        allocation = load_group(:investment_holdings)
-        allocation ? { locals: { issues: allocation.data_quality } } : unavailable_widget(entry, "failed")
-      when "investments.income_performance", "investments.income_cash_flows"
-        review = load_group(:investment_income)
+      when "investments.income_performance"
+        review = load_group(:investment_income, settings)
         if review.nil?
           unavailable_widget(entry, "failed")
         elsif review.accounts.none?
@@ -282,45 +317,263 @@ class PagesController < ApplicationController
         else
           { locals: { review: review, currency: review.currency } }
         end
+      when "investments.tax_workspace"
+        data = load_group(:investment_tax)
+        data ? { locals: data } : unavailable_widget(entry, "failed")
+      when "investments.options"
+        review = load_group(:investment_options, settings)
+        review ? { locals: { review: review } } : unavailable_widget(entry, "failed")
+      when "investments.market_events"
+        events = scoped_events(load_group(:investment_events), settings)
+        events ? { locals: events } : unavailable_widget(entry, "failed")
+      when "investments.watchlist"
+        watchlist = load_group(:investment_watchlist)
+        watchlist ? { locals: watchlist } : unavailable_widget(entry, "failed")
+      else
+        dashboard_granular_widget_content(entry, settings)
       end
+    end
+
+    def dashboard_granular_widget_content(entry, settings)
+      rows = settings.fetch("rows", 5)
+      data = case entry.key
+      when "portfolio.pulse"
+        center = load_group(:investment_decision)
+        pulse = center.pulse
+        {
+          metrics: [
+            dashboard_metric("portfolio_value", pulse&.portfolio_value ? helpers.format_money(pulse.portfolio_value) : nil),
+            dashboard_metric("cash", pulse&.cash_balance ? helpers.format_money(pulse.cash_balance) : nil),
+            dashboard_metric("as_of", pulse&.as_of ? helpers.l(pulse.as_of, format: :long) : nil)
+          ]
+        }
+      when "review.needs_review"
+        actions = load_group(:investment_decision).actions
+        { metrics: [ dashboard_metric("needs_review", actions&.sum(&:count)) ], rows: Array(actions).first(rows).map { |action| { primary: t("pages.dashboard.granular_data.action_#{action.kind}"), secondary: action.count.to_s } } }
+      when "review.source_health"
+        health = Array(load_group(:investment_decision).source_health)
+        health = health.select { |item| item.status != "current" } if settings["filter"].in?(%w[attention unavailable])
+        health = health.select { |item| item.status == "unavailable" } if settings["filter"] == "unavailable"
+        { rows: health.first(rows).map { |item| { primary: item.label, secondary: item.status.humanize, detail: item.detail, tone: item.status == "current" ? nil : "text-warning" } } }
+      when "portfolio.holdings_concentration", "portfolio.top_holdings"
+        portfolio = load_group(:portfolio_holdings, settings)
+        positions = portfolio.blocks.flat_map(&:positions)
+        converted_positions = dashboard_positions_in_currency(positions, Current.family.currency)
+        if settings["sort"] == "symbol" || converted_positions.nil?
+          positions = positions.sort_by(&:ticker)
+        else
+          positions = converted_positions.sort_by { |_position, value| -value }.map(&:first)
+        end
+        total = converted_positions&.sum(BigDecimal("0")) { |_position, value| value }
+        { metrics: [ dashboard_metric("measured_value", total.nil? ? nil : helpers.investment_money(total, Current.family.currency)) ], rows: positions.first(rows).map { |position| { primary: position.ticker, secondary: helpers.investment_money(position.market_value, position.currency), detail: position.account.name } } }
+      when "portfolio.allocation"
+        allocation = load_group(:investment_holdings, settings)
+        { metrics: [ dashboard_metric("measured_value", helpers.investment_money(allocation.total, allocation.currency)) ], rows: allocation.display_segments(limit: rows).map { |segment| { primary: segment.label, secondary: segment.weight ? helpers.number_to_percentage(segment.weight, precision: 1) : nil } } }
+      when "review.data_quality"
+        allocation = load_group(:investment_holdings, settings)
+        issues = allocation.data_quality
+        issues = issues.select { |issue| issue.kind.to_s == settings["filter"] } unless settings["filter"] == "all"
+        { metrics: [ dashboard_metric("data_issues", issues.size) ], rows: issues.first(rows).map { |issue| { primary: issue.security.ticker, secondary: t("pages.dashboard.granular_data.#{issue.kind}"), detail: issue.detail&.to_s, tone: "text-warning" } } }
+      when "portfolio.security_snapshot"
+        security = dashboard_accessible_securities.find { |candidate| candidate.id.to_s == settings["security_id"] }
+        if security
+          holding = Holding::CurrentForInvestmentAccounts.new(Current.user.accessible_accounts.visible.select(:id)).relation.where(security_id: security.id).order(date: :desc).first
+          { metrics: [ dashboard_metric("price", holding&.price ? helpers.investment_money(holding.price, holding.currency) : nil), dashboard_metric("market_value", holding&.amount_money ? helpers.format_money(holding.amount_money) : nil), dashboard_metric("quantity", holding&.qty&.to_s) ] }
+        end
+      when "income.summary", "income.cash_flows", "income.return_risk", "income.options_premium", "options.premium_income", "income.monthly"
+        dashboard_income_widget_data(entry.key, settings, rows)
+      when "tax.realized_gains", "tax.lot_coverage", "tax.nearing_long_term", "tax.harvest_summary", "tax.harvest_candidates", "tax.wash_sale_exposure"
+        dashboard_tax_widget_data(entry.key, rows)
+      when "options.summary", "options.expiring", "options.contract_ledger", "options.underlying_concentration"
+        dashboard_options_widget_data(entry.key, settings, rows)
+      when "research.priority_watchlist"
+        scope = Current.user.research_watchlist_entries.active.includes(:security).order(:priority, :created_at)
+        scope = scope.where(priority: 1..2) if settings["filter"] == "priority"
+        scope = scope.where(status: "ready") if settings["filter"] == "ready"
+        { metrics: [ dashboard_metric("watchlist_total", scope.count) ], rows: scope.limit(rows).map { |item| { primary: item.security.ticker, secondary: item.status.humanize, detail: item.thesis } } }
+      when "research.portfolio_news"
+        articles = scoped_news(load_group(:home_news), settings).first(rows)
+        { rows: articles.map { |article| { primary: article[:title], secondary: article[:source], href: article[:url] } } }
+      when "research.upcoming_events"
+        events = scoped_events(load_group(:investment_events), settings).fetch(:events).first(rows)
+        { rows: events.map { |event| { primary: "#{event.ticker} · #{event.title}", secondary: helpers.l(event.date, format: :short) } } }
+      when "research.freshness"
+        snapshots = SecurityResearchSnapshot.includes(:security).where(security_id: dashboard_accessible_securities.map(&:id)).order(updated_at: :desc).limit(rows)
+        { rows: snapshots.map { |snapshot| { primary: snapshot.security.ticker, secondary: helpers.l(snapshot.updated_at, format: :short) } } }
+      end
+
+      data ? { locals: { widget_data: data } } : unavailable_widget(entry, "failed")
+    rescue StandardError => e
+      Rails.logger.warn("[dashboard] granular widget #{entry.key} unavailable: #{e.class}: #{e.message}")
+      unavailable_widget(entry, "failed")
+    end
+
+    def dashboard_income_widget_data(key, settings, rows)
+      review = load_group(:investment_income, settings)
+      return unless review
+
+      case key
+      when "income.summary"
+        { metrics: [ dashboard_metric("income", helpers.investment_money(review.income_total, review.currency)), dashboard_metric("net_contributions", helpers.investment_money(review.net_contributions, review.currency)) ] }
+      when "income.cash_flows"
+        { metrics: [ dashboard_metric("contributions", helpers.investment_money(review.total(:contributions), review.currency)), dashboard_metric("withdrawals", helpers.investment_money(review.total(:withdrawals), review.currency)), dashboard_metric("net_contributions", helpers.investment_money(review.net_contributions, review.currency)) ] }
+      when "income.return_risk"
+        performance = review.money_weighted_return
+        risk = review.risk_metrics
+        { metrics: [ dashboard_metric("money_weighted_return", performance ? helpers.number_to_percentage(performance.rate * 100, precision: 1) : nil), dashboard_metric("volatility", risk ? helpers.number_to_percentage(risk.volatility * 100, precision: 1) : nil), dashboard_metric("max_drawdown", risk ? helpers.number_to_percentage(risk.max_drawdown * 100, precision: 1) : nil) ] }
+      when "income.options_premium", "options.premium_income"
+        premium = review.option_premium
+        { metrics: [ dashboard_metric("net_premium", helpers.investment_money(premium[:net], review.currency)), dashboard_metric("contracts", premium[:count]), dashboard_metric("unavailable", premium[:unconverted]) ] }
+      when "income.monthly"
+        monthly = review.monthly_income.last(rows).reverse
+        { rows: monthly.map { |item| { primary: helpers.l(item.month, format: :month_year), secondary: helpers.investment_money(item.total, review.currency) } } }
+      end
+    end
+
+    def dashboard_tax_widget_data(key, rows)
+      data = load_group(:investment_tax)
+      return unless data
+
+      review = data.fetch(:review)
+      harvest = data.fetch(:harvest)
+      case key
+      when "tax.realized_gains"
+        realized = harvest.realized_year_to_date
+        { metrics: [ dashboard_metric("realized_gain_loss", realized[:amount] ? helpers.format_money(realized[:amount]) : nil), dashboard_metric("measured_sales", realized[:known]), dashboard_metric("unavailable", realized[:unknown]) ] }
+      when "tax.lot_coverage"
+        { metrics: [ dashboard_metric("measured_lots", review.lots.size), dashboard_metric("lot_gaps", review.positions_without_lots + review.unmeasured_count) ] }
+      when "tax.nearing_long_term"
+        { metrics: [ dashboard_metric("approaching_long_term", review.approaching_long_term.size) ], rows: review.approaching_long_term.first(rows).map { |lot| { primary: lot.ticker, secondary: t("pages.dashboard.granular_data.days", count: lot.days_to_long_term), detail: lot.account.name } } }
+      when "tax.harvest_summary"
+        { metrics: [ dashboard_metric("harvest_candidates", harvest.candidates.size), dashboard_metric("measured_loss", helpers.format_money(harvest.totals.loss)), dashboard_metric("unavailable", harvest.unavailable.size) ] }
+      when "tax.harvest_candidates"
+        { rows: harvest.candidates.first(rows).map { |candidate| { primary: candidate.ticker, secondary: helpers.format_money(candidate.loss.abs), detail: candidate.account.name, tone: "text-warning" } } }
+      when "tax.wash_sale_exposure"
+        candidates = harvest.rows.select { |candidate| candidate.wash_flags.any? }
+        { metrics: [ dashboard_metric("wash_sale_exposure", candidates.size) ], rows: candidates.first(rows).map { |candidate| { primary: candidate.ticker, secondary: candidate.wash_flags.map { |flag| flag.kind.to_s.humanize }.uniq.join(" · "), detail: candidate.account.name, tone: "text-warning" } } }
+      end
+    end
+
+    def dashboard_options_widget_data(key, settings, rows)
+      review = load_group(:investment_options, settings)
+      return unless review
+
+      case key
+      when "options.summary"
+        { metrics: [ dashboard_metric("contracts", review.rows.size), dashboard_metric("expiring", review.expiring_soon_count), dashboard_metric("expired", review.expired_count), dashboard_metric("gain_loss", helpers.investment_money(review.total_gain, review.currency)) ] }
+      when "options.expiring"
+        selected = review.rows.select { |row| settings["filter"] == "expired" ? row.expired? : (settings["filter"] == "expiring" ? row.expiring_soon? : row.expired? || row.expiring_soon?) }
+        { rows: selected.first(rows).map { |row| { primary: row.position.contract, secondary: row.position.expiration ? helpers.l(row.position.expiration, format: :long) : nil, detail: row.account.name } } }
+      when "options.contract_ledger"
+        { rows: review.rows.first(rows).map { |row| { primary: row.position.contract, secondary: helpers.investment_money(row.position.gain, row.position.currency), detail: row.account.name } } }
+      when "options.underlying_concentration"
+        groups = review.groups.sort_by { |group| settings["sort"] == "gain" ? -(group.gain || 0) : -group.rows.size }
+        { rows: groups.first(rows).map { |group| { primary: group.underlying, secondary: t("pages.dashboard.granular_data.contract_count", count: group.rows.size), detail: helpers.investment_money(group.gain, group.currency) } } }
+      end
+    end
+
+    def dashboard_metric(key, value)
+      { label: t("pages.dashboard.granular_data.#{key}"), value: value.presence || helpers.unavailable_cell }
+    end
+
+    def dashboard_positions_in_currency(positions, currency)
+      return nil if positions.any? { |position| position.market_value.nil? || position.currency.blank? }
+
+      foreign_currencies = positions.map(&:currency).uniq.reject { |source| source == currency }
+      rates = ExchangeRate.rates_for(foreign_currencies, to: currency, date: Date.current, fallback: nil)
+      positions.map do |position|
+        value = position.market_value.to_d
+        if position.currency != currency
+          rate = rates[position.currency]
+          return nil unless ExchangeRate.valid_rate?(rate)
+
+          value *= rate
+        end
+        [ position, value ]
+      end
+    rescue ArgumentError, TypeError
+      nil
+    end
+
+    def scoped_news(articles, settings)
+      scoped = articles
+      if settings["scope"] == "security"
+        ticker = dashboard_accessible_securities.find { |security| security.id.to_s == settings["security_id"] }&.ticker
+        scoped = scoped.select { |article| Array(article[:tickers]).include?(ticker) }
+      end
+      settings["sort"] == "oldest" ? scoped.reverse : scoped
+    end
+
+    def scoped_events(data, settings)
+      result = data.deep_dup
+      events = result.fetch(:events)
+      if settings["scope"] == "security"
+        ticker = dashboard_accessible_securities.find { |security| security.id.to_s == settings["security_id"] }&.ticker
+        events = events.select { |event| event.ticker == ticker }
+      end
+      filter = settings["filter"]
+      events = events.select { |event| event.event_type == { "earnings" => "earnings", "dividends" => "ex_dividend", "wash_sale" => "wash_sale" }[filter] } unless filter.nil? || filter == "all"
+      result[:events] = events.first(settings.fetch("rows", 5))
+      result
+    end
+
+    def dashboard_widget_workspace_path(entry)
+      allowed = case entry.canonical_route
+      when :portfolio_holdings then %w[account sort dir by]
+      when :investment_income then %w[period]
+      when :tax_lot_review then %w[tab ticker term sort dir]
+      when :options_review then %w[sort dir]
+      when :market_events then %w[from to type]
+      when :research_watchlist_entries then %w[status]
+      when :research_news then %w[scope q source category sentiment ticker sort page]
+      else []
+      end
+      query = request.query_parameters.slice(*allowed)
+
+      return root_path(query.merge(page: nil, view: "decision")) if entry.canonical_route == :investment_decision
+      return unless entry.canonical_route
+
+      public_send("#{entry.canonical_route}_path", query)
     end
 
     def unavailable_widget(entry, reason)
       {
         unavailable: {
           message: t("pages.dashboard.widget_unavailable.#{reason}"),
-          href: entry.canonical_route ? public_send("#{entry.canonical_route}_path") : nil,
-          link_text: entry.canonical_route ? t("pages.dashboard.widget_unavailable.open_#{entry.canonical_route}") : nil
+          href: dashboard_widget_workspace_path(entry),
+          link_text: entry.canonical_route ? t("pages.dashboard.widget_unavailable.open_#{entry.canonical_route}", default: t("pages.dashboard.widgets.open_workspace", title: t(entry.title_key))) : nil
         }
       }
     end
 
     # Memoized per request: a load group is computed the first time a widget
     # from it appears on the page and shared by every later widget in it.
-    def load_group(group)
+    def load_group(group, settings = {})
       @dashboard_load_groups ||= {}
-      return @dashboard_load_groups[group] if @dashboard_load_groups.key?(group)
+      cache_settings = settings.slice("scope", "account_id", "security_id", "period", "grouping", "sort")
+      cache_key = [ group, cache_settings ]
+      return @dashboard_load_groups[cache_key] if @dashboard_load_groups.key?(cache_key)
 
-      @dashboard_load_groups[group] = send("load_#{group}_group")
+      @dashboard_load_groups[cache_key] = send("load_#{group}_group", settings)
     end
 
-    def load_home_news_group
+    def load_home_news_group(_settings = {})
       cached_ticker_news
     end
 
-    def load_home_insights_group
+    def load_home_insights_group(_settings = {})
       Current.user.visible_insights.visible.ordered.limit(Insight::FEED_LIMIT)
     end
 
-    def load_home_net_worth_group
+    def load_home_net_worth_group(_settings = {})
       Current.family.balance_sheet(user: Current.user)
     end
 
-    def load_home_investments_group
+    def load_home_investments_group(_settings = {})
       Current.family.investment_statement(user: Current.user)
     end
 
-    def load_home_cashflow_group
+    def load_home_cashflow_group(_settings = {})
       family_currency = Current.family.currency
 
       # Use IncomeStatement for all cashflow data (now includes categorized trades)
@@ -346,22 +599,92 @@ class PagesController < ApplicationController
 
     # nil when the center itself cannot say whether it is available; the
     # widgets then show their unavailable state rather than failing the page.
-    def load_investment_decision_group
+    def load_investment_decision_group(_settings = {})
       InvestmentDecisionCenter.new(user: Current.user)
     end
 
-    def load_investment_holdings_group
-      InvestmentAllocation.new(user: Current.user, by: params[:by])
+    def load_investment_holdings_group(settings = {})
+      InvestmentAllocation.new(
+        user: Current.user,
+        by: settings["grouping"] || params[:by],
+        account_id: dashboard_setting_account_id(settings)
+      )
     rescue StandardError => e
       Rails.logger.warn("[dashboard] holdings widgets unavailable: #{e.class}: #{e.message}")
       nil
     end
 
-    def load_investment_income_group
-      InvestmentIncomeReview.new(user: Current.user, period: @period)
+    def load_portfolio_holdings_group(settings = {})
+      PortfolioHoldings.new(
+        user: Current.user,
+        account_id: dashboard_setting_account_id(settings),
+        sort: settings["sort"]
+      )
+    rescue StandardError => e
+      Rails.logger.warn("[dashboard] portfolio widgets unavailable: #{e.class}: #{e.message}")
+      nil
+    end
+
+    def load_investment_income_group(settings = {})
+      InvestmentIncomeReview.new(
+        user: Current.user,
+        period: dashboard_setting_period(settings),
+        account_id: dashboard_setting_account_id(settings)
+      )
     rescue StandardError => e
       Rails.logger.warn("[dashboard] income widgets unavailable: #{e.class}: #{e.message}")
       nil
+    end
+
+    def load_investment_tax_group(_settings = {})
+      {
+        review: TaxLotReview.new(user: Current.user),
+        harvest: TaxLossHarvest.new(user: Current.user)
+      }
+    rescue StandardError => e
+      Rails.logger.warn("[dashboard] tax widget unavailable: #{e.class}: #{e.message}")
+      nil
+    end
+
+    def load_investment_options_group(settings = {})
+      OptionsReview.new(user: Current.user, sort: settings["sort"])
+    rescue StandardError => e
+      Rails.logger.warn("[dashboard] options widget unavailable: #{e.class}: #{e.message}")
+      nil
+    end
+
+    def load_investment_events_group(_settings = {})
+      builder = MarketCalendar::EventBuilder.new(accounts: Current.user.accessible_accounts.visible, now: Time.current)
+      events = builder.events
+      wash_events = events.select { |event| event.event_type == "wash_sale" && event.end_date >= Date.current }
+      {
+        events: events.select { |event| event.end_date >= Date.current }.first(5),
+        next_wash_deadline: wash_events.map(&:end_date).min,
+        source_status: builder.wash_sale_status
+      }
+    rescue StandardError => e
+      Rails.logger.warn("[dashboard] market events widget unavailable: #{e.class}: #{e.message}")
+      nil
+    end
+
+    def load_investment_watchlist_group(_settings = {})
+      active = Current.user.research_watchlist_entries.active
+      {
+        status_counts: ResearchWatchlistEntry::STATUSES.index_with { |status| active.where(status: status).count },
+        priority_count: active.where(priority: 1..2).count
+      }
+    rescue StandardError => e
+      Rails.logger.warn("[dashboard] watchlist widget unavailable: #{e.class}: #{e.message}")
+      nil
+    end
+
+    def dashboard_setting_account_id(settings)
+      settings["scope"] == "account" ? settings["account_id"] : nil
+    end
+
+    def dashboard_setting_period(settings)
+      key = { "1m" => "last_30_days", "3m" => "last_90_days", "ytd" => "current_year", "1y" => "last_365_days" }[settings["period"]]
+      key ? Period.from_key(key) : @period
     end
 
     # The add-widget dialog: every registry widget this member may use that is
@@ -372,7 +695,7 @@ class PagesController < ApplicationController
         id: "dashboard-add-widget-dialog-#{page.fetch("id")}",
         url: page_widgets_path(page.fetch("id")),
         page_key: page.fetch("id"),
-        widgets: helpers.dashboard_widget_catalog(except: page.fetch("widgets").map { |widget| widget["key"] })
+        widgets: helpers.dashboard_widget_catalog(existing: page.fetch("widgets").map { |widget| widget["key"] })
       }
     end
 
@@ -388,6 +711,15 @@ class PagesController < ApplicationController
           }
         end,
         create_url: pages_path,
+        templates: Dashboard::PageTemplateRegistry.all.filter_map do |template|
+          next if template.widget_keys.any? { |key| Dashboard::WidgetRegistry.fetch(key).investment_required } && !Current.user.investment_dashboard_access?
+
+          { key: template.key, name: template.name, account_scoped: template.account_scoped? }
+        end,
+        accounts: dashboard_scope_accounts.order(:name).pluck(:name, :id).map { |name, id| { name: name, id: id.to_s } },
+        securities: dashboard_accessible_securities.map { |security| { label: "#{security.ticker} · #{security.name}", id: security.id.to_s } },
+        draft_url: template_drafts_path,
+        apply_draft_url: @dashboard_page.fetch("id").start_with?("p_") && @dashboard_page.fetch("widgets").empty? ? apply_draft_page_path(@dashboard_page.fetch("id")) : nil,
         order_url: order_pages_path,
         can_create: @dashboard_pages.size < User::MAX_DASHBOARD_PAGES,
         can_restore_investments: Current.user.investment_dashboard_access? &&

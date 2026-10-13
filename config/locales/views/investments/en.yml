@@ -1,6 +1,7 @@
 ---
 en:
   investments:
+    back_to_dashboard: "Back to Investments"
     subnav:
       label: Investments
       decision: Overview

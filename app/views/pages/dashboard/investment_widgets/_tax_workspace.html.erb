@@ -1,0 +1,7 @@
+<%# locals: (review:, harvest:) %>
+<div class="grid grid-cols-2 gap-3" data-testid="tax-workspace-widget">
+  <%= investment_stat(t("pages.dashboard.investment_widgets.measured_lots"), review.lots.size, hint: t("pages.dashboard.investment_widgets.lot_gaps", count: review.positions_without_lots + review.unmeasured_count)) %>
+  <%= investment_stat(t("pages.dashboard.investment_widgets.approaching_long_term"), review.approaching_long_term.size) %>
+  <%= investment_stat(t("pages.dashboard.investment_widgets.harvest_candidates"), harvest.candidates.size, tone: harvest.candidates.any? ? "text-warning" : "text-primary") %>
+  <%= investment_stat(t("pages.dashboard.investment_widgets.unavailable_positions"), harvest.unavailable.size, tone: harvest.unavailable.any? ? "text-warning" : "text-primary") %>
+</div>

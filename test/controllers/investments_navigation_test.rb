@@ -61,15 +61,15 @@ class InvestmentsNavigationTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#investment_workspace h1", text: I18n.t("investment_decision_center.title")
   end
 
-  test "the news page is a workspace page: framed, with the sub-navigation and a frame-targeted tab" do
+  test "the news page is the single canonical feed and has a Back to Investments control" do
     get research_news_path
 
     assert_response :success
     assert_select "h1", count: 1
     assert_select "turbo-frame#investment_workspace[target=_top]" do
       assert_select "h1", text: I18n.t("research.news.title"), count: 1
-      assert_select "nav[aria-label=?] a[aria-current=page]", I18n.t("investments.subnav.label"), text: I18n.t("investments.subnav.news")
-      assert_select "nav[aria-label=?] a[href=?][data-turbo-frame=investment_workspace]", I18n.t("investments.subnav.label"), research_news_path
+      assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label"), count: 0
+      assert_select "a[href=?]", root_path(page: "investments"), text: I18n.t("investments.back_to_dashboard"), count: 1
       assert_select "form.grid"
     end
   end

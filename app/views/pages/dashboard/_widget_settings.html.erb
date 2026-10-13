@@ -1,0 +1,21 @@
+<%# locals: (settings:, update_url:, instance_id:) %>
+<details class="relative block" data-action="keydown->dashboard-pages#stopPropagation">
+  <summary class="flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-md text-secondary opacity-0 transition-colors hover:bg-container-inset-hover hover:text-primary focus-ring group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:opacity-100 [&::-webkit-details-marker]:hidden"
+           aria-label="<%= t("pages.dashboard.settings.title") %>">
+    <%= icon("settings-2", size: "sm") %>
+  </summary>
+  <form class="absolute right-0 top-full z-20 mt-1.5 w-72 space-y-3 rounded-xl border border-primary bg-surface p-3 shadow-border-xs"
+        data-action="submit->dashboard-pages#saveWidgetSettings reset->dashboard-pages#resetWidgetSettings"
+        data-url="<%= update_url %>"
+        data-widget-instance-id="<%= instance_id %>">
+    <p class="text-sm font-medium text-primary"><%= t("pages.dashboard.settings.title") %></p>
+    <p class="hidden text-xs text-destructive" role="alert" data-dashboard-pages-target="error"></p>
+
+    <%= render "pages/dashboard/widget_setting_fields", settings: settings, field_id_prefix: "widget-#{instance_id}" %>
+
+    <div class="flex items-center justify-between gap-2 pt-1">
+      <%= render DS::Button.new(type: :reset, variant: "ghost", size: :sm, text: t("pages.dashboard.settings.reset")) %>
+      <%= render DS::Button.new(type: :submit, size: :sm, text: t("pages.dashboard.settings.save")) %>
+    </div>
+  </form>
+</details>

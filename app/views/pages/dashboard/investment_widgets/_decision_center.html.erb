@@ -1,0 +1,13 @@
+<%# locals: (center:) %>
+<% pulse = center.pulse %>
+<% actions = center.actions %>
+<% health = center.source_health %>
+<div class="space-y-4" data-testid="decision-center-widget">
+  <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <%= investment_stat(t("pages.dashboard.investment_widgets.portfolio_value"), pulse&.portfolio_value ? format_money(pulse.portfolio_value) : unavailable_cell) %>
+    <%= investment_stat(t("pages.dashboard.investment_widgets.cash"), pulse&.cash_balance ? format_money(pulse.cash_balance) : unavailable_cell) %>
+    <%= investment_stat(t("pages.dashboard.investment_widgets.needs_review"), actions.nil? ? unavailable_cell : actions.sum(&:count)) %>
+    <%= investment_stat(t("pages.dashboard.investment_widgets.source_health"), health.nil? ? unavailable_cell : health.group_by(&:status).transform_values(&:size).map { |status, count| "#{count} #{status.humanize.downcase}" }.join(" · ")) %>
+  </div>
+  <% if pulse&.as_of %><p class="text-xs <%= pulse.stale ? "text-warning" : "text-secondary" %>"><%= t("pages.dashboard.investment_widgets.as_of", date: l(pulse.as_of, format: :long)) %></p><% else %><p class="text-xs text-warning"><%= t("pages.dashboard.investment_widgets.snapshot_unavailable") %></p><% end %>
+</div>

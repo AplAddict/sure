@@ -2,17 +2,8 @@
 <% content_for :page_title, t("investment_decision_center.title") %>
 
 <%= turbo_frame_tag "investment_workspace", target: "_top" do %>
-  <div class="space-y-1 mb-6 flex gap-4 justify-between items-center lg:items-start">
-    <div class="space-y-1">
-      <h1 class="text-xl lg:text-3xl font-medium text-primary"><%= t("investment_decision_center.title") %></h1>
-      <p class="text-sm lg:text-base text-secondary max-w-3xl"><%= t("investment_decision_center.subtitle") %></p>
-    </div>
-    <div class="flex items-center gap-2">
-      <%= render "pages/dashboard/view_switch", active: "decision" %>
-    </div>
-  </div>
+  <%= render "investments/workspace_header", current: :decision, title: t("investment_decision_center.title"), subtitle: t("investment_decision_center.subtitle") %>
   <div class="space-y-5 pb-6 lg:pb-12">
-  <%= render "investments/subnav", current: :decision %>
 
   <%= render "investments/sections",
         sections: InvestmentSections.new(namespace: "decision", user: Current.user, definitions: [
