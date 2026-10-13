@@ -24,6 +24,43 @@ class UserDashboardPagesTest < ActiveSupport::TestCase
     assert_not @user.reload.preferences.key?("dashboard_pages")
   end
 
+  test "stored widget settings that a later release retired do not block page creation" do
+    @user.update!(preferences: @user.preferences.merge(
+      "dashboard_pages" => [
+        { "id" => "home", "name" => "Home", "widgets" => [
+          { "id" => "w_aaaaaaaaaaaa", "key" => "home.insights_feed", "collapsed" => false,
+            "layout" => { "col_width" => 12, "height" => 3 }, "settings" => { "rows" => 5 } }
+        ] }
+      ],
+      "dashboard_current_page" => "home"
+    ))
+
+    page = @user.create_dashboard_page!("Research", template_key: "research_desk")
+
+    assert_equal "Research", page["name"]
+    stored = @user.reload.preferences["dashboard_pages"]
+    assert_equal %w[home], stored.first(1).map { |entry| entry["id"] }
+    assert_equal({}, stored.first["widgets"].first["settings"])
+    assert_equal 2, stored.size
+  end
+
+  test "member-submitted widget settings stay strict about unknown keys" do
+    @user.update!(preferences: @user.preferences.merge(
+      "dashboard_pages" => [
+        { "id" => "home", "name" => "Home", "widgets" => [
+          { "id" => "w_aaaaaaaaaaaa", "key" => "home.insights_feed", "collapsed" => false,
+            "layout" => { "col_width" => 12, "height" => 3 }, "settings" => {} }
+        ] }
+      ],
+      "dashboard_current_page" => "home"
+    ))
+
+    error = assert_raises(DashboardPageConfigurable::DashboardPagesValidationError) do
+      @user.update_dashboard_widget!("home", "w_aaaaaaaaaaaa", settings: { "rows" => 5 })
+    end
+    assert_match(/unknown widget settings: rows/, error.message)
+  end
+
   test "legacy aliases resolve to system pages" do
     assert_equal "home", @user.resolve_dashboard_page_id("overview")
     assert_equal "investments", @user.resolve_dashboard_page_id("decision")

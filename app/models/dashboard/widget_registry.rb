@@ -27,11 +27,15 @@ module Dashboard
         settings.transform_values(&:default)
       end
 
-      def normalize_settings!(raw, user:, legacy_key: nil, validate_access: true)
+      # `drop_retired` is only for read-forward of already-stored preferences: a
+      # setting that a later release stopped defining must not make the whole saved
+      # dashboard unwritable. Settings submitted by a member are always strict.
+      def normalize_settings!(raw, user:, legacy_key: nil, validate_access: true, drop_retired: false)
         value = raw.nil? ? {} : raw
         raise DashboardPageConfigurable::DashboardPagesValidationError, "settings must be an object" unless value.is_a?(Hash)
 
         supplied = migrate_legacy_settings(value.stringify_keys, legacy_key)
+        supplied = supplied.slice(*settings.keys) if drop_retired
         unknown = supplied.keys - settings.keys
         raise DashboardPageConfigurable::DashboardPagesValidationError, "unknown widget settings: #{unknown.join(', ')}" if unknown.any?
 

@@ -22,15 +22,21 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
 
       assert_includes phone["class"].split, "md:hidden"
       phone_items = phone.xpath("./li")
-      assert_equal 5, phone_items.size
-      assert_equal %w[Home Investments Transactions Reports], phone_items.first(4).map { |item| item.at_xpath("./a//p").text.strip }
+      phone_labels = phone_items.filter_map { |item| item.at_xpath("./a//p")&.text&.strip }
+      investments_label = I18n.t("layouts.application.nav.investments")
+      assert_operator phone_items.size, :<=, 5
+      assert_equal %w[Home Transactions Reports], phone_labels.first(3)
+      refute_includes phone_labels, investments_label
+      refute_includes tablet.xpath("./li/a//p").map { |node| node.text.strip }, investments_label
       assert_equal I18n.t("layouts.application.nav.more"), phone_items.last.at_xpath("./div/button//p").text.strip
       assert_includes tablet["class"].split, "md:flex"
-      assert_operator tablet.xpath("./li").size, :>, 5
+      assert_includes tablet.xpath("./li/a//p").map { |node| node.text.strip }, I18n.t("layouts.application.nav.assistant")
     end
 
     assert_select "[data-testid=mobile-more-nav-dialog] a[href=?]", chats_path, text: /#{Regexp.escape(I18n.t("layouts.application.nav.assistant"))}/
     assert_select "div.hidden.lg\\:block nav a[href=?]", reports_path, minimum: 1
+    assert_select "div.hidden.lg\\:block nav", text: /#{Regexp.escape(I18n.t("layouts.application.nav.investments"))}/
+    refute_includes css_select("[data-testid=mobile-more-nav-dialog]").map(&:text).join, I18n.t("layouts.application.nav.investments")
 
     assert_select "html[data-controller~='viewport']"
     main = css_select("main#main").first
@@ -45,6 +51,20 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_includes disconnect_contract, %Q("#{padding_expression}")
     refute_includes disconnect_contract, 'content.style.removeProperty("padding-bottom")'
     refute_includes disconnect_contract, '"0px"'
+  end
+
+  test "investments pages light Home on phone and tablet bottom bars" do
+    get root_path(page: "investments")
+    assert_response :ok
+    %w[mobile-bottom-nav-items tablet-bottom-nav-items].each do |list|
+      assert_select "[data-testid=#{list}] a[aria-current=page]", count: 1 do |links|
+        assert_equal "Home", links.first.at_css("p").text.strip
+      end
+    end
+
+    get root_path(view: "decision")
+    assert_response :ok
+    assert_select "[data-testid=mobile-bottom-nav-items] a[aria-current=page] p", text: "Home"
   end
 
   test "dashboard" do

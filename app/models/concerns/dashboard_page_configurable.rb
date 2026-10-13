@@ -288,7 +288,8 @@ module DashboardPageConfigurable
             widget["settings"],
             user: self,
             legacy_key: widget["key"],
-            validate_access: validate_access || definition.key != "research.news"
+            validate_access: validate_access || definition.key != "research.news",
+            drop_retired: !validate_access
           )
         }
       end.tap do |widgets|

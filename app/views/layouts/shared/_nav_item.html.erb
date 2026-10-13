@@ -1,4 +1,4 @@
-<%# locals: (name:, path:, icon:, icon_custom:, active:, mobile_only: false, mobile_primary: false, preview: false) %>
+<%# locals: (name:, path:, icon:, icon_custom:, active:, mobile_only: false, desktop_only: false, bottom_active: nil, mobile_primary: false, preview: false) %>
 
 <%= link_to path, class: "space-y-1 group block relative pb-1 focus-ring rounded-lg", aria: { current: ("page" if active) } do %>
   <%= render "layouts/shared/nav_item_face", name: name, icon: icon, icon_custom: icon_custom, active: active, preview: preview %>

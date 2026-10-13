@@ -20,26 +20,39 @@ class InvestmentsNavigationTest < ActionDispatch::IntegrationTest
     respond_to?(:investments_overview_path) ? investments_overview_path : root_path(view: "decision")
   end
 
+  # Investments is a page inside Home, so the phone and tablet bottom bars have no
+  # separate Investments entry and keep Home as the single current destination.
+  def assert_bottom_navs_keep_investments_inside_home
+    %w[mobile-bottom-nav-items tablet-bottom-nav-items].each do |list|
+      assert_select "[data-testid=#{list}] a[href=?]", investments_entry_path, count: 0
+      assert_select "[data-testid=#{list}] a[aria-current=page]", count: 1 do |links|
+        assert_equal root_path, links.first["href"]
+      end
+    end
+  end
+
   test "the main navigation offers Investments and marks it current across the workspace" do
     [ portfolio_holdings_path, tax_lot_review_path, research_news_path, market_events_path ].each do |path|
       get path
 
       assert_response :success, path
-      assert_select "a[href=?][aria-current=page]", investments_entry_path, text: /Investments/, minimum: 1
-      assert_select "a[href=?][aria-current=page]", root_path, count: 0
+      assert_select "div.hidden.lg\\:block nav a[href=?][aria-current=page]", investments_entry_path, text: /Investments/, minimum: 1
+      assert_select "div.hidden.lg\\:block nav a[href=?][aria-current=page]", root_path, count: 0
+      assert_bottom_navs_keep_investments_inside_home
     end
   end
 
   test "Home and Investments are never both current" do
     get root_path(view: "decision")
     assert_response :success
-    assert_select "a[href=?][aria-current=page]", investments_entry_path, minimum: 1
-    assert_select "a[href=?][aria-current=page]", root_path, count: 0
+    assert_select "div.hidden.lg\\:block nav a[href=?][aria-current=page]", investments_entry_path, minimum: 1
+    assert_select "div.hidden.lg\\:block nav a[href=?][aria-current=page]", root_path, count: 0
+    assert_bottom_navs_keep_investments_inside_home
 
     get root_path(view: "overview")
     assert_response :success
-    assert_select "a[href=?][aria-current=page]", root_path, minimum: 1
-    assert_select "a[href=?][aria-current=page]", investments_entry_path, count: 0
+    assert_select "div.hidden.lg\\:block nav a[href=?][aria-current=page]", root_path, minimum: 1
+    assert_select "div.hidden.lg\\:block nav a[href=?][aria-current=page]", investments_entry_path, count: 0
 
     get transactions_path
     assert_select "a[href=?][aria-current=page]", investments_entry_path, count: 0
