@@ -280,17 +280,27 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_no_match(/Decision Brokerage/, response.body)
   end
 
-  test "the chosen view is remembered per user and does not leak to others" do
+  test "GET view selection does not persist and explicit page selection stays per user" do
     sign_in @owner
+    owner_original = @owner.preferences.deep_dup
+    member_original = @member.preferences.deep_dup
+
     get root_path(view: "decision")
-    assert_equal "decision", @owner.reload.dashboard_view
-    assert_equal "overview", @member.reload.dashboard_view
+    assert_response :success
+    assert_equal owner_original, @owner.reload.preferences
+    assert_equal member_original, @member.reload.preferences
+
+    patch current_pages_path, params: { page_id: "investments" }, as: :json
+    assert_response :success
+    assert_equal "investments", @owner.reload.preferences.fetch("dashboard_current_page")
+    assert_equal member_original, @member.reload.preferences
 
     get root_path
     assert_select "h1", text: I18n.t("investment_decision_center.title")
 
     get root_path(view: "overview")
-    assert_equal "overview", @owner.reload.dashboard_view
+    assert_response :success
+    assert_equal "investments", @owner.reload.preferences.fetch("dashboard_current_page")
   end
 
   test "a hover prefetch does not change the saved view" do

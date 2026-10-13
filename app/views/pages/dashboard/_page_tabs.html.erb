@@ -1,9 +1,13 @@
 <%# locals: (pages:, current:, frame: "_top") %>
-<nav aria-label="<%= t("pages.dashboard.pages.label") %>" class="mb-4 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1" data-testid="dashboard-page-tabs">
+<nav aria-label="<%= t("pages.dashboard.pages.label") %>"
+     class="mb-4 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1"
+     data-testid="dashboard-page-tabs"
+     data-controller="dashboard-pages"
+     data-dashboard-pages-current-page-url-value="<%= current_pages_path %>">
   <% pages.each do |page| %>
     <%= link_to page[:title], page[:path],
           class: "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium focus-ring pointer-coarse:py-2.5 #{current == page[:key] ? "bg-container-inset text-primary" : "text-secondary hover:bg-container-inset-hover hover:text-primary"}",
           aria: { current: (current == page[:key] ? "page" : nil) },
-          data: { turbo_frame: frame, turbo_action: "advance", turbo_prefetch: false, dashboard_page_key: page[:key] } %>
+          data: { action: "click->dashboard-pages#selectPage", turbo_frame: frame, turbo_action: "advance", turbo_prefetch: false, dashboard_page_key: page[:key] } %>
   <% end %>
 </nav>

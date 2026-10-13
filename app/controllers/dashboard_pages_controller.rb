@@ -39,7 +39,12 @@ class DashboardPagesController < ApplicationController
 
   private
     def page_params
-      params.fetch(:page, ActionController::Parameters.new).permit(:id, :name)
+      raw = params.fetch(:page, ActionController::Parameters.new)
+      unless raw.respond_to?(:permit)
+        raise DashboardPageConfigurable::DashboardPagesValidationError, "page must be an object"
+      end
+
+      raw.permit(:id, :name)
     end
 
     def render_validation_error(error)

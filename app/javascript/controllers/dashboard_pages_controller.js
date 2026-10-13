@@ -2,7 +2,24 @@ import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
   static targets = ["error", "pageRow"];
-  static values = { returnUrl: String, homeUrl: String };
+  static values = {
+    returnUrl: String,
+    homeUrl: String,
+    currentPageUrl: String,
+  };
+
+  async selectPage(event) {
+    event.preventDefault();
+    const link = event.currentTarget;
+    const visit = () => this._visit(link.href);
+
+    await this._request(this.currentPageUrlValue, {
+      method: "PATCH",
+      body: { page_id: link.dataset.dashboardPageKey },
+      success: visit,
+      failure: visit,
+    });
+  }
 
   async addWidget(event) {
     const button = event.currentTarget;

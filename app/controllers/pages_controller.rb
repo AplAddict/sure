@@ -21,9 +21,6 @@ class PagesController < ApplicationController
       @decision_center = InvestmentDecisionCenter.new(user: Current.user)
       if @decision_center.available?
         @dashboard_view = "decision"
-        unless prefetch_request? || Current.user.dashboard_view == "decision"
-          Current.user.update_dashboard_preferences("dashboard_view" => "decision")
-        end
         @breadcrumbs = [ [ t("breadcrumbs.home"), root_path ], [ t("investment_decision_center.breadcrumb"), nil ] ]
         render :decision_center and return
       end
@@ -102,7 +99,7 @@ class PagesController < ApplicationController
     end
 
     # Resolve the new page id first, with legacy view aliases kept read-forward.
-    # A prefetch never changes preferences. Unknown, deleted, or currently
+    # GET requests never change preferences. Unknown, deleted, or currently
     # inaccessible pages fall back to Home without persisting that fallback.
     def resolve_dashboard_view
       pages = @dashboard_pages
@@ -111,24 +108,11 @@ class PagesController < ApplicationController
       if requested_page
         candidate = User::DASHBOARD_PAGE_ALIASES.fetch(requested_page.to_s, requested_page.to_s)
         page = pages.find { |item| item["id"] == candidate }
-        if page
-          Current.user.select_dashboard_page!(candidate) unless prefetch_request? || Current.user.dashboard_current_page == candidate
-        else
-          page = pages.find { |item| item["id"] == "home" }
-        end
+        page ||= pages.find { |item| item["id"] == "home" }
       else
         requested_view = params[:view].to_s
         if User::DASHBOARD_PAGE_ALIASES.key?(requested_view)
           candidate = User::DASHBOARD_PAGE_ALIASES.fetch(requested_view)
-          candidate_available = pages.any? { |item| item["id"] == candidate }
-          if candidate_available
-            unless prefetch_request? || Current.user.dashboard_view == requested_view
-              Current.user.update_dashboard_preferences("dashboard_view" => requested_view)
-            end
-            unless prefetch_request? || Current.user.dashboard_current_page == candidate
-              Current.user.select_dashboard_page!(candidate)
-            end
-          end
         else
           candidate = Current.user.dashboard_current_page
         end
@@ -141,10 +125,6 @@ class PagesController < ApplicationController
       # access, so its presence is the access check; the legacy "decision" lens
       # name keeps the main navigation's Home/Investments highlighting intact.
       @dashboard_page_id == "investments" ? "decision" : "overview"
-    end
-
-    def prefetch_request?
-      request.headers["X-Sec-Purpose"] == "prefetch" || request.headers["Sec-Purpose"].to_s.include?("prefetch")
     end
 
     def cached_ticker_news

@@ -134,6 +134,27 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "home", custom_id, "investments" ], JSON.parse(response.body).fetch("pages").map { |page| page.fetch("id") }
   end
 
+  test "malformed page and widget objects return validation errors without storage" do
+    custom = @user.create_dashboard_page!("Payloads")
+    original = @user.reload.preferences.deep_dup
+    requests = [
+      [ :post, pages_path, :page ],
+      [ :patch, page_path(custom.fetch("id")), :page ],
+      [ :post, page_widgets_path(custom.fetch("id")), :widget ],
+      [ :patch, page_widget_path("home", "home.balance_sheet"), :widget ]
+    ]
+
+    requests.each do |method, path, root_key|
+      [ "invalid", [], nil ].each do |payload|
+        public_send(method, path, params: { root_key => payload }, as: :json)
+
+        assert_response :unprocessable_entity, "expected #{method.upcase} #{path} with #{payload.inspect}"
+        assert_equal "validation_failed", JSON.parse(response.body).fetch("error")
+        assert_equal original, @user.reload.preferences
+      end
+    end
+  end
+
   test "invalid payload returns 422 without partial storage" do
     original = @user.preferences.deep_dup
 
@@ -183,26 +204,45 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "page resolver handles aliases and prefetch without persistence" do
+    original = @user.preferences.deep_dup
+
     get root_path(page: "decision"), headers: { "Sec-Purpose" => "prefetch" }
 
     assert_response :success
     assert_match I18n.t("investment_decision_center.title"), response.body
-    assert_not @user.reload.preferences.key?("dashboard_pages")
-    assert_nil @user.preferences["dashboard_current_page"]
+    assert_equal original, @user.reload.preferences
   end
 
-  test "legacy view aliases preserve the detailed decision workspace and overview" do
-    get root_path(view: "decision")
+  test "GET page and legacy view selectors render without changing preferences" do
+    original = @user.preferences.deep_dup
 
+    get root_path(page: "investments")
     assert_response :success
-    assert_equal "decision", @user.reload.dashboard_view
+    assert_select "[data-testid=dashboard-page-tabs][data-dashboard-pages-current-page-url-value=?]", current_pages_path
+    assert_select "[data-testid=dashboard-page-tabs] a[aria-current=page][data-dashboard-page-key=investments][data-action='click->dashboard-pages#selectPage']"
+    assert_equal original, @user.reload.preferences
+
+    get root_path(view: "decision")
+    assert_response :success
     assert_select "turbo-frame#investment_workspace h1", text: I18n.t("investment_decision_center.title")
+    assert_select "[data-dashboard-pages-current-page-url-value=?] a[data-dashboard-page-key=home][data-action='click->dashboard-pages#selectPage']", current_pages_path
+    assert_equal original, @user.reload.preferences
 
     get root_path(view: "overview")
+    assert_response :success
+    assert_select "[data-testid=dashboard-page-tabs] a[aria-current=page][data-dashboard-page-key=home]"
+    assert_equal original, @user.reload.preferences
+  end
+
+  test "the current page endpoint explicitly persists selection" do
+    original = @user.preferences.deep_dup
+
+    patch current_pages_path, params: { page_id: "investments" }, as: :json
 
     assert_response :success
-    assert_equal "overview", @user.reload.dashboard_view
-    assert_select "[data-testid=dashboard-page-tabs] a[aria-current=page][data-dashboard-page-key=home]"
+    assert_equal "investments", JSON.parse(response.body).fetch("current_page")
+    assert_equal "investments", @user.reload.preferences.fetch("dashboard_current_page")
+    assert_not_equal original, @user.preferences
   end
 
   test "unknown page falls back to Home without persistence" do

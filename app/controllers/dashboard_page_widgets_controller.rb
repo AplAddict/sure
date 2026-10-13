@@ -30,6 +30,10 @@ class DashboardPageWidgetsController < ApplicationController
   private
     def widget_params
       raw = params.fetch(:widget, ActionController::Parameters.new)
+      unless raw.respond_to?(:permit)
+        raise DashboardPageConfigurable::DashboardPagesValidationError, "widget must be an object"
+      end
+
       permitted = raw.permit(:key, :collapsed).to_h
       if raw.key?(:layout)
         layout = raw[:layout]
