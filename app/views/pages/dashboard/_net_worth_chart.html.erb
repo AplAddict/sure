@@ -1,6 +1,9 @@
-<%# locals: (balance_sheet:, period:, **args) %>
+<%# locals: (balance_sheet:, period:, widget_id: "net-worth-chart", chart_id: "netWorthChart", **args) %>
+<%# `widget_id`/`chart_id` make each instance's DOM ids unique when the widget
+    appears more than once (a second homepage page); the defaults are the
+    historical ids of the single dashboard. %>
 
-<div id="net-worth-chart">
+<div id="<%= widget_id %>">
   <% series = balance_sheet.net_worth_series(period: period) %>
   <div class="flex justify-between gap-4 px-4">
     <div class="space-y-2">
@@ -17,7 +20,7 @@
 
   <% if series.any? %>
     <div
-    id="netWorthChart"
+    id="<%= chart_id %>"
     class="w-full min-h-52 privacy-sensitive"
     style="height: var(--dash-widget-h, 13rem);"
     data-controller="time-series-chart"

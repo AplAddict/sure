@@ -1,4 +1,4 @@
-<%# locals: (spending_trend_data:) %>
+<%# locals: (spending_trend_data:, widget_id: "spending-trend-section") %>
 <%
   data = spending_trend_data
   period = data[:current_period]
@@ -15,7 +15,7 @@
   previous_comparison_day = data[:previous_comparison_day]
   date_range_short = data[:date_range_short]
 %>
-<div id="spending-trend-section" class="px-4 space-y-4">
+<div id="<%= widget_id %>" class="px-4 space-y-4">
   <div class="flex items-center justify-between gap-3">
     <p class="text-sm text-secondary hidden sm:block">
       <%= t(".date_range", start_date: l(period.date_range.begin, format: :long), end_date: l(period.date_range.end, format: :long)) %>

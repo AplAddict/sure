@@ -1,0 +1,35 @@
+<%# locals: (id:, url:, page_key:, widgets:) %>
+<%# "Add a widget" dialog. `widgets` is the list of widgets that can still be
+    added to the page, as { key:, title:, description: nil } hashes (see
+    DashboardHelper#dashboard_widget_catalog); choosing one POSTs `widget_key`
+    and `page_key` to `url`, which the caller resolves from a named route. The
+    dialog is closed until something calls showModal() on it: pair it with an
+    `expandable` controller whose open action sits on the trigger button. %>
+<%= render DS::Dialog.new(id: id, auto_open: false, disable_frame: true, data: { testid: "dashboard-add-widget-dialog", expandable_target: "dialog" }) do |dialog| %>
+  <% dialog.with_header(title: t("pages.dashboard.widgets.add_title"), subtitle: t("pages.dashboard.widgets.add_description")) %>
+  <% dialog.with_body do %>
+    <% if widgets.empty? %>
+      <%= render DS::EmptyState.new(icon: "layout-grid", title: t("pages.dashboard.widgets.none_left_title"), description: t("pages.dashboard.widgets.none_left_description")) %>
+    <% else %>
+      <ul class="divide-y divide-tertiary" data-testid="dashboard-widget-catalog">
+        <% widgets.each do |widget| %>
+          <li class="flex items-center justify-between gap-3 py-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-primary"><%= widget[:title] %></p>
+              <% if widget[:description].present? %>
+                <p class="text-xs text-secondary"><%= widget[:description] %></p>
+              <% end %>
+            </div>
+            <%= button_to url, params: { page_key: page_key, widget_key: widget[:key] },
+                  class: "shrink-0 rounded-lg border border-tertiary px-3 py-1.5 pointer-coarse:py-2.5 text-sm font-medium text-primary hover:bg-container-inset-hover focus-ring cursor-pointer",
+                  form: { data: { turbo_frame: "_top" } },
+                  data: { dashboard_widget_key: widget[:key] },
+                  aria: { label: t("pages.dashboard.widgets.add_to_page", title: widget[:title]) } do %>
+              <%= t("pages.dashboard.widgets.add") %>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+<% end %>

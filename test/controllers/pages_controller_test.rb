@@ -51,6 +51,18 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_select "section[data-section-key] [class*='group-hover:opacity-100']:not([class*='pointer-coarse:opacity-100'])", count: 0
   end
 
+  test "dashboard sections and widgets keep their ids and each section has a unique id" do
+    get root_path
+
+    assert_response :ok
+    ids = css_select("section[data-section-key]").map { |section| section["id"] }
+    assert_equal ids.uniq, ids
+    assert_select "section#dashboard-section-net_worth_chart #net-worth-chart #netWorthChart"
+    assert_select "section#dashboard-section-balance_sheet #balance-sheet"
+    assert_select "[data-testid=dashboard-header-actions] a[href=?]", new_account_path, minimum: 1
+    assert_select "[data-testid=dashboard-add-widget]", count: 0
+  end
+
   test "dashboard investment summary lists balance-only investment accounts as positions" do
     pension = @family.accounts.create!(
       name: "Workplace Pension", balance: 4000, cash_balance: 0, currency: "USD",

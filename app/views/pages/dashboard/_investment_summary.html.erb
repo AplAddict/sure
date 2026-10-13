@@ -1,7 +1,7 @@
-<%# locals: (investment_statement:, period:, **args) %>
+<%# locals: (investment_statement:, period:, widget_id: "investment-summary", **args) %>
 
 <% if investment_statement.investment_accounts.any? %>
-  <div id="investment-summary" class="space-y-4">
+  <div id="<%= widget_id %>" class="space-y-4">
     <div class="flex justify-between gap-4 px-4">
       <div class="space-y-2">
         <div class="flex items-center gap-2">

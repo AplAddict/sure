@@ -1,5 +1,7 @@
-<%# locals: (outflows_data:, period:) %>
-<div id="outflows-donut-section" class="@container">
+<%# locals: (outflows_data:, period:, widget_id: "outflows-donut-section") %>
+<%# The segment_<id> templates below are looked up inside the donut-chart
+    controller's own element, so they are already scoped per instance. %>
+<div id="<%= widget_id %>" class="@container">
   <div class="px-4">
     <div class="flex flex-col @2xl:flex-row gap-8 items-center">
       <!-- Donut Chart -->

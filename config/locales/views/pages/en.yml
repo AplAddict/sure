@@ -45,6 +45,15 @@ en:
       section_label: "%{title} section. Press Enter or Space to grab for reordering, then use arrow keys to move."
       drag_to_reorder: "Drag to reorder section"
       toggle_section: "Toggle section visibility"
+      pages:
+        label: "Dashboard pages"
+      widgets:
+        add: "Add widget"
+        add_title: "Add a widget"
+        add_description: "Choose a widget for this page. You can reorder, resize or collapse it afterwards."
+        add_to_page: "Add %{title} to this page"
+        none_left_title: "Every widget is already on this page"
+        none_left_description: "Remove a widget to make room for another."
       widget_size:
         label: "Adjust size"
         width_label: "Width"

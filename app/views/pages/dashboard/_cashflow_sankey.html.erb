@@ -1,10 +1,10 @@
-<%# locals: (sankey_data:, period:) %>
-<div id="cashflow-sankey-chart">
+<%# locals: (sankey_data:, period:, widget_id: "cashflow-sankey-chart", dialog_id: "cashflow-expanded-dialog") %>
+<div id="<%= widget_id %>">
   <% if sankey_data[:links].present? %>
     <div class="w-full h-96">
       <%= render "pages/dashboard/cashflow_sankey_chart", sankey_data: sankey_data, period: period %>
     </div>
-    <%= render DS::Dialog.new(id: "cashflow-expanded-dialog", auto_open: false, width: "expanded", disable_frame: true, data: { action: "close->cashflow-expand#restore" }) do |dialog| %>
+    <%= render DS::Dialog.new(id: dialog_id, auto_open: false, width: "expanded", disable_frame: true, data: { action: "close->cashflow-expand#restore" }) do |dialog| %>
       <% dialog.with_header(title: t("pages.dashboard.cashflow_sankey.title")) %>
       <% dialog.with_body do %>
         <div class="w-full h-[85dvh] max-h-[90dvh] overflow-y-auto overscroll-contain">

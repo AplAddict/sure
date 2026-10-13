@@ -9,26 +9,12 @@
       </p>
     </div>
 
-    <div class="flex items-center gap-2">
-      <% if @decision_available %>
-        <%= render "pages/dashboard/view_switch", active: "overview" %>
-      <% end %>
-      <%= render DS::Link.new(
-        icon: "plus",
-        text: t("pages.dashboard.new"),
-        href: new_account_path,
-        frame: :modal,
-        class: "hidden lg:inline-flex"
-      ) %>
-
-      <%= render DS::Link.new(
-          variant: "icon-inverse",
-          icon: "plus",
-          href: new_account_path,
-          frame: :modal,
-          class: "rounded-full lg:hidden"
-        ) %>
-    </div>
+    <%# `add_widget:` stays nil until the homepage has pages a member can edit;
+        the shell for that (pages/dashboard/_page_tabs, _header_actions,
+        _add_widget_dialog, _empty_page) takes explicit locals, so wiring it is a
+        matter of passing { id:, url:, page_key:, widgets: } from a named route
+        and dashboard_widget_catalog. %>
+    <%= render "pages/dashboard/header_actions", show_view_switch: @decision_available %>
   </div>
 <% end %>
 
@@ -44,7 +30,12 @@
   <% if accessible_accounts.any? %>
     <% @dashboard_sections.each do |section| %>
       <% next unless section[:visible] %>
+      <%# Each widget instance owns a DOM id prefix. A section's partial takes
+          `widget_id:` (and its own inner ids derived from it) so a second copy
+          of the same widget on another page cannot collide; this single
+          dashboard keeps the partials' historical default ids. %>
       <section
+        id="<%= section[:dom_id] || "dashboard-section-#{section[:key]}" %>"
         class="bg-container rounded-xl shadow-border-xs transition-all group focus-ring<%= " 2xl:col-span-2" if two_column && section[:layout][:col_span] == "full" %>"
         style="<%= "--dash-widget-h: #{section[:layout][:height_px]}px;" if section[:layout][:grow] %>"
         data-dashboard-sortable-target="section"
