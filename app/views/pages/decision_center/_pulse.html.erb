@@ -1,0 +1,50 @@
+<%# locals: (pulse:) %>
+<%# Portfolio pulse: value, cash, day change and unrealized gain. `pulse` is
+    InvestmentDecisionCenter#pulse, or nil when that section failed to load. %>
+<div class="space-y-4">
+  <% if pulse.nil? %>
+    <p class="text-sm text-secondary" data-testid="idc-pulse-unavailable"><%= t("investment_decision_center.section_unavailable") %></p>
+  <% else %>
+    <div class="flex flex-wrap items-baseline justify-end gap-2">
+      <% if pulse.as_of %>
+        <p class="text-xs <%= pulse.stale ? "text-warning" : "text-secondary" %>">
+          <%= pulse.stale ? t("investment_decision_center.pulse.stale", date: l(pulse.as_of, format: :long)) : t("investment_decision_center.pulse.as_of", date: l(pulse.as_of, format: :long)) %>
+        </p>
+      <% else %>
+        <p class="text-xs text-warning"><%= t("investment_decision_center.pulse.no_holdings_date") %></p>
+      <% end %>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div>
+        <p class="text-xs text-secondary"><%= t("investment_decision_center.pulse.portfolio_value") %></p>
+        <p class="mt-1 text-2xl font-medium text-primary privacy-sensitive"><%= pulse.portfolio_value ? format_money(pulse.portfolio_value) : "—" %></p>
+        <p class="text-xs text-subdued"><span class="privacy-sensitive"><%= pulse.holdings_value ? format_money(pulse.holdings_value) : "—" %></span> · <%= t("investment_decision_center.pulse.holdings") %></p>
+      </div>
+      <div>
+        <p class="text-xs text-secondary"><%= t("investment_decision_center.pulse.cash") %></p>
+        <p class="mt-1 text-2xl font-medium text-primary privacy-sensitive"><%= pulse.cash_balance ? format_money(pulse.cash_balance) : "—" %></p>
+      </div>
+      <div>
+        <p class="text-xs text-secondary"><%= t("investment_decision_center.pulse.day_change") %></p>
+        <% if pulse.day_change %>
+          <p class="mt-1 text-2xl font-medium privacy-sensitive" style="color: <%= pulse.day_change.color %>"><%= format_money(pulse.day_change.value) %></p>
+          <p class="text-xs text-secondary"><%= pulse.day_change.percent_formatted %></p>
+        <% else %>
+          <p class="mt-1 text-2xl font-medium text-secondary" title="<%= t("investment_decision_center.pulse.unavailable_hint") %>">—</p>
+          <p class="text-xs text-subdued"><%= t("investment_decision_center.pulse.unavailable") %></p>
+        <% end %>
+      </div>
+      <div>
+        <p class="text-xs text-secondary"><%= t("investment_decision_center.pulse.unrealized") %></p>
+        <% if pulse.unrealized %>
+          <p class="mt-1 text-2xl font-medium privacy-sensitive" style="color: <%= pulse.unrealized.color %>"><%= format_money(pulse.unrealized.value) %></p>
+          <p class="text-xs text-secondary"><%= pulse.unrealized.percent_formatted %></p>
+        <% else %>
+          <p class="mt-1 text-2xl font-medium text-secondary" title="<%= t("investment_decision_center.pulse.unavailable_hint") %>">—</p>
+          <p class="text-xs text-subdued"><%= t("investment_decision_center.pulse.unavailable") %></p>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>

@@ -1,0 +1,9 @@
+<%# locals: (review:) %>
+<%# Contract count, expiry warnings and the net unrealized gain of an
+    OptionsReview. The total is only shown when every contract has a figure. %>
+<div class="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="options-summary">
+  <%= investment_stat(t("options_reviews.show.summary.contracts"), review.rows.size) %>
+  <%= investment_stat(t("options_reviews.show.summary.expiring"), review.expiring_soon_count, tone: review.expiring_soon_count.positive? ? "text-warning" : "text-primary") %>
+  <%= investment_stat(t("options_reviews.show.summary.expired"), review.expired_count, hint: (review.expired_count.positive? ? t("options_reviews.show.summary.expired_hint") : nil), tone: review.expired_count.positive? ? "text-destructive" : "text-primary") %>
+  <%= investment_stat(t("options_reviews.show.summary.total_gain"), investment_gain(review.total_gain, review.currency, title: t("options_reviews.show.summary.total_gain_unavailable")), hint: (review.total_gain.nil? ? t("options_reviews.show.summary.total_gain_unavailable") : nil)) %>
+</div>

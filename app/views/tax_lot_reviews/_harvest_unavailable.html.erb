@@ -1,0 +1,20 @@
+<%# locals: (unavailable:) %>
+<%# Positions left out of every harvest total, each with the reason. `unavailable`
+    is TaxLossHarvest#unavailable (ticker, account, reason). Rendered flush. %>
+<div>
+  <div class="border-b border-tertiary px-4 py-3">
+    <h2 class="text-sm font-medium text-primary"><%= t("tax_loss_harvests.show.unavailable.title") %> · <%= unavailable.size %></h2>
+    <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.unavailable.description") %></p>
+  </div>
+  <ul class="divide-y divide-tertiary">
+    <% unavailable.each do |item| %>
+      <li class="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+        <span class="min-w-0 truncate">
+          <%= link_to item.ticker, research_ticker_path(item.ticker), class: "font-semibold text-link hover:underline" %>
+          <span class="text-secondary"> · <%= item.account.name %></span>
+        </span>
+        <span class="shrink-0 text-xs text-warning"><%= t("tax_loss_harvests.show.unavailable.#{item.reason}") %></span>
+      </li>
+    <% end %>
+  </ul>
+</div>
