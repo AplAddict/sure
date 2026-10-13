@@ -1,0 +1,12 @@
+<%# locals: (source_health:) %>
+<%# Freshness of each evidence source. `source_health` is
+    InvestmentDecisionCenter#source_health, or nil when it failed to load.
+    Rendered flush: the list draws its own row rules. %>
+<div data-testid="idc-source-health">
+  <p class="px-4 py-3 text-xs text-secondary border-b border-tertiary"><%= t("investment_decision_center.source_health.description") %></p>
+  <% if source_health.nil? %>
+    <p class="px-4 py-4 text-sm text-secondary"><%= t("investment_decision_center.section_unavailable") %></p>
+  <% else %>
+    <ul class="divide-y divide-tertiary"><% source_health.each do |source| %><li class="flex items-center justify-between gap-3 px-4 py-3"><div><p class="text-sm font-medium text-primary"><%= source.label %></p><p class="text-xs text-secondary"><%= source.detail %></p></div><%= render DS::Pill.new(label: source.status.humanize, tone: (source.status == "current" ? :success : source.status == "stale" ? :warning : :error), marker: false, size: :sm) %></li><% end %></ul>
+  <% end %>
+</div>

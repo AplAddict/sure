@@ -94,6 +94,14 @@ class InvestmentSectionsTest < ActionDispatch::IntegrationTest
     assert_select "[data-reports-sortable-target=section][aria-grabbed]", count: 0
   end
 
+  test "section header controls grow to a 44px target on touch screens" do
+    get investment_income_path
+
+    assert_response :success
+    assert_select "button[data-reports-sortable-target=handle][class*='pointer-coarse:p-3.5']", count: 5
+    assert_select "button[data-reports-section-target=button][class*='pointer-coarse:p-3.5']", count: 5
+  end
+
   test "a reset layout control is offered" do
     get investment_income_path
     assert_select %(button[data-action="click->reports-sortable#reset"]), text: /Reset layout/

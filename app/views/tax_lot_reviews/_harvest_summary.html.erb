@@ -1,0 +1,42 @@
+<%# locals: (harvest:) %>
+<%# Headline figures of a TaxLossHarvest plus the "how to read this" boundary.
+    Realized gains are shown as unavailable, never zero, when no sale could be
+    measured. %>
+<% totals = harvest.totals %>
+<% realized = harvest.realized_year_to_date %>
+<% unmeasured = realized[:unknown] %>
+<div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
+  <div class="rounded-xl bg-container p-3 shadow-border-xs">
+    <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.summary.candidates") %></p>
+    <p class="mt-1 text-xl font-semibold text-primary"><%= totals.candidate_count %></p>
+    <p class="text-xs text-subdued"><%= t("tax_loss_harvests.show.summary.candidates_hint", pct: TaxLossHarvest::CANDIDATE_LOSS_PCT.to_i) %></p>
+  </div>
+  <div class="rounded-xl bg-container p-3 shadow-border-xs">
+    <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.summary.total_loss") %></p>
+    <p class="mt-1 text-xl font-semibold text-primary privacy-sensitive"><%= totals.loss.format %></p>
+    <p class="text-xs text-subdued"><%= t("tax_loss_harvests.show.summary.total_loss_hint") %></p>
+  </div>
+  <div class="rounded-xl bg-container p-3 shadow-border-xs">
+    <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.summary.short_term") %></p>
+    <p class="mt-1 text-xl font-semibold text-primary privacy-sensitive"><%= totals.short_term_loss.format %></p>
+    <p class="text-xs text-subdued"><%= t("tax_loss_harvests.show.summary.long_term") %>: <span class="privacy-sensitive"><%= totals.long_term_loss.format %></span></p>
+    <% if totals.unknown_term_loss.amount.positive? %>
+      <p class="text-xs text-warning"><%= t("tax_loss_harvests.show.summary.unknown_term") %>: <span class="privacy-sensitive"><%= totals.unknown_term_loss.format %></span></p>
+    <% end %>
+  </div>
+  <div class="rounded-xl bg-container p-3 shadow-border-xs">
+    <p class="text-xs text-secondary"><%= t("tax_loss_harvests.show.summary.realized") %></p>
+    <p class="mt-1 text-xl font-semibold text-primary" data-testid="realized-ytd"><%= realized[:amount] ? tag.span(realized[:amount].format, class: "privacy-sensitive") : unavailable_cell(t("tax_loss_harvests.show.summary.realized_unavailable")) %></p>
+    <p class="text-xs <%= unmeasured.positive? ? "text-warning" : "text-subdued" %>">
+      <%= unmeasured.positive? ? t("tax_loss_harvests.show.summary.realized_hint", count: unmeasured) : t("tax_loss_harvests.show.summary.realized_known") %>
+    </p>
+  </div>
+</div>
+
+<div class="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm">
+  <p class="font-medium text-primary"><%= t("tax_loss_harvests.show.boundary.title") %></p>
+  <p class="mt-1 text-secondary"><%= t("tax_loss_harvests.show.boundary.body") %></p>
+  <% if harvest.excluded_account_count.positive? %>
+    <p class="mt-2 text-secondary"><%= t("tax_loss_harvests.show.scope_note", count: harvest.excluded_account_count) %></p>
+  <% end %>
+</div>

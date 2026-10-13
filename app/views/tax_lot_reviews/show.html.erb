@@ -22,8 +22,6 @@
     <%= render "harvest", harvest: @harvest %>
   <% else %>
     <% review = @review %>
-    <% totals = review.totals %>
-    <% currency = review.currency %>
   <% if review.excluded_account_count.positive? %>
     <p class="text-xs text-secondary"><%= t(".excluded", count: review.excluded_account_count) %></p>
   <% end %>
@@ -50,120 +48,13 @@
   <% if review.lots.empty? %>
     <%= render DS::EmptyState.new(icon: "briefcase", title: t(".empty_title"), description: t(".empty_description")) %>
   <% else %>
-    <% sort_th = lambda do |label, key, align: :left|
-         sortable_header(label, key, sort: review.sort, direction: review.direction,
-                         default_direction: (%w[ticker account acquired term].include?(key) ? "asc" : "desc"),
-                         align: align, css: "px-4 py-3", link_data: { turbo_frame: "investment_workspace", turbo_action: "advance" }) do |sort_key, dir|
-           tax_lot_review_path(request.query_parameters.merge("sort" => sort_key, "dir" => dir).except("format"))
-         end
-       end %>
-    <% contents = {} %>
-    <% contents["totals"] = capture do %>
-    <div class="space-y-3">
-      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <%= investment_stat t(".short_gains"), investment_money(totals[:short_gain], currency), tone: gain_tone_class(totals[:short_gain]) %>
-        <%= investment_stat t(".short_losses"), investment_money(totals[:short_loss], currency), tone: (totals[:short_loss].positive? ? "text-destructive" : "text-primary") %>
-        <%= investment_stat t(".long_gains"), investment_money(totals[:long_gain], currency), tone: gain_tone_class(totals[:long_gain]) %>
-        <%= investment_stat t(".long_losses"), investment_money(totals[:long_loss], currency), tone: (totals[:long_loss].positive? ? "text-destructive" : "text-primary") %>
-      </div>
-    </div>
-    <% end %>
-    <% contents["soon"] = capture do %>
-    <div class="space-y-3">
-      <% soon = review.approaching_long_term %>
-      <% if soon.empty? %>
-        <p class="text-sm text-secondary"><%= t(".soon_empty") %></p>
-      <% else %>
-        <div class="overflow-x-auto rounded-xl bg-container shadow-border-xs">
-          <table class="w-full min-w-[40rem] text-sm">
-            <caption class="sr-only"><%= t(".soon_caption") %></caption>
-            <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary">
-              <tr>
-                <th scope="col" class="px-4 py-3"><%= t(".columns.ticker") %></th>
-                <th scope="col" class="px-4 py-3"><%= t(".columns.account") %></th>
-                <th scope="col" class="px-4 py-3"><%= t(".columns.acquired") %></th>
-                <th scope="col" class="px-4 py-3"><%= t(".columns.long_term_in") %></th>
-                <th scope="col" class="px-4 py-3 text-right"><%= t(".columns.unrealized") %></th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-tertiary">
-              <% soon.each do |lot| %>
-                <tr>
-                  <td class="px-4 py-3 font-mono font-medium"><%= link_to lot.ticker, research_ticker_path(lot.ticker), class: "hover:underline" %></td>
-                  <td class="px-4 py-3"><%= lot.account.name %></td>
-                  <td class="px-4 py-3"><%= l(lot.acquired_on) %></td>
-                  <td class="px-4 py-3"><%= t(".days", count: lot.days_to_long_term) %></td>
-                  <td class="px-4 py-3 text-right font-mono"><%= investment_gain(lot.gain, lot.currency) %></td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-      <% end %>
-    </div>
-    <% end %>
-    <% contents["lots"] = capture do %>
-    <div class="space-y-3">
-      <div class="flex flex-wrap items-end justify-end gap-3">
-        <%= link_to t(".filter.download"), tax_lot_review_path(request.query_parameters.except("tab", "format", "sort", "dir").merge(format: :csv)), class: "text-sm font-medium text-link hover:underline focus-ring rounded", data: { turbo: false } %>
-      </div>
-      <%= form_with url: tax_lot_review_path, method: :get, class: "flex flex-wrap items-end gap-3", data: { turbo_frame: "investment_workspace" } do |f| %>
-        <%= f.hidden_field :sort, value: review.sort %>
-        <%= f.hidden_field :dir, value: review.direction %>
-        <div>
-          <%= f.label :ticker, t(".filter.ticker"), class: "block text-xs text-secondary" %>
-          <%= f.text_field :ticker, value: review.ticker, placeholder: t(".filter.ticker_placeholder"), maxlength: 20, class: "mt-1 w-40 rounded-lg border border-tertiary bg-container px-3 py-2 text-sm text-primary focus-ring" %>
-        </div>
-        <div>
-          <%= f.label :term, t(".filter.term"), class: "block text-xs text-secondary" %>
-          <%= f.select :term, [ [ t(".filter.any_term"), "" ], [ t(".term.short"), "short" ], [ t(".term.long"), "long" ] ], { selected: review.term.to_s }, class: "mt-1 rounded-lg border border-tertiary bg-container px-3 py-2 text-sm text-primary focus-ring" %>
-        </div>
-        <%= f.submit t(".filter.apply"), class: "rounded-lg border border-tertiary px-4 py-2 text-sm font-medium text-primary cursor-pointer" %>
-        <% if review.filtered? %><%= link_to t(".filter.clear"), tax_lot_review_path, class: "py-2 text-sm text-secondary hover:underline", data: { turbo_frame: "investment_workspace" } %><% end %>
-      <% end %>
-      <% if review.filtered? %>
-        <p class="text-xs text-secondary" data-testid="lots-filter-note" role="status"><%= review.visible_lots.empty? ? t(".filter.none_match") : t(".filter.showing", shown: review.visible_lots.size, total: review.lots.size) %></p>
-      <% end %>
-      <div class="overflow-x-auto rounded-xl bg-container shadow-border-xs">
-        <table class="w-full min-w-[52rem] text-sm" data-testid="lots-table">
-          <caption class="sr-only"><%= t(".lots_caption") %></caption>
-          <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary">
-            <tr>
-              <%= sort_th.call(t(".columns.ticker"), "ticker") %>
-              <%= sort_th.call(t(".columns.account"), "account") %>
-              <%= sort_th.call(t(".columns.acquired"), "acquired") %>
-              <%= sort_th.call(t(".columns.term"), "term") %>
-              <%= sort_th.call(t(".columns.quantity"), "quantity", align: :right) %>
-              <%= sort_th.call(t(".columns.cost_basis"), "cost_basis", align: :right) %>
-              <%= sort_th.call(t(".columns.value"), "market_value", align: :right) %>
-              <%= sort_th.call(t(".columns.gain"), "gain", align: :right) %>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-tertiary">
-            <% review.visible_lots.each do |lot| %>
-              <tr>
-                <td class="px-4 py-3 font-mono font-medium"><%= link_to lot.ticker, research_ticker_path(lot.ticker), class: "hover:underline" %></td>
-                <td class="px-4 py-3"><%= lot.account.name %></td>
-                <td class="px-4 py-3"><%= l(lot.acquired_on) %></td>
-                <td class="px-4 py-3"><%= t(".term.#{lot.term}") %></td>
-                <td class="px-4 py-3 text-right font-mono"><%= investment_quantity(lot.quantity) %></td>
-                <td class="px-4 py-3 text-right font-mono"><%= investment_money(lot.cost_basis, lot.currency) %></td>
-                <td class="px-4 py-3 text-right font-mono"><%= investment_money(lot.market_value, lot.currency) %></td>
-                <td class="px-4 py-3 text-right font-mono"><%= investment_gain(lot.gain, lot.currency, percent: lot.gain_pct) %></td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <% end %>
     <%= render "investments/sections",
           sections: InvestmentSections.new(namespace: "tax_lots", user: Current.user, definitions: [
-            { key: "totals", title: t(".totals_heading") },
-            { key: "soon", title: t(".soon_heading", days: review.window_days) },
-            { key: "lots", title: t(".lots_heading") }
+            { key: "totals", title: t(".totals_heading"), partial: "tax_lot_reviews/totals", locals: { totals: review.totals, currency: review.currency } },
+            { key: "soon", title: t(".soon_heading", days: review.window_days), partial: "tax_lot_reviews/soon", locals: { soon: review.approaching_long_term } },
+            { key: "lots", title: t(".lots_heading"), partial: "tax_lot_reviews/lots", locals: { review: review } }
           ]),
-          contents: contents, namespace: "tax_lots",
+          namespace: "tax_lots",
           url: investment_section_preferences_path("tax_lots"), preference_key: "investments_tax_lots" %>
   <% end %>
   <% end %>

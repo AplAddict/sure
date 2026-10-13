@@ -12,7 +12,8 @@ class InvestmentsSubnavTest < ActionDispatch::IntegrationTest
 
   {
     portfolio_holdings: :holdings, investment_income: :income, tax_lot_review: :tax_lots,
-    options_review: :options, market_events: :events, research_watchlist_entries: :watchlist
+    options_review: :options, market_events: :events, research_watchlist_entries: :watchlist,
+    research_news: :news
   }.each do |route, key|
     test "#{route} shows the investments sub-navigation with itself marked current" do
       get public_send("#{route}_path")
@@ -25,11 +26,19 @@ class InvestmentsSubnavTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the sub-navigation uses one consistent set of labels" do
+    get portfolio_holdings_path
+
+    assert_response :success
+    labels = css_select("nav[aria-label='#{I18n.t("investments.subnav.label")}'] a").map { |link| link.text.strip }
+    assert_equal [ "Overview", "Holdings", "Performance", "Tax Lots", "Options", "Market Events", "Watchlist", "News" ], labels
+  end
+
   # Tab links swap the investment_workspace frame, so every page must render
   # its heading and the sub-navigation inside that frame: anything outside it
   # would stay on screen, stale, after a tab click (the previous page's title
   # above the new page's content, and two tab strips marking different tabs).
-  %w[portfolio_holdings investment_income tax_lot_review options_review market_events research_watchlist_entries].each do |route|
+  %w[portfolio_holdings investment_income tax_lot_review options_review market_events research_watchlist_entries research_news].each do |route|
     test "#{route} renders its single heading and sub-navigation inside the workspace frame" do
       get public_send("#{route}_path")
 

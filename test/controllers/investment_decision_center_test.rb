@@ -209,11 +209,9 @@ class InvestmentDecisionCenterTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#investment_workspace" do
       assert_select "nav[aria-label=?]", I18n.t("investments.subnav.label") do
         [ portfolio_holdings_path, investment_income_path, tax_lot_review_path, options_review_path,
-          market_events_path, research_watchlist_entries_path ].each do |path|
+          market_events_path, research_watchlist_entries_path, research_news_path ].each do |path|
           assert_select "a[href=?][data-turbo-frame=investment_workspace]", path
         end
-        assert_select "a[href=?]", research_news_path
-        assert_select "a[href=?][data-turbo-frame]", research_news_path, count: 0
       end
     end
   end

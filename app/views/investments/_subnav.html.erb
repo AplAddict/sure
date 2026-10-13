@@ -1,5 +1,5 @@
 <%# locals: (current:) %>
-<%# One navigation strip shared by every investment page, so none of them is reachable only from the Decision Center.
+<%# One navigation strip shared by every investment page, so none of them is reachable only from the Overview.
     Links swap the investment_workspace frame, so every page renders this strip and its heading INSIDE that frame;
     anything left outside it would stay on screen, stale, after a tab click. %>
 <nav aria-label="<%= t("investments.subnav.label") %>" class="mb-4 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
@@ -14,8 +14,8 @@
        [ :news, t("investments.subnav.news"), research_news_path ]
      ].each do |key, label, path| %>
     <%= link_to label, path,
-          class: "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium focus-ring #{current == key ? "bg-container-inset text-primary" : "text-secondary hover:text-primary hover:bg-container-inset-hover"}",
+          class: "shrink-0 rounded-lg px-3 py-1.5 pointer-coarse:py-2.5 text-sm font-medium focus-ring #{current == key ? "bg-container-inset text-primary" : "text-secondary hover:text-primary hover:bg-container-inset-hover"}",
           aria: { current: (current == key ? "page" : nil) },
-          data: (key == :news ? {} : { turbo_frame: "investment_workspace", turbo_action: "advance" }) %>
+          data: { turbo_frame: "investment_workspace", turbo_action: "advance" } %>
   <% end %>
 </nav>

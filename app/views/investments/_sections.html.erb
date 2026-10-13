@@ -1,12 +1,15 @@
-<%# locals: (sections:, namespace:, url:, preference_key:, contents: {}) %>
+<%# locals: (sections:, namespace:, url:, preference_key:) %>
 <%# Drag-to-reorder + collapsible sections for an Investments page. Order and
     collapsed state are saved per member. Reuses the Reports section controllers
-    (their names are historical), so keyboard and touch reordering come with it. %>
+    (their names are historical), so keyboard and touch reordering come with it.
+    Every section is a named partial with explicit locals (section[:partial],
+    section[:locals]); section[:flush] drops the content padding for tables and
+    lists that draw their own edges. %>
 <div data-controller="reports-sortable"
      data-reports-sortable-url-value="<%= url %>"
      data-reports-sortable-preference-key-value="<%= preference_key %>">
 <div class="flex justify-end mb-2">
-  <button type="button" class="text-xs font-medium text-secondary hover:text-primary hover:underline focus-ring rounded px-1"
+  <button type="button" class="text-xs font-medium text-secondary hover:text-primary hover:underline focus-ring rounded px-1 pointer-coarse:min-h-11"
           data-action="click->reports-sortable#reset">
     <%= t("investments.sections.reset") %>
   </button>
@@ -30,7 +33,7 @@
       data-action="dragstart->reports-sortable#dragStart dragend->reports-sortable#dragEnd keydown->reports-sortable#handleKeyDown">
       <div class="px-4 py-2 flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <button type="button" class="text-secondary hover:text-primary transition-colors p-2 -m-1 rounded focus-ring"
+          <button type="button" class="text-secondary hover:text-primary transition-colors p-2 -m-1 pointer-coarse:p-3.5 pointer-coarse:-m-2.5 rounded focus-ring"
                   data-action="click->reports-section#toggle keydown->reports-section#handleToggleKeydown"
                   data-reports-section-target="button"
                   aria-label="<%= t("investments.sections.toggle", title: section[:title]) %>" aria-expanded="<%= !collapsed %>">
@@ -38,7 +41,7 @@
           </button>
           <h2 class="text-base font-medium text-primary"><%= section[:title] %></h2>
         </div>
-        <button type="button" class="touch-none cursor-grab active:cursor-grabbing text-secondary hover:text-primary transition-colors p-2 -m-1 rounded focus-ring"
+        <button type="button" class="touch-none cursor-grab active:cursor-grabbing text-secondary hover:text-primary transition-colors p-2 -m-1 pointer-coarse:p-3.5 pointer-coarse:-m-2.5 rounded focus-ring"
                 data-reports-sortable-target="handle"
                 data-action="touchstart->reports-sortable#touchStart touchmove->reports-sortable#touchMove:!passive touchend->reports-sortable#touchEnd touchcancel->reports-sortable#touchEnd"
                 aria-label="<%= t("investments.sections.drag") %>">
@@ -46,11 +49,7 @@
         </button>
       </div>
       <div class="<%= section[:flush] ? "" : "p-4" %>" data-reports-section-target="content">
-        <% if contents.key?(section[:key]) %>
-          <%= contents[section[:key]] %>
-        <% else %>
-          <%= render partial: section[:partial], locals: section[:locals] %>
-        <% end %>
+        <%= render partial: section[:partial], locals: section[:locals] || {} %>
       </div>
     </section>
   <% end %>

@@ -1,6 +1,6 @@
-<%# locals: (balance_sheet:, **args) %>
+<%# locals: (balance_sheet:, widget_id: "balance-sheet", **args) %>
 
-<div class="space-y-6" id="balance-sheet"
+<div class="space-y-6" id="<%= widget_id %>"
      data-always-expanded="<%= Current.user.always_expanded_account_groups.to_json %>">
 
   <% balance_sheet.classification_groups.each do |classification_group| %>
@@ -153,8 +153,10 @@
 <% if balance_sheet.classification_groups.any? { |cg| cg.account_groups.any? } %>
 <script nonce="<%= content_security_policy_nonce %>">
   (function () {
-    var section = document.querySelector('section[data-section-key="balance_sheet"]');
-    var root = document.getElementById("balance-sheet");
+    // Resolve this instance by its own id and walk up to its section, so a
+    // second balance sheet on another page wires its own button.
+    var root = document.getElementById("<%= j widget_id %>");
+    var section = root && root.closest("section[data-section-key]");
     var button = section && section.querySelector("[data-balance-sheet-expand-all]");
     if (!button) return;
 

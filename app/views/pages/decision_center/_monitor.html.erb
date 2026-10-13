@@ -1,0 +1,50 @@
+<%# locals: (top_holdings:, center:) %>
+<%# Largest positions to keep an eye on. `top_holdings` is
+    InvestmentDecisionCenter#top_holdings (nil when it failed to load); `center`
+    is the InvestmentDecisionCenter, asked whether each holding is concentrated.
+    Rendered flush. %>
+<div>
+  <% if top_holdings.nil? %>
+    <p class="px-4 py-6 text-sm text-secondary" data-testid="idc-monitor-unavailable"><%= t("investment_decision_center.section_unavailable") %></p>
+  <% elsif top_holdings.empty? %>
+    <p class="px-4 py-6 text-sm text-secondary"><%= t("investment_decision_center.monitor.empty") %></p>
+  <% else %>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-container-inset text-xs uppercase text-secondary">
+          <tr>
+            <th scope="col" class="px-4 py-2 text-left font-medium"><%= t("investment_decision_center.monitor.holding") %></th>
+            <th scope="col" class="px-4 py-2 text-right font-medium"><%= t("investment_decision_center.monitor.weight") %></th>
+            <th scope="col" class="px-4 py-2 text-right font-medium"><%= t("investment_decision_center.monitor.value") %></th>
+            <th scope="col" class="px-4 py-2 text-right font-medium"><%= t("investment_decision_center.monitor.return") %></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-tertiary">
+          <% top_holdings.each do |holding| %>
+            <tr>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap items-center gap-2">
+                  <%= link_to holding.ticker, research_ticker_path(holding.ticker), class: "font-semibold text-link hover:underline" %>
+                  <% if center.concentrated?(holding) %>
+                    <%= render DS::Pill.new(label: t("investment_decision_center.monitor.concentrated"), tone: :warning, marker: false, size: :sm) %>
+                  <% end %>
+                </div>
+                <p class="max-w-[16rem] truncate text-xs text-secondary"><%= holding.name %></p>
+              </td>
+              <td class="px-4 py-3 text-right font-mono"><%= format_optional_percentage(holding.weight, precision: 1) %></td>
+              <td class="px-4 py-3 text-right font-mono privacy-sensitive"><%= format_money(holding.amount) %></td>
+              <td class="px-4 py-3 text-right font-mono">
+                <% if holding.trend %>
+                  <span class="privacy-sensitive" style="color: <%= holding.trend.color %>"><%= format_money(holding.trend.value) %></span>
+                  <p class="text-xs text-secondary"><%= holding.trend.percent_formatted %></p>
+                <% else %>
+                  <span class="text-secondary" title="<%= t("investment_decision_center.monitor.return_unavailable") %>">—</span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>

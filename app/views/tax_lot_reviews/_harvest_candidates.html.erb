@@ -1,0 +1,64 @@
+<%# locals: (rows:) %>
+<%# Positions at a loss with holding period and wash-sale checks. `rows` is
+    TaxLossHarvest#rows. Rendered flush: the table draws its own edges. %>
+<% if rows.empty? %>
+  <div>
+    <%= render DS::EmptyState.new(icon: "circle-check", title: t("tax_loss_harvests.show.empty.title"), description: t("tax_loss_harvests.show.empty.description")) %>
+  </div>
+<% else %>
+  <div class="overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <caption class="sr-only"><%= t("tax_loss_harvests.show.table.caption") %></caption>
+        <thead class="bg-container-inset text-xs uppercase tracking-wide text-secondary">
+          <tr>
+            <th scope="col" class="px-4 py-2 text-left font-medium"><%= t("tax_loss_harvests.show.table.security") %></th>
+            <th scope="col" class="hidden px-4 py-2 text-left font-medium lg:table-cell"><%= t("tax_loss_harvests.show.table.account") %></th>
+            <th scope="col" class="hidden px-4 py-2 text-right font-medium md:table-cell"><%= t("tax_loss_harvests.show.table.value") %></th>
+            <th scope="col" class="hidden px-4 py-2 text-right font-medium md:table-cell"><%= t("tax_loss_harvests.show.table.cost") %></th>
+            <th scope="col" class="px-4 py-2 text-right font-medium"><%= t("tax_loss_harvests.show.table.loss") %></th>
+            <th scope="col" class="hidden px-4 py-2 text-left font-medium md:table-cell"><%= t("tax_loss_harvests.show.table.term") %></th>
+            <th scope="col" class="hidden px-4 py-2 text-left font-medium md:table-cell"><%= t("tax_loss_harvests.show.table.status") %></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-tertiary">
+          <% rows.each do |row| %>
+            <tr class="align-top">
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap items-center gap-2">
+                  <%= link_to row.ticker, research_ticker_path(row.ticker), class: "font-semibold text-link hover:underline" %>
+                  <% if row.candidate %><%= render DS::Pill.new(label: t("tax_loss_harvests.show.table.candidate"), tone: :warning, marker: false, size: :sm) %><% end %>
+                </div>
+                <p class="max-w-[14rem] truncate text-xs text-secondary"><%= row.name %></p>
+                <p class="mt-0.5 truncate text-xs text-subdued lg:hidden"><%= link_to row.account.name, account_path(row.account), class: "hover:underline" %></p>
+                <p class="mt-1 text-xs text-secondary md:hidden"><%= t("tax_loss_harvests.show.term.#{row.term}") %></p>
+                <div class="mt-1 text-xs md:hidden"><%= render "tax_loss_harvests/wash_flags", flags: row.wash_flags %></div>
+              </td>
+              <td class="hidden px-4 py-3 text-secondary lg:table-cell"><%= link_to row.account.name, account_path(row.account), class: "hover:underline" %></td>
+              <td class="hidden px-4 py-3 text-right font-mono privacy-sensitive md:table-cell"><%= row.market_value.format %></td>
+              <td class="hidden px-4 py-3 text-right font-mono privacy-sensitive md:table-cell"><%= row.cost_basis.format %></td>
+              <td class="px-4 py-3 text-right font-mono text-primary">
+                <span class="privacy-sensitive"><%= row.loss.format %></span>
+                <% if row.loss_pct %><p class="text-xs text-secondary"><%= number_to_percentage(row.loss_pct, precision: 1) %></p><% end %>
+              </td>
+              <td class="hidden px-4 py-3 md:table-cell">
+                <% if row.term == :unknown %>
+                  <%= render DS::Pill.new(label: t("tax_loss_harvests.show.term.unknown"), tone: :neutral, marker: false, size: :sm, title: t("tax_loss_harvests.show.term.unknown_hint")) %>
+                <% elsif row.term == :mixed %>
+                  <%= render DS::Pill.new(label: t("tax_loss_harvests.show.term.mixed"), tone: :info, marker: false, size: :sm) %>
+                  <p class="mt-1 text-xs text-secondary"><%= t("tax_loss_harvests.show.term.mixed_detail", long: row.long_term_qty.round(4).to_s("F"), short: row.short_term_qty.round(4).to_s("F")) %></p>
+                <% else %>
+                  <%= render DS::Pill.new(label: t("tax_loss_harvests.show.term.#{row.term}"), tone: row.term == :long ? :success : :neutral, marker: false, size: :sm) %>
+                <% end %>
+                <% if row.first_acquired %><p class="mt-1 text-xs text-subdued"><%= l(row.first_acquired, format: :long) %></p><% end %>
+              </td>
+              <td class="hidden px-4 py-3 text-xs md:table-cell">
+                <%= render "tax_loss_harvests/wash_flags", flags: row.wash_flags %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% end %>

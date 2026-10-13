@@ -1,0 +1,45 @@
+<%# locals: (actions:) %>
+<%# Prompts that need a decision. `actions` is InvestmentDecisionCenter#actions:
+    nil when the list failed to load (never shown as "nothing to do"), [] when
+    there is genuinely nothing waiting. Rendered flush. %>
+<div>
+  <% if actions.nil? %>
+    <p class="px-4 py-6 text-sm text-secondary" data-testid="idc-actions-unavailable"><%= t("investment_decision_center.section_unavailable") %></p>
+  <% elsif actions.empty? %>
+    <%= render DS::EmptyState.new(
+      icon: "circle-check",
+      title: t("investment_decision_center.actions.none_title"),
+      description: t("investment_decision_center.actions.none_description")
+    ) %>
+  <% else %>
+    <ul class="divide-y divide-tertiary">
+      <% actions.each do |action| %>
+        <% href = case action.kind
+                  when :harvest then tax_lot_review_path(tab: "harvest")
+                  when :cost_basis then tax_lot_review_path
+                  when :wash_sale then market_events_path(type: "wash_sale")
+                  when :events then market_events_path
+                  end %>
+        <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-primary"><%= t("investment_decision_center.actions.#{action.kind}.title") %></p>
+            <p class="text-xs text-secondary">
+              <% case action.kind %>
+              <% when :harvest %>
+                <span class="privacy-sensitive"><%= t("investment_decision_center.actions.harvest.detail", count: action.count, loss: action.detail.format) %></span>
+              <% when :wash_sale %>
+                <%= t("investment_decision_center.actions.wash_sale.detail", count: action.count) %><% if action.detail.positive? %> · <%= t("investment_decision_center.actions.wash_sale.replaced", count: action.detail) %><% end %>
+              <% when :events %>
+                <%= t("investment_decision_center.actions.events.detail", count: action.count, tickers: action.detail.to_sentence) %>
+              <% when :cost_basis %>
+                <%= t("investment_decision_center.actions.cost_basis.detail", count: action.count, tickers: action.detail.to_sentence) %>
+              <% end %>
+            </p>
+          </div>
+          <%= render DS::Link.new(text: t("investment_decision_center.actions.review"), href: href, variant: "outline", size: "sm") %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+  <p class="px-4 py-2 text-xs text-secondary bg-container-inset rounded-b-xl"><%= t("investment_decision_center.actions.boundary") %></p>
+</div>

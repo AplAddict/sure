@@ -1,0 +1,45 @@
+<%# locals: (show_view_switch: false, add_widget: nil) %>
+<%# The homepage header's right-hand controls: the Overview/Investments lens
+    switch, an optional "Add widget" button with its dialog, and the New
+    account links. `add_widget` is nil until the page can be edited; when it is
+    a { id:, url:, page_key:, widgets: } hash the button and dialog render,
+    paired by the `expandable` controller that wraps them both. %>
+<div class="flex items-center gap-2" data-testid="dashboard-header-actions">
+  <% if show_view_switch %>
+    <%= render "pages/dashboard/view_switch", active: "overview" %>
+  <% end %>
+  <% if add_widget %>
+    <div data-controller="expandable" class="inline-flex">
+      <%= render DS::Button.new(
+        variant: "outline",
+        icon: "layout-grid",
+        text: t("pages.dashboard.widgets.add"),
+        class: "hidden lg:inline-flex",
+        data: { action: "click->expandable#open", testid: "dashboard-add-widget" }
+      ) %>
+      <%= render DS::Button.new(
+        variant: "icon",
+        icon: "layout-grid",
+        class: "lg:hidden",
+        aria_label: t("pages.dashboard.widgets.add"),
+        data: { action: "click->expandable#open" }
+      ) %>
+      <%= render "pages/dashboard/add_widget_dialog", **add_widget %>
+    </div>
+  <% end %>
+  <%= render DS::Link.new(
+    icon: "plus",
+    text: t("pages.dashboard.new"),
+    href: new_account_path,
+    frame: :modal,
+    class: "hidden lg:inline-flex"
+  ) %>
+
+  <%= render DS::Link.new(
+      variant: "icon-inverse",
+      icon: "plus",
+      href: new_account_path,
+      frame: :modal,
+      class: "rounded-full lg:hidden"
+    ) %>
+</div>

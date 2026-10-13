@@ -1,0 +1,11 @@
+<%# locals: (totals:, currency:) %>
+<%# Unrealized gains and losses by holding period. `totals` is
+    TaxLotReview#totals (short_gain, short_loss, long_gain, long_loss). %>
+<div class="space-y-3">
+  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <%= investment_stat t("tax_lot_reviews.show.short_gains"), investment_money(totals[:short_gain], currency), tone: gain_tone_class(totals[:short_gain]) %>
+    <%= investment_stat t("tax_lot_reviews.show.short_losses"), investment_money(totals[:short_loss], currency), tone: (totals[:short_loss].positive? ? "text-destructive" : "text-primary") %>
+    <%= investment_stat t("tax_lot_reviews.show.long_gains"), investment_money(totals[:long_gain], currency), tone: gain_tone_class(totals[:long_gain]) %>
+    <%= investment_stat t("tax_lot_reviews.show.long_losses"), investment_money(totals[:long_loss], currency), tone: (totals[:long_loss].positive? ? "text-destructive" : "text-primary") %>
+  </div>
+</div>

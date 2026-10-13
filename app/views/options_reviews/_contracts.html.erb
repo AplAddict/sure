@@ -1,0 +1,72 @@
+<%# locals: (review:) %>
+<%# Every open contract of an OptionsReview, grouped by underlying with a
+    measured-only subtotal. Column headers sort via review.sort / review.direction
+    and advance the URL so the order survives a reload. %>
+<% sort_th = lambda do |label, key, align: :left, css: "px-4 py-3"|
+     sortable_header(label, key, sort: review.sort, direction: review.direction, default_direction: "asc",
+                     align: align, css: css, link_data: { turbo_action: "advance" }) do |sort_key, dir|
+       options_review_path(sort: sort_key, dir: dir)
+     end
+   end %>
+<div class="overflow-x-auto">
+  <table class="w-full min-w-[56rem] text-sm">
+    <caption class="sr-only"><%= t("options_reviews.show.caption") %></caption>
+    <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary">
+      <tr>
+        <%= sort_th.call(t("options_reviews.show.columns.contract"), "contract", css: "sticky left-0 z-10 bg-container px-4 py-3") %>
+        <%= sort_th.call(t("options_reviews.show.columns.account"), "account") %>
+        <%= sort_th.call(t("options_reviews.show.columns.underlying"), "underlying") %>
+        <th scope="col" class="px-4 py-3"><%= t("options_reviews.show.columns.type") %></th>
+        <%= sort_th.call(t("options_reviews.show.columns.expiry"), "expiry") %>
+        <th scope="col" class="px-4 py-3 text-right"><%= t("options_reviews.show.columns.strike") %></th>
+        <th scope="col" class="px-4 py-3 text-right"><%= t("options_reviews.show.columns.quantity") %></th>
+        <th scope="col" class="px-4 py-3 text-right"><%= t("options_reviews.show.columns.mark") %></th>
+        <th scope="col" class="px-4 py-3 text-right"><%= t("options_reviews.show.columns.cost_basis") %></th>
+        <%= sort_th.call(t("options_reviews.show.columns.gain"), "gain", align: :right) %>
+        <th scope="col" class="px-4 py-3"><%= t("options_reviews.show.columns.snapshot") %></th>
+      </tr>
+    </thead>
+    <% review.groups.each do |group| %>
+      <tbody class="divide-y divide-tertiary border-t border-tertiary" data-testid="options-group" data-underlying="<%= group.underlying %>">
+        <tr class="bg-container-inset">
+          <th scope="colgroup" colspan="9" class="sticky left-0 px-4 py-2 text-left text-sm font-semibold text-primary">
+            <%= group.underlying %> <span class="ml-1 text-xs font-normal text-secondary"><%= t("options_reviews.show.group.contracts", count: group.rows.size) %></span>
+          </th>
+          <td colspan="2" class="px-4 py-2 text-right text-xs" data-testid="options-subtotal">
+            <span class="text-secondary"><%= t("options_reviews.show.group.subtotal") %></span>
+            <span class="ml-1 font-mono"><%= investment_gain(group.gain, group.currency, title: t("options_reviews.show.group.unmeasured", count: group.unmeasured_count)) %></span>
+          </td>
+        </tr>
+        <% group.rows.each do |row| %>
+          <% position = row.position %>
+          <% days = position.days_to_expiry %>
+          <tr>
+            <td class="sticky left-0 z-10 bg-container px-4 py-3 font-mono text-primary whitespace-nowrap"><%= position.contract %></td>
+            <td class="px-4 py-3 font-medium text-primary"><%= row.account.name %></td>
+            <td class="px-4 py-3"><%= position.underlying || "—" %></td>
+            <td class="px-4 py-3"><%= position.type || "—" %></td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <% if position.expiration %>
+                <%= l(position.expiration) %> · <%= t("options_reviews.show.dte", count: days) %>
+                <% if row.expired? %>
+                  <span data-testid="option-expired"><%= render DS::Pill.new(label: t("options_reviews.show.expired_ago", count: days.abs), tone: :error, marker: false, size: :sm) %></span>
+                <% elsif row.expiring_soon? %>
+                  <span data-testid="option-expiry-soon"><%= render DS::Pill.new(label: t("options_reviews.show.expires_in", count: days), tone: :warning, marker: false, size: :sm) %></span>
+                <% end %>
+              <% else %>—<% end %>
+            </td>
+            <td class="px-4 py-3 text-right font-mono"><%= investment_money(position.strike, position.currency) %></td>
+            <td class="px-4 py-3 text-right font-mono"><%= investment_quantity(position.quantity) %></td>
+            <td class="px-4 py-3 text-right font-mono"><%= investment_money(position.mark, position.currency) %></td>
+            <td class="px-4 py-3 text-right font-mono"><%= investment_money(position.cost_total, position.currency) %></td>
+            <td class="px-4 py-3 text-right font-mono"><%= investment_gain(position.gain, position.currency, percent: position.gain_pct, title: t("options_reviews.show.gain_unavailable")) %></td>
+            <td class="px-4 py-3 text-xs">
+              <%= freshness_pill(row.freshness) %>
+              <% if row.synced_at %><span class="ml-1 text-secondary"><%= t("options_reviews.show.synced_ago", time: time_ago_in_words(row.synced_at)) %></span><% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    <% end %>
+  </table>
+</div>
