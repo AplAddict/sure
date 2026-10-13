@@ -2,7 +2,9 @@
 <% issues = allocation.data_quality %>
 <div class="space-y-4" data-testid="holdings-widget">
   <div class="grid grid-cols-2 gap-3">
-    <%= investment_stat(t("pages.dashboard.investment_widgets.measured_value"), investment_money(allocation.total, currency)) %>
+    <% largest = allocation.segments.reject { |segment| InvestmentAllocation::FIXED_LABELS.include?(segment.label) }.first %>
+    <%# Portfolio value lives in the Decision Center / Portfolio pulse widget; this one leads with concentration. %>
+    <%= investment_stat(t("pages.dashboard.investment_widgets.largest_slice"), largest&.weight ? number_to_percentage(largest.weight, precision: 1) : unavailable_cell, hint: largest&.label) %>
     <%= investment_stat(t("pages.dashboard.investment_widgets.data_issues"), issues.size, hint: (allocation.excluded_count.positive? ? t("pages.dashboard.investment_widgets.fx_excluded", count: allocation.excluded_count) : nil), tone: issues.any? ? "text-warning" : "text-primary") %>
   </div>
   <% if allocation.segments.any? %>

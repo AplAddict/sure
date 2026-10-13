@@ -157,7 +157,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :ok
     assert_select "section[data-widget-key='portfolio.top_holdings'] [data-testid='granular-investment-widget'] .grid > div", count: 1 do |tiles|
-      assert_includes tiles.first.text, I18n.t("pages.dashboard.granular_data.measured_value")
+      assert_includes tiles.first.text, I18n.t("pages.dashboard.granular_data.top_share")
       assert_equal "—", tiles.first.css("p").last.text
     end
     assert_select "section[data-widget-key='portfolio.largest_position'] [data-testid='granular-investment-widget'] .grid > div", count: 1 do |tiles|
@@ -166,7 +166,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "same-currency holdings preserve an actual zero total" do
+  test "a zero-value portfolio has no defined share and renders unavailable, not a fake percentage" do
     zero_account = @family.accounts.create!(
       name: "Zero Brokerage", balance: 0, cash_balance: 0, currency: "USD",
       accountable: Investment.new, owner: @user
@@ -187,8 +187,51 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :ok
     assert_select "section[data-widget-key='portfolio.top_holdings'] [data-testid='granular-investment-widget'] .grid > div", count: 1 do |tiles|
-      assert_not_equal "—", tiles.first.css("p").last.text
-      assert_includes tiles.first.css("p").last.text, "0"
+      assert_includes tiles.first.text, I18n.t("pages.dashboard.granular_data.top_share")
+      assert_equal "—", tiles.first.css("p").last.text
+    end
+  end
+
+  test "top holdings leads with its share of the portfolio and not the portfolio total" do
+    account = @family.accounts.create!(
+      name: "Share Brokerage", balance: 400, cash_balance: 0, currency: "USD",
+      accountable: Investment.new, owner: @user
+    )
+    big = Security.create!(ticker: "BIG#{SecureRandom.hex(2)}", name: "Big Holding")
+    small = Security.create!(ticker: "SML#{SecureRandom.hex(2)}", name: "Small Holding")
+    account.holdings.create!(security: big, date: Date.current, qty: 1, price: 300, amount: 300, currency: "USD")
+    account.holdings.create!(security: small, date: Date.current, qty: 1, price: 100, amount: 100, currency: "USD")
+    page = @user.create_dashboard_page!("Share")
+    @user.add_dashboard_widget!(
+      page.fetch("id"), "portfolio.top_holdings",
+      settings: { scope: "account", account_id: account.id, rows: 3, sort: "market_value" }
+    )
+    ExchangeRate.stubs(:rates_for).returns({})
+
+    get root_path(page: page.fetch("id"))
+
+    assert_response :ok
+    assert_select "section[data-widget-key='portfolio.top_holdings'] [data-testid='granular-investment-widget'] .grid > div", count: 1 do |tiles|
+      assert_includes tiles.first.text, I18n.t("pages.dashboard.granular_data.top_share")
+      assert_includes tiles.first.css("p").last.text, "100"
+    end
+  end
+
+  test "portfolio value is shown by the Portfolio pulse widget only, not repeated on other portfolio widgets" do
+    repeated = [ "Portfolio value", "Measured value", "Measured holdings value" ]
+    keys = %w[portfolio.top_holdings portfolio.allocation portfolio.largest_position portfolio.account_balances portfolio.cash_liquidity portfolio.day_movers portfolio.holdings_count]
+    page = @user.create_dashboard_page!("No repeats")
+    keys.each { |key| @user.add_dashboard_widget!(page.fetch("id"), key, allow_duplicate: true) }
+    ExchangeRate.stubs(:rates_for).returns({})
+
+    get root_path(page: page.fetch("id"))
+
+    assert_response :ok
+    keys.each do |key|
+      assert_select "section[data-widget-key='#{key}']" do |sections|
+        text = sections.first.text
+        repeated.each { |label| assert_not_includes text, label, "#{key} repeats #{label}" }
+      end
     end
   end
 

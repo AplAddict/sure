@@ -361,7 +361,7 @@ class PagesController < ApplicationController
         dashboard_portfolio_positions_widget_data(entry.key, settings, rows)
       when "portfolio.allocation"
         allocation = load_group(:investment_holdings, settings)
-        { metrics: [ dashboard_metric("measured_value", helpers.investment_money(allocation.total, allocation.currency)), dashboard_metric("unavailable", allocation.excluded_count) ], rows: allocation.display_segments(limit: rows).map { |segment| { primary: segment.label, secondary: segment.weight ? helpers.number_to_percentage(segment.weight, precision: 1) : nil, progress: segment.weight } } }
+        { metrics: [ dashboard_allocation_lead_metric(allocation), dashboard_metric("unavailable", allocation.excluded_count) ], rows: allocation.display_segments(limit: rows).map { |segment| { primary: segment.label, secondary: segment.weight ? helpers.number_to_percentage(segment.weight, precision: 1) : nil, progress: segment.weight } } }
       when "review.data_quality"
         allocation = load_group(:investment_holdings, settings)
         issues = allocation.data_quality
@@ -452,7 +452,7 @@ class PagesController < ApplicationController
           converted.sort_by { |_position, value| -value }.map(&:first)
         end
         total = converted&.sum(BigDecimal("0")) { |_position, value| value }
-        { metrics: [ dashboard_metric("measured_value", total.nil? ? nil : helpers.investment_money(total, Current.family.currency)) ], rows: ordered.first(rows).map { |position| { primary: position.ticker, secondary: helpers.investment_money(position.market_value, position.currency), detail: position.account.name } } }
+        { metrics: [ dashboard_metric("top_share", dashboard_top_share(converted, ordered, total, rows)) ], rows: ordered.first(rows).map { |position| { primary: position.ticker, secondary: helpers.investment_money(position.market_value, position.currency), detail: position.account.name } } }
       end
     end
 
@@ -559,6 +559,24 @@ class PagesController < ApplicationController
         selected = review.rows.select { |row| row.position.gain.nil? || row.position.expiration.nil? }
         { metrics: [ dashboard_metric("unavailable", selected.size) ], rows: selected.first(rows).map { |row| { primary: row.position.contract, secondary: helpers.unavailable_cell, detail: row.account.name } } }
       end
+    end
+
+    # Portfolio value belongs to the one canonical Portfolio pulse widget. Other
+    # portfolio widgets lead with the figure that is specific to them, so the same
+    # total is not repeated across a page.
+    def dashboard_allocation_lead_metric(allocation)
+      largest = allocation.segments.reject { |segment| InvestmentAllocation::FIXED_LABELS.include?(segment.label) }.first
+      return dashboard_metric("largest_segment", nil) unless largest&.weight
+
+      { label: t("pages.dashboard.granular_data.largest_segment"), value: helpers.number_to_percentage(largest.weight, precision: 1), hint: largest.label }
+    end
+
+    def dashboard_top_share(converted, ordered, total, rows)
+      return nil if converted.nil? || total.nil? || !total.positive?
+
+      values = converted.to_h { |position, value| [ position, value ] }
+      top = ordered.first(rows).sum(BigDecimal("0")) { |position| values.fetch(position) }
+      helpers.number_to_percentage(top / total * 100, precision: 1)
     end
 
     def dashboard_metric(key, value)

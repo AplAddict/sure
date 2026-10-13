@@ -244,7 +244,7 @@ en:
         source_health: "Source health"
         as_of: "Holdings as of %{date}"
         snapshot_unavailable: "Dated holdings snapshot unavailable"
-        measured_value: "Measured holdings value"
+        largest_slice: "Largest slice"
         data_issues: "Data quality"
         fx_excluded:
           one: "%{count} holding excluded for missing FX"
@@ -318,7 +318,8 @@ en:
         cash: "Cash"
         as_of: "As of"
         needs_review: "Needs review"
-        measured_value: "Measured value"
+        top_share: "Share of portfolio"
+        largest_segment: "Largest slice"
         data_issues: "Data issues"
         price: "Price"
         market_value: "Market value"
