@@ -3,12 +3,12 @@ en:
   investments:
     subnav:
       label: Investments
-      decision: Decision Center
+      decision: Overview
       holdings: Holdings
-      income: Income & performance
-      tax_lots: Tax lots
+      income: Performance
+      tax_lots: Tax Lots
       options: Options
-      events: Market events
+      events: Market Events
       watchlist: Watchlist
       news: News
     sections:

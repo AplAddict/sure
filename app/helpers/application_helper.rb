@@ -113,6 +113,53 @@ module ApplicationHelper
     )
   end
 
+  # Investments is a first-class destination in the main navigation. Its target
+  # is the `investments_overview` named route (GET /investments) once that route
+  # exists; until then it falls back to the legacy homepage lens, /?view=decision,
+  # which keeps working either way.
+  #
+  # Interface note for the routing side: define
+  #   get "investments", to: <the Overview action>, as: :investments_overview
+  # rendering the same Decision Center page (pages/decision_center) for the
+  # member's accessible investment accounts, and keep /?view=decision as a
+  # compatibility entry. Nothing in the view layer needs to change when the
+  # route lands: this helper picks it up by name.
+  #
+  # Like the homepage view switch, the entry is only offered to members with an
+  # investment account they can access (nil drops it from the compacted nav
+  # list); for anyone else the destination would just fall back to Home.
+  def investments_nav_item
+    return nil unless investments_nav_available?
+
+    path = respond_to?(:investments_overview_path) ? investments_overview_path : root_path(view: "decision")
+
+    {
+      name: t("layouts.application.nav.investments"),
+      path: path,
+      icon: "trending-up",
+      icon_custom: false,
+      active: investments_nav_active?
+    }
+  end
+
+  # Every page of the investment workspace lights the Investments entry, and so
+  # does the homepage while it shows the Decision Center lens (so Home and
+  # Investments are never both current).
+  INVESTMENT_WORKSPACE_PATHS = %w[/investments /portfolio /research /market-events /research_watchlist_entries /tax-loss-harvest].freeze
+
+  def investments_nav_active?
+    return true if @dashboard_view == "decision" && request.path == root_path
+
+    INVESTMENT_WORKSPACE_PATHS.any? { |prefix| request.path == prefix || request.path.start_with?("#{prefix}/") }
+  end
+
+  def investments_nav_available?
+    return false unless Current.user
+
+    @investments_nav_available = Current.user.accessible_accounts.where(accountable_type: "Investment").exists? unless defined?(@investments_nav_available)
+    @investments_nav_available
+  end
+
   # Budgets and Goals share one nav slot. Preview users get the "Plan" hub
   # entry fronting both (it stays lit while browsing either subpage, since
   # page_active? is a path-prefix match and /budgets · /goals don't share

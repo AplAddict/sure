@@ -32,6 +32,25 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
                   I18n.t("pages.dashboard.section_label", title: I18n.t("pages.dashboard.net_worth_chart.title")), count: 1
   end
 
+  # Hover never happens on a touch screen, so the header controls must stay
+  # visible there and offer a 44px target, while the mouse layout keeps its
+  # 24px boxes. Pure presentation: nothing about saved preferences changes.
+  test "dashboard section controls stay visible and touch-sized on coarse pointers" do
+    get root_path
+
+    assert_response :ok
+    assert_select "[data-dashboard-section-target=button][class*='pointer-coarse:w-11'][class*='pointer-coarse:h-11']", minimum: 1
+    assert_select "button[aria-label=?]", I18n.t("pages.dashboard.drag_to_reorder"), minimum: 1 do |handles|
+      handles.each do |handle|
+        classes = handle["class"].split
+        assert_includes classes, "pointer-coarse:opacity-100"
+        assert_includes classes, "pointer-coarse:w-11"
+        assert_includes classes, "pointer-coarse:h-11"
+      end
+    end
+    assert_select "section[data-section-key] [class*='group-hover:opacity-100']:not([class*='pointer-coarse:opacity-100'])", count: 0
+  end
+
   test "dashboard investment summary lists balance-only investment accounts as positions" do
     pension = @family.accounts.create!(
       name: "Workplace Pension", balance: 4000, cash_balance: 0, currency: "USD",
