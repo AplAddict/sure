@@ -2,7 +2,7 @@ require "test_helper"
 
 class DashboardPageTemplateRegistryTest < ActiveSupport::TestCase
   EXPECTED = {
-    "daily_investment_check" => %w[portfolio.pulse portfolio.day_movers review.needs_review review.source_health options.expiration_window tax.harvest_candidates research.event_countdown research.news],
+    "daily_investment_check" => %w[portfolio.pulse review.needs_review portfolio.day_movers portfolio.cash_liquidity portfolio.largest_position research.news],
     "portfolio_review" => %w[portfolio.largest_position portfolio.allocation portfolio.allocation portfolio.top_holdings review.data_quality income.summary],
     "income_risk" => %w[income.summary income.by_type income.top_months income.cash_flows income.return_risk income.fx_gaps],
     "tax_review" => %w[tax.lot_coverage tax.term_split tax.long_term_window tax.harvest_loss_total tax.harvest_candidates tax.fx_unavailable],

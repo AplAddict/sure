@@ -58,6 +58,10 @@ module Dashboard
           case legacy_key.to_s
           when "research.news_sentiment"
             supplied.reverse_merge("filter" => "sentiment")
+          when "home.ticker_news", "investments.news", "research.portfolio_news"
+            # Legacy ticker-news cards showed every article; preserve that
+            # behavior even though new News widgets lead with analyzed stories.
+            supplied.reverse_merge("filter" => "all")
           when "income.trailing_12_month"
             supplied.reverse_merge("period" => "1y")
           when "portfolio.asset_class_allocation"
@@ -210,7 +214,7 @@ module Dashboard
           period: %w[all 1m 3m ytd 1y],
           rows: true,
           sort: %w[newest oldest title],
-          filter: %w[all sentiment],
+          filter: %w[sentiment all],
           density: true,
           sentiment: %w[all bullish neutral bearish]
         )

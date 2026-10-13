@@ -291,6 +291,7 @@ class DashboardWidgetInstancesTest < ActionDispatch::IntegrationTest
     cleared = cleared_page.fetch("widgets").find { |entry| entry.fetch("id") == widget.fetch("id") }.fetch("settings")
     assert_equal Dashboard::WidgetRegistry.fetch("research.news").default_settings, cleared
     assert_equal "overall", cleared["scope"]
+    assert_equal "sentiment", cleared["filter"]
   end
 
   test "legacy news preferences read forward to independent canonical instances" do

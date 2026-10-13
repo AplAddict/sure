@@ -22,7 +22,10 @@ module Dashboard
     end
 
     TEMPLATES = [
-      template("daily_investment_check", "Daily Investment Check", [ "portfolio.pulse", "portfolio.day_movers", "review.needs_review", "review.source_health", "options.expiration_window", "tax.harvest_candidates", "research.event_countdown", widget("research.news", settings: { filter: "sentiment" }) ]),
+      # One decision-first surface. Detailed tax/options/events workflows remain
+      # available in their own templates and canonical workspaces rather than
+      # duplicating their summaries on the daily page.
+      template("daily_investment_check", "Daily Investment Check", [ "portfolio.pulse", "review.needs_review", "portfolio.day_movers", "portfolio.cash_liquidity", "portfolio.largest_position", widget("research.news", settings: { filter: "sentiment" }) ]),
       template("portfolio_review", "Portfolio Review", [ "portfolio.largest_position", widget("portfolio.allocation", settings: { grouping: "asset_class" }), widget("portfolio.allocation", settings: { grouping: "sector" }), "portfolio.top_holdings", "review.data_quality", widget("income.summary", settings: { period: "1y" }) ]),
       template("income_risk", "Income & Risk", [ widget("income.summary", settings: { period: "1y" }), "income.by_type", "income.top_months", "income.cash_flows", "income.return_risk", "income.fx_gaps" ]),
       template("tax_review", "Tax Review", %w[tax.lot_coverage tax.term_split tax.long_term_window tax.harvest_loss_total tax.harvest_candidates tax.fx_unavailable]),
