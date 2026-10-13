@@ -6,12 +6,20 @@ class AccountableTest < ActiveSupport::TestCase
     family.accounts.create!(
       name: "Foreign checking",
       balance: 100,
-      currency: "EUR",
+      currency: "ZZZ",
       accountable: Depository.new
     )
-    ExchangeRate.stubs(:rates_for).returns({})
+    ExchangeRate.where(from_currency: "ZZZ", to_currency: family.currency).delete_all
+    ExchangeRate.stubs(:provider).returns(nil)
 
     assert_nil Depository.balance_money(family)
+  end
+
+  test "balance money preserves a legitimate numeric zero" do
+    family = families(:dylan_family)
+    family.accounts.active.where(accountable_type: "Depository").update_all(balance: 0)
+
+    assert_equal BigDecimal("0"), Depository.balance_money(family)
   end
 
   test "balance money converts every account when all rates exist" do

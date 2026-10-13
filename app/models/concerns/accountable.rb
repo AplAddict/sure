@@ -93,7 +93,7 @@ module Accountable
       accounts = family.accounts.active.where(accountable_type: self.name).to_a
 
       foreign_currencies = accounts.filter_map { |a| a.currency if a.currency != family.currency }
-      rates = ExchangeRate.rates_for(foreign_currencies, to: family.currency, date: Date.current)
+      rates = ExchangeRate.rates_for(foreign_currencies, to: family.currency, date: Date.current, fallback: nil)
       return nil if foreign_currencies.any? { |currency| rates[currency].nil? }
 
       accounts.sum(BigDecimal(0)) { |account|

@@ -39,9 +39,12 @@ class Api::V1::TradesController < Api::V1::BaseController
     end
 
     account = current_resource_owner.family.accounts
-      .writable_by(current_resource_owner)
+      .accessible_by(current_resource_owner)
       .visible
       .find(trade_params[:account_id])
+    unless current_resource_owner.family.accounts.writable_by(current_resource_owner).exists?(id: account.id)
+      return render_forbidden
+    end
 
     unless account.supports_trades?
       return render_validation_error(
@@ -127,8 +130,12 @@ class Api::V1::TradesController < Api::V1::BaseController
   private
 
     def set_trade
-      access = action_name == "show" ? :read : :write
-      @trade = scoped_trades(access).find(params[:id])
+      @trade = scoped_trades(:read).find(params[:id])
+      if action_name != "show" && !current_resource_owner.family.accounts.writable_by(current_resource_owner).exists?(id: @trade.entry.account_id)
+        render_forbidden
+        return
+      end
+
       @entry = @trade.entry
     rescue ActiveRecord::RecordNotFound
       render json: { error: "not_found", message: "Trade not found" }, status: :not_found
@@ -460,6 +467,10 @@ class Api::V1::TradesController < Api::V1::BaseController
 
       current_resource_owner.family.accounts.writable_by(current_resource_owner)
         .find(trade_params[:transfer_account_id]).id
+    end
+
+    def render_forbidden
+      render json: { error: "forbidden", message: "You do not have permission to modify this account" }, status: :forbidden
     end
 
     def render_validation_error(message, errors)

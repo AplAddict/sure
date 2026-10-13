@@ -131,7 +131,7 @@ class InvestmentStatement
           AccountPosition.new(
             account: account,
             amount: value.nil? ? nil : Money.new(value, family.currency),
-            weight: value && total ? (value / total * 100).round(2) : nil
+            weight: value&.positive? && total ? (value / total * 100).round(2) : nil
           )
         end
         .sort_by { |position| [ position.amount.nil? ? 1 : 0, -(position.amount&.amount || 0) ] }
@@ -380,6 +380,7 @@ class InvestmentStatement
       def amount_money = amount
       def trend = nil
       def account_position? = true
+      def liability? = amount&.amount&.negative? || false
     end
 
     # Groups current holdings by security and sums family-currency value.
@@ -396,14 +397,16 @@ class InvestmentStatement
     # Account#balance lags behind the Holding rows.
     def weight_denominator(holdings_total)
       total = portfolio_value
-      total.nil? ? nil : [ total, holdings_total + balance_only_accounts_total ].max
+      total.nil? ? nil : [ total, holdings_total, holdings_total + balance_only_accounts_total ].max
     end
 
-    # Investment accounts with a positive balance and no current holding rows.
+    # Investment accounts with a non-zero balance and no current holding rows.
+    # Negative balances are debit/liability positions: they reconcile the
+    # portfolio total but do not receive an allocation percentage.
     def balance_only_accounts
       @balance_only_accounts ||= begin
         held_account_ids = current_holdings.map(&:account_id).to_set
-        investment_accounts.reject { |account| held_account_ids.include?(account.id) || account.balance.to_d <= 0 }
+        investment_accounts.reject { |account| held_account_ids.include?(account.id) || account.balance.to_d.zero? }
       end
     end
 

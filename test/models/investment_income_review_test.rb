@@ -182,23 +182,28 @@ class InvestmentIncomeReviewTest < ActiveSupport::TestCase
     assert_nil InvestmentIncomeReview.new(user: @user, period: period).money_weighted_return
   end
 
-  test "risk metrics treat contributions and withdrawals as flows, not returns" do
+  test "risk metrics fail closed when the interval contains a contribution or withdrawal" do
     period = Period.custom(start_date: 30.days.ago.to_date, end_date: 5.days.ago.to_date)
-    (period.start_date - 1.day).upto(period.end_date) do |date|
-      value = if date < period.start_date + 5.days then 1000
-      elsif date < period.start_date + 12.days then 1500
-      else 1300
-      end
-      balance_row(date, value)
-    end
+    (period.start_date - 1.day).upto(period.end_date) { |date| balance_row(date, 1000) }
     add_entry("Contribution", -500, date: period.start_date + 5.days)
-    add_entry("Withdrawal", 200, date: period.start_date + 12.days)
 
-    metrics = InvestmentIncomeReview.new(user: @user, period: period).risk_metrics
+    review = InvestmentIncomeReview.new(user: @user, period: period)
 
-    assert_equal 26, metrics.data_points
-    assert_in_delta 0, metrics.volatility.to_f, 0.000001
-    assert_in_delta 0, metrics.max_drawdown.to_f, 0.000001
+    assert_nil review.risk_metrics
+    assert_equal :external_flow, review.risk_metrics_unavailable_reason
+  end
+
+  test "risk metrics fail closed when balance history is not contiguous" do
+    period = Period.custom(start_date: 30.days.ago.to_date, end_date: 5.days.ago.to_date)
+    missing_date = period.start_date + 10.days
+    (period.start_date - 1.day).upto(period.end_date) do |date|
+      balance_row(date, 1000) unless date == missing_date
+    end
+
+    review = InvestmentIncomeReview.new(user: @user, period: period)
+
+    assert_nil review.risk_metrics
+    assert_equal :non_contiguous_history, review.risk_metrics_unavailable_reason
   end
 
   test "risk metrics measure annualised volatility and the deepest peak-to-trough fall" do

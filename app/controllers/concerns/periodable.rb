@@ -24,10 +24,14 @@ module Periodable
       elsif period_key == "last_month"
         Period.last_month_for(Current.family)
       else
-        Period.from_key(period_key)
+        period_from_key(period_key)
       end
     rescue Period::InvalidKeyError
       @period = Period.last_30_days
+    end
+
+    def period_from_key(key)
+      Period.from_key(key)
     end
 
     # Scoped to its own rescue so a bad/backwards date range (the only

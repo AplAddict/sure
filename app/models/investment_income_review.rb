@@ -130,14 +130,13 @@ class InvestmentIncomeReview
   # Minimum number of daily changes before volatility and drawdown mean anything.
   RISK_MIN_DATA_POINTS = 20
 
-  # Annualised volatility and maximum drawdown of the portfolio's daily value,
-  # with explicit Contribution/Withdrawal entries removed from each day's change
-  # so money moving in or out is not read as a gain or loss. Built from the
-  # recorded daily balances of every account (a day counts only when all of
-  # them have one and the previous day is present too). nil (unavailable) with
-  # fewer than RISK_MIN_DATA_POINTS daily changes, a foreign-currency account
-  # or flow, or no accounts. Calendar days are used, so the annualisation
-  # factor is sqrt(365).
+  # Annualised volatility and maximum drawdown of the portfolio's consecutive
+  # daily values. These figures deliberately fail closed if the interval has an
+  # external contribution/withdrawal or any account is missing a daily balance:
+  # subtracting cash flows would not make the resulting series a verified TWR.
+  # nil (unavailable) also applies with fewer than RISK_MIN_DATA_POINTS daily
+  # changes, a foreign-currency account, or no accounts. Calendar days are used,
+  # so the annualisation factor is sqrt(365).
   def risk_metrics
     return @risk_metrics if defined?(@risk_metrics)
 
@@ -146,6 +145,11 @@ class InvestmentIncomeReview
 
   def risk_metrics_available?
     !risk_metrics.nil?
+  end
+
+  def risk_metrics_unavailable_reason
+    risk_metrics
+    @risk_metrics_unavailable_reason
   end
 
   MonthlyIncome = Data.define(:month, :dividends, :interest) do
@@ -249,45 +253,40 @@ class InvestmentIncomeReview
     end
 
     def compute_risk_metrics
-      return nil if accounts.none?
-      return nil if accounts.where.not(currency: currency).exists?
+      return unavailable_risk!(:no_accounts) if accounts.none?
+      return unavailable_risk!(:foreign_currency) if accounts.where.not(currency: currency).exists?
 
       account_ids = accounts.pluck(:id)
       range = period.date_range
       last_day = [ range.end, Date.current ].min
       first_day = range.begin - 1.day
-      return nil unless last_day > first_day
-
-      rows = Balance.where(account_id: account_ids, date: first_day..last_day)
-                    .pluck(:date, :account_id, :end_balance, :currency)
-      return nil if rows.any? { |_, _, _, cur| cur != currency }
-
-      # Portfolio value by date, only on days where every account has a row.
-      values = rows.group_by(&:first).filter_map do |date, day_rows|
-        next unless day_rows.map { |_, account_id, _, _| account_id }.uniq.size == account_ids.size
-
-        [ date, day_rows.sum(BigDecimal("0")) { |_, _, balance, _| balance.to_d } ]
-      end.to_h
+      return unavailable_risk!(:insufficient_data) unless last_day > first_day
 
       flow_rows = Entry.joins("INNER JOIN transactions ON transactions.id = entries.entryable_id AND entries.entryable_type = 'Transaction'")
                        .where(account_id: account_ids, excluded: false, date: range.begin..last_day)
                        .where(transactions: { investment_activity_label: %w[Contribution Withdrawal] })
-                       .pluck("entries.date", "entries.amount", "entries.currency")
-      return nil if flow_rows.any? { |_, _, cur| cur != currency }
+                       .pluck("entries.currency")
+      return unavailable_risk!(:external_flow) if flow_rows.any?
 
-      # Ledger sign: a contribution is a negative entry, so negating gives the
-      # money that entered the portfolio that day.
-      flows = flow_rows.each_with_object(Hash.new(BigDecimal("0"))) { |(date, amount, _), map| map[date] -= amount.to_d }
+      rows = Balance.where(account_id: account_ids, date: first_day..last_day)
+                    .pluck(:date, :account_id, :end_balance, :currency)
+      return unavailable_risk!(:foreign_currency) if rows.any? { |_, _, _, cur| cur != currency }
 
-      # A day with no capital at the start (first contribution still to land)
-      # has no measurable return, so it is left out rather than divided by zero.
-      returns = values.keys.sort.filter_map do |date|
-        previous = values[date - 1.day]
-        next if previous.nil? || previous <= 0
+      values = rows.group_by(&:first).each_with_object({}) do |(date, day_rows), result|
+        next unless day_rows.map { |_, account_id, _, _| account_id }.uniq.size == account_ids.size
 
-        (values[date] - previous - flows[date]) / previous
+        result[date] = day_rows.sum(BigDecimal("0")) { |_, _, balance, _| balance.to_d }
       end
-      return nil if returns.size < RISK_MIN_DATA_POINTS
+      expected_dates = (first_day..last_day).to_a
+      return unavailable_risk!(:non_contiguous_history) unless values.keys.sort == expected_dates
+
+      returns = expected_dates.drop(1).map do |date|
+        previous = values.fetch(date - 1.day)
+        return unavailable_risk!(:non_positive_opening_value) unless previous.positive?
+
+        (values.fetch(date) - previous) / previous
+      end
+      return unavailable_risk!(:insufficient_data) if returns.size < RISK_MIN_DATA_POINTS
 
       mean = returns.sum / returns.size
       variance = returns.sum { |r| (r - mean)**2 } / (returns.size - 1)
@@ -303,7 +302,13 @@ class InvestmentIncomeReview
         max_drawdown = drawdown if drawdown > max_drawdown
       end
 
+      @risk_metrics_unavailable_reason = nil
       RiskMetrics.new(volatility: volatility, max_drawdown: max_drawdown, data_points: returns.size)
+    end
+
+    def unavailable_risk!(reason)
+      @risk_metrics_unavailable_reason = reason
+      nil
     end
 
     # How stale a recorded balance may be and still stand for a date. Beyond it

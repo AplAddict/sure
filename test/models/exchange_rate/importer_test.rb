@@ -230,6 +230,27 @@ class ExchangeRate::ImporterTest < ActiveSupport::TestCase
     end
   end
 
+  test "filters invalid rows before bulk upsert" do
+    ExchangeRate.delete_all
+
+    importer = ExchangeRate::Importer.new(
+      exchange_rate_provider: @provider,
+      from: "USD",
+      to: "EUR",
+      start_date: Date.current,
+      end_date: Date.current
+    )
+
+    count = importer.send(:upsert_rows, [
+      { from_currency: "USD", to_currency: "EUR", date: Date.current, rate: 1.2 },
+      { from_currency: "USD", to_currency: "EUR", date: 1.day.ago.to_date, rate: 0 },
+      { from_currency: "USD", to_currency: "EUR", date: 2.days.ago.to_date, rate: -1 }
+    ])
+
+    assert_equal 1, count
+    assert_equal [ BigDecimal("1.2") ], ExchangeRate.where(from_currency: "USD", to_currency: "EUR").pluck(:rate)
+  end
+
   test "logs error and imports nothing when provider returns only zero and nil rates" do
     ExchangeRate.delete_all
     ExchangeRatePair.delete_all

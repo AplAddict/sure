@@ -13,7 +13,7 @@ module ExchangeRate::Provided
 
     def find_or_fetch_rate(from:, to:, date: Date.current, cache: true)
       rate = find_by(from_currency: from, to_currency: to, date: date)
-      return rate if rate.present?
+      return rate if rate.present? && valid_rate?(rate.rate)
 
       # Reuse the nearest recently-cached rate before hitting the provider.
       # Providers like Yahoo Finance return the most recent trading-day rate
@@ -22,8 +22,9 @@ module ExchangeRate::Provided
       # and trigger redundant API calls.
       nearest = where(from_currency: from, to_currency: to)
                   .where(date: (date - NEAREST_RATE_LOOKBACK_DAYS)..date)
+                  .where("rate > 0")
                   .order(date: :desc)
-                  .first
+                  .detect { |candidate| valid_rate?(candidate.rate) }
       return nearest if nearest.present?
 
       return nil unless provider.present? # No provider configured (some self-hosted apps)
@@ -33,6 +34,8 @@ module ExchangeRate::Provided
       return nil unless response.success? # Provider error
 
       rate = response.data
+      return nil unless rate.present? && valid_rate?(rate.rate)
+
       begin
         ExchangeRate.find_or_create_by!(
           from_currency: rate.from,
@@ -63,6 +66,9 @@ module ExchangeRate::Provided
 
       # Batch-load exact-date matches in a single query
       exact_rates = where(from_currency: unique_currencies, to_currency: to, date: date)
+                      .where("rate > 0")
+                      .to_a
+                      .select { |rate| valid_rate?(rate.rate) }
                       .index_by(&:from_currency)
 
       missing = unique_currencies - exact_rates.keys
@@ -71,8 +77,10 @@ module ExchangeRate::Provided
       nearest_rates = if missing.any?
         where(from_currency: missing, to_currency: to)
           .where(date: (date - NEAREST_RATE_LOOKBACK_DAYS)..date)
+          .where("rate > 0")
           .order(date: :desc)
           .to_a
+          .select { |rate| valid_rate?(rate.rate) }
           .each_with_object({}) do |r, map|
             map[r.from_currency] ||= r  # keep most-recent (first due to ORDER BY date DESC)
           end

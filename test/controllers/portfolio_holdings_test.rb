@@ -71,6 +71,21 @@ class PortfolioHoldingsTest < ActionDispatch::IntegrationTest
     assert_in_delta 76.923, block.positions.find { |p| p.ticker == "PHBIG" }.weight, 0.01
   end
 
+  test "a negative balance-only investment account is represented as a debit without a weight" do
+    debit_account = @family.accounts.create!(
+      name: "Margin debit", balance: -250, cash_balance: -250, currency: "USD", owner: @owner,
+      status: "active", accountable: Investment.new(subtype: "brokerage")
+    )
+
+    statement = InvestmentStatement.new(@family, user: @owner)
+    position = statement.account_positions.find { |row| row.account == debit_account }
+
+    assert position, "the debit included in portfolio value must also have a reconciliation row"
+    assert_equal BigDecimal("-250"), position.amount.amount
+    assert position.liability?
+    assert_nil position.weight
+  end
+
   test "a closed position is not listed" do
     closed = Security.create!(ticker: "PHCLS", exchange_mic: "XNAS")
     @account.holdings.create!(security: closed, date: Date.current, qty: 0, price: 10, amount: 0, currency: "USD")
