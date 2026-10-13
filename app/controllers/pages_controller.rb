@@ -185,7 +185,7 @@ class PagesController < ApplicationController
     # seen and removed; the one exception is a preview-gated widget, which is
     # hidden entirely because the feature itself is not offered.
     def build_dashboard_page_sections(page)
-      page.fetch("widgets").filter_map do |widget|
+      sections = page.fetch("widgets").filter_map do |widget|
         definition = Dashboard::WidgetRegistry.fetch(widget["key"])
         entry = Dashboard::WidgetCatalog.fetch(definition.key)
         next if entry.key == "home.insights_feed" && !preview_features_enabled?
@@ -208,6 +208,14 @@ class PagesController < ApplicationController
           remove_url: page_widget_path(page.fetch("id"), definition.key)
         }
       end
+
+      legacy_order = Array(Current.user.preferences&.[]("section_order"))
+      if page.fetch("id") == "home" && Current.user.preferences&.[]("dashboard_pages").nil? &&
+          !legacy_order.include?("insights_feed")
+        insights = sections.find { |section| section[:key] == "home.insights_feed" }
+        sections.unshift(sections.delete(insights)) if insights
+      end
+      sections
     end
 
     # Width/height the member saved for this instance of the widget, plus what

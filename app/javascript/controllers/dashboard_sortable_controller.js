@@ -342,7 +342,7 @@ export default class extends Controller {
 
   async saveOrder() {
     const order = this.sectionTargets.map(
-      (section) => section.dataset.sectionKey,
+      (section) => section.dataset.widgetKey,
     );
 
     // Safely obtain CSRF token

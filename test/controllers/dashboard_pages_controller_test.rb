@@ -222,9 +222,9 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=dashboard-page-tabs] a[href=?]", root_path(page: "investments"), text: "Investments"
     assert_select "[data-testid=dashboard-widget-catalog] [data-widget-key='investments.income_performance']"
     assert_select "[data-dashboard-sortable-url-value=?]", order_page_widgets_path("home")
-    assert_select "section[data-section-key]" do |sections|
+    assert_select "section[data-widget-key]" do |sections|
       sections.each do |section|
-        key = section["data-section-key"]
+        key = section["data-widget-key"]
         assert_equal page_widget_path("home", key), section["data-dashboard-section-url-value"]
         assert_select section, "button[data-url=?][aria-label]", page_widget_path("home", key), minimum: 1
       end
@@ -268,8 +268,8 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     get root_path(page: first.fetch("id"))
 
     assert_response :success
-    assert_equal %w[home.spending_trend home.balance_sheet], css_select("section[data-section-key]").map { |node| node["data-section-key"] }
-    assert_select "section[data-section-key='home.spending_trend'][data-dashboard-section-collapsed-value=true][style*='416px']"
+    assert_equal %w[home.spending_trend home.balance_sheet], css_select("section[data-widget-key]").map { |node| node["data-widget-key"] }
+    assert_select "section[data-widget-key='home.spending_trend'][data-dashboard-section-collapsed-value=true][style*='416px']"
     assert_select "##{first.fetch("id")}-spending-trend"
     ids = css_select("#dashboard_sections [id]").map { |node| node["id"] }
     assert_equal ids.uniq, ids
@@ -277,8 +277,8 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     get root_path(page: second.fetch("id"))
 
     assert_response :success
-    assert_equal %w[home.balance_sheet home.spending_trend], css_select("section[data-section-key]").map { |node| node["data-section-key"] }
-    assert_select "section[data-section-key='home.spending_trend'][data-dashboard-section-collapsed-value=false][style*='288px']"
+    assert_equal %w[home.balance_sheet home.spending_trend], css_select("section[data-widget-key]").map { |node| node["data-widget-key"] }
+    assert_select "section[data-widget-key='home.spending_trend'][data-dashboard-section-collapsed-value=false][style*='288px']"
     assert_select "##{second.fetch("id")}-spending-trend"
   end
 
@@ -322,7 +322,7 @@ class DashboardPagesControllerTest < ActionDispatch::IntegrationTest
     get root_path(page: custom.fetch("id"))
 
     assert_response :success
-    assert_equal keys, css_select("section[data-section-key]").map { |node| node["data-section-key"] }
+    assert_equal keys, css_select("section[data-widget-key]").map { |node| node["data-widget-key"] }
     assert_select "[data-testid=allocation-section]"
     assert_select "[data-testid=data-quality-section], [data-testid=data-quality-clear]", minimum: 1
     assert_no_match(/watchlist|options mutation/i, response.body)
