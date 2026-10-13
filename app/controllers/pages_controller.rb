@@ -34,8 +34,6 @@ class PagesController < ApplicationController
   skip_authentication only: %i[redis_configuration_error privacy terms]
   before_action :ensure_intro_guest!, only: :intro
 
-  DASHBOARD_VIEWS = %w[overview decision].freeze
-
   def dashboard
     if Current.user&.ui_layout_intro?
       redirect_to chats_path and return
@@ -134,25 +132,37 @@ class PagesController < ApplicationController
   end
 
   private
-    # The homepage has two views of the same data: the all-finances overview and
-    # the investment decision center. An explicit ?view= is remembered per user,
-    # but never on a hover-prefetch request (that would flip the saved choice
-    # before the user clicked), and "decision" is only honoured when the member
-    # actually has investment accounts to show.
+    # Resolve the new page id first, with legacy view aliases kept read-forward.
+    # A prefetch never changes preferences. Unknown, deleted, or currently
+    # inaccessible pages fall back to Home without persisting that fallback.
     def resolve_dashboard_view
-      requested = params[:view].to_s
-      saved = Current.user.dashboard_view
+      pages = Current.user.dashboard_pages
+      requested_page = params[:page].presence
 
-      if DASHBOARD_VIEWS.include?(requested)
-        unless prefetch_request? || requested == saved
-          Current.user.update_dashboard_preferences("dashboard_view" => requested)
+      if requested_page
+        candidate = User::DASHBOARD_PAGE_ALIASES.fetch(requested_page.to_s, requested_page.to_s)
+        page = pages.find { |item| item["id"] == candidate }
+        if page
+          Current.user.select_dashboard_page!(candidate) unless prefetch_request? || Current.user.dashboard_current_page == candidate
+        else
+          page = pages.find { |item| item["id"] == "home" }
         end
-        view = requested
       else
-        view = saved
+        requested_view = params[:view].to_s
+        if User::DASHBOARD_PAGE_ALIASES.key?(requested_view)
+          unless prefetch_request? || requested_view == Current.user.dashboard_view
+            Current.user.update_dashboard_preferences("dashboard_view" => requested_view)
+          end
+          candidate = User::DASHBOARD_PAGE_ALIASES.fetch(requested_view)
+        else
+          candidate = Current.user.dashboard_current_page
+        end
+        page = pages.find { |item| item["id"] == candidate } || pages.find { |item| item["id"] == "home" }
       end
 
-      view == "decision" && @decision_available ? "decision" : "overview"
+      @dashboard_page = page
+      @dashboard_page_id = page.fetch("id")
+      @dashboard_page_id == "investments" && @decision_available ? "decision" : "overview"
     end
 
     def prefetch_request?
