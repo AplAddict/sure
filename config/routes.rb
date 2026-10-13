@@ -339,6 +339,17 @@ Rails.application.routes.draw do
   get "feedback", to: "pages#feedback"
   get "dashboard/cash_flow", to: "cash_flows#show", as: :dashboard_cash_flow
   patch "dashboard/preferences", to: "pages#update_preferences"
+  scope "dashboard", format: false do
+    resources :pages, controller: "dashboard_pages", only: %i[index create update destroy] do
+      collection do
+        patch :current
+        patch :order
+      end
+      resources :widgets, controller: "dashboard_page_widgets", param: :widget_key, constraints: { widget_key: /[^\/]+/ }, only: %i[create update destroy] do
+        patch :order, on: :collection
+      end
+    end
+  end
 
   resource :current_session, only: %i[update]
 

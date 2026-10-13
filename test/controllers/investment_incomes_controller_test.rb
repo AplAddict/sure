@@ -32,7 +32,8 @@ class InvestmentIncomesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match I18n.t("investment_incomes.show.volatility"), response.body
     assert_match I18n.t("investment_incomes.show.max_drawdown"), response.body
-    assert_select "span[title=?]", I18n.t("investment_incomes.show.risk_unavailable"), count: 2
+    reason = I18n.t("investment_incomes.show.risk_unavailable_reasons.non_contiguous_history")
+    assert_select "span[title=?]", reason, count: 2
   end
 
   test "a member without access sees none of the owner's income" do
@@ -41,6 +42,21 @@ class InvestmentIncomesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_no_match "$42.00", response.body
+  end
+
+  test "all period ignores activity in another member's private account" do
+    accessible_date = 2.years.ago.to_date
+    private_date = 8.years.ago.to_date
+    @account.entries.create!(name: "Accessible trade", amount: 10, date: accessible_date, currency: "USD", entryable: Trade.new(security: securities(:aapl), qty: 1, price: 10, currency: "USD"))
+    private_account = @owner.family.accounts.create!(name: "Other member private", balance: 10, currency: "USD", owner: users(:family_member), accountable: Investment.new)
+    private_account.entries.create!(name: "Private trade", amount: 10, date: private_date, currency: "USD", entryable: Trade.new(security: securities(:aapl), qty: 1, price: 10, currency: "USD"))
+
+    sign_in @owner
+    get investment_income_path(period: "all_time")
+
+    assert_response :success
+    assert_match I18n.l(accessible_date - 1.month), response.body
+    assert_no_match I18n.l(private_date - 1.month), response.body
   end
 
   test "falls back to the default period for an unknown period type" do

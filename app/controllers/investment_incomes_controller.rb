@@ -9,6 +9,12 @@ class InvestmentIncomesController < ApplicationController
   end
 
   private
+    def period_from_key(key)
+      return super unless key == "all_time"
+
+      Period.all_time_for(user: Current.user, accountable_types: %w[Investment Crypto])
+    end
+
     def section_definitions
       premium = @review.option_premium
       closing = premium[:sold_to_close] && premium[:bought_to_close] ? premium[:sold_to_close] - premium[:bought_to_close] : nil

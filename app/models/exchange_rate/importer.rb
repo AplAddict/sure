@@ -115,6 +115,9 @@ class ExchangeRate::Importer
     end
 
     def upsert_rows(rows)
+      rows = rows.select { |row| ExchangeRate.valid_rate?(row[:rate]) }
+      return 0 if rows.empty?
+
       batch_size = 200
 
       total_upsert_count = 0

@@ -112,6 +112,18 @@ class Period
       new(key: key, start_date: start_date, end_date: end_date)
     end
 
+    def all_time_for(user:, accountable_types: nil)
+      accounts = user.accessible_accounts.visible
+      accounts = accounts.where(accountable_type: accountable_types) if accountable_types.present?
+      entries = Entry.where(account_id: accounts.select(:id))
+      earliest_activity_date = entries.where(entryable_type: %w[Transaction Trade]).minimum(:date)
+      oldest_entry_date = entries.minimum(:date)
+      start_date = earliest_activity_date ? earliest_activity_date - 1.month : oldest_entry_date
+      start_date = 5.years.ago.to_date unless start_date && start_date < Date.current
+
+      new(key: "all_time", start_date: start_date, end_date: Date.current)
+    end
+
     def custom(start_date:, end_date:)
       new(start_date: start_date, end_date: end_date)
     end

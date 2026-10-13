@@ -2,6 +2,7 @@
 <% trend = review.period_return_trend %>
 <% mwr = review.money_weighted_return %>
 <% risk = review.risk_metrics %>
+<% risk_unavailable = t("investment_incomes.show.risk_unavailable_reasons.#{review.risk_metrics_unavailable_reason}", default: t("investment_incomes.show.risk_unavailable")) unless risk %>
 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
   <%= investment_stat t("investment_incomes.show.market_return"),
         (trend ? investment_gain(trend.value.amount, currency, percent: trend.percent) : unavailable_cell),
@@ -10,9 +11,9 @@
         (mwr ? tag.span(number_to_percentage(mwr.rate * 100, precision: 2), class: "privacy-sensitive #{gain_tone_class(mwr.rate)}") : unavailable_cell(t("investment_incomes.show.money_weighted_unavailable"))),
         hint: mwr&.ambiguous ? t("investment_incomes.show.money_weighted_ambiguous") : t("investment_incomes.show.money_weighted_hint") %>
   <%= investment_stat t("investment_incomes.show.volatility"),
-        (risk ? tag.span(number_to_percentage(risk.volatility * 100, precision: 2), class: "privacy-sensitive") : unavailable_cell(t("investment_incomes.show.risk_unavailable"))),
-        hint: risk ? t("investment_incomes.show.volatility_hint", count: risk.data_points) : t("investment_incomes.show.risk_unavailable") %>
+        (risk ? tag.span(number_to_percentage(risk.volatility * 100, precision: 2), class: "privacy-sensitive") : unavailable_cell(risk_unavailable)),
+        hint: risk ? t("investment_incomes.show.volatility_hint", count: risk.data_points) : risk_unavailable %>
   <%= investment_stat t("investment_incomes.show.max_drawdown"),
-        (risk ? tag.span(number_to_percentage(-risk.max_drawdown * 100, precision: 2), class: "privacy-sensitive #{gain_tone_class(-risk.max_drawdown)}") : unavailable_cell(t("investment_incomes.show.risk_unavailable"))),
-        hint: risk ? t("investment_incomes.show.max_drawdown_hint", count: risk.data_points) : t("investment_incomes.show.risk_unavailable") %>
+        (risk ? tag.span(number_to_percentage(-risk.max_drawdown * 100, precision: 2), class: "privacy-sensitive #{gain_tone_class(-risk.max_drawdown)}") : unavailable_cell(risk_unavailable)),
+        hint: risk ? t("investment_incomes.show.max_drawdown_hint", count: risk.data_points) : risk_unavailable %>
 </div>

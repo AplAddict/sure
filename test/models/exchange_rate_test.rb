@@ -84,6 +84,32 @@ class ExchangeRateTest < ActiveSupport::TestCase
     assert_nil ExchangeRate.find_or_fetch_rate(from: "USD", to: "EUR", date: Date.current, cache: true)
   end
 
+  test "returns nil rather than raising when provider supplies an invalid rate" do
+    ExchangeRate.delete_all
+
+    [ 0, -1 ].each do |invalid_rate|
+      response = provider_success_response(
+        OpenStruct.new(from: "USD", to: "EUR", date: Date.current, rate: invalid_rate)
+      )
+      @provider.expects(:fetch_exchange_rate).returns(response)
+
+      assert_no_difference "ExchangeRate.count" do
+        assert_nil ExchangeRate.find_or_fetch_rate(from: "USD", to: "EUR", date: Date.current)
+      end
+    end
+  end
+
+  test "readers ignore legacy invalid cached rows" do
+    ExchangeRate.delete_all
+    ExchangeRate.insert!({ from_currency: "USD", to_currency: "EUR", date: Date.current, rate: 0 })
+    @provider.stubs(:fetch_exchange_rate).returns(
+      provider_success_response(OpenStruct.new(from: "USD", to: "EUR", date: Date.current, rate: -1))
+    )
+
+    assert_nil ExchangeRate.find_or_fetch_rate(from: "USD", to: "EUR", date: Date.current)
+    assert_nil ExchangeRate.rates_for([ "USD" ], to: "EUR", date: Date.current, fallback: nil)["USD"]
+  end
+
   test "reuses nearest cached rate within lookback window instead of calling provider" do
     # Simulate a rate saved under Friday's date when Saturday is requested
     friday = 1.day.ago.to_date

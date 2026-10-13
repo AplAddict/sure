@@ -612,6 +612,29 @@ class Api::V1::TradesControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "read-only account access permits show but forbids create update and destroy" do
+    member = users(:family_member)
+    @investment_account.share_with!(member, permission: "read_only")
+    trade = @investment_account.trades.first
+    key = member_api_key
+
+    get api_v1_trade_url(trade), headers: api_headers(key)
+    assert_response :success
+
+    post api_v1_trades_url,
+      params: { trade: { account_id: @investment_account.id, type: "buy", date: Date.current, qty: 1, price: 10, security_id: securities(:aapl).id } },
+      headers: api_headers(key)
+    assert_response :forbidden
+
+    patch api_v1_trade_url(trade), params: { trade: { notes: "forbidden" } }, headers: api_headers(key)
+    assert_response :forbidden
+    assert_not_equal "forbidden", trade.entry.reload.notes
+
+    delete api_v1_trade_url(trade), headers: api_headers(key)
+    assert_response :forbidden
+    assert Trade.exists?(trade.id)
+  end
+
   test "create rejects another member's unshared account" do
     security = Security.create!(ticker: "PRIVATE", name: "Private Security", country_code: "US")
 

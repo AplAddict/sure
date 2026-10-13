@@ -2,6 +2,7 @@ class User < ApplicationRecord
   has_many :financekit_items, dependent: :destroy
 
   include Encryptable
+  include DashboardPageConfigurable
 
   # Allow nil password for SSO-only users (JIT provisioning).
   # Custom validation ensures password is present for non-SSO registration.

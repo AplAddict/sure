@@ -38,13 +38,20 @@ en:
       money_weighted_unavailable: "Unavailable without an opening and closing balance for every account and complete, same-currency cash flows."
       volatility: Volatility (annualised)
       volatility_hint:
-        one: "Spread of the portfolio's daily changes, with contributions and withdrawals removed, from 1 day of recorded balances in this period."
-        other: "Spread of the portfolio's daily changes, with contributions and withdrawals removed, from %{count} days of recorded balances in this period."
+        one: "Spread of the portfolio's daily changes over 1 consecutive day of recorded balances in this period."
+        other: "Spread of the portfolio's daily changes over %{count} consecutive days of recorded balances in this period."
       max_drawdown: Max drawdown
       max_drawdown_hint:
-        one: "Largest fall from a peak in the portfolio's flow-adjusted value, from 1 day of recorded balances in this period."
-        other: "Largest fall from a peak in the portfolio's flow-adjusted value, from %{count} days of recorded balances in this period."
-      risk_unavailable: "Unavailable without at least 20 consecutive days of recorded balances for every account and same-currency cash flows."
+        one: "Largest fall from a peak in the portfolio's value over 1 consecutive day of recorded balances in this period."
+        other: "Largest fall from a peak in the portfolio's value over %{count} consecutive days of recorded balances in this period."
+      risk_unavailable: "Unavailable without at least 20 consecutive days of recorded balances for every account in one currency."
+      risk_unavailable_reasons:
+        external_flow: "Unavailable because this interval contains a contribution or withdrawal; no flow-adjusted proxy is reported as portfolio risk."
+        non_contiguous_history: "Unavailable because the recorded daily balance history is not contiguous for every account."
+        insufficient_data: "Unavailable without at least 20 consecutive daily changes for every account."
+        foreign_currency: "Unavailable because the account history is not entirely in the reporting currency."
+        non_positive_opening_value: "Unavailable because a daily interval starts with a zero or negative portfolio value."
+        no_accounts: "Unavailable because there are no accessible investment accounts."
       monthly_income: Income by month
       month: Month
       month_unavailable: Unavailable
