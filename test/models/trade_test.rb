@@ -243,6 +243,18 @@ class TradeTest < ActiveSupport::TestCase
     end
   end
 
+  test "realized gain reads the position's average cost once per sale" do
+    account, security = cross_currency_account
+    date = Date.new(2026, 3, 10)
+    account.holdings.create!(security: security, date: date, qty: 5, price: 150, amount: BigDecimal(750), currency: "USD")
+    trade = create_trade(security, account: account, qty: -2, date: date, price: 150, currency: "USD").entryable
+
+    # Without a stored broker basis avg_cost is a set of queries every call; the gain needs it once.
+    Holding.any_instance.expects(:avg_cost).once.returns(Money.new(100, "USD"))
+
+    assert_equal BigDecimal(100), trade.realized_gain_loss.value.amount
+  end
+
   private
     # A position whose cost basis is known, which is what makes a fabricated
     # gain possible: without one, realized_gain_loss returns nil for any reason.

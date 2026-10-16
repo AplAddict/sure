@@ -536,15 +536,18 @@ class ReportsController < ApplicationController
 
       # Preload holdings for all accounts that have sell trades to avoid N+1 in realized_gain_loss
       account_ids = sell_trades.map { |t| t.entry.account_id }.uniq
-      holdings_by_account = Holding
-        .where(account_id: account_ids)
+      # Only rows of a security that was actually sold: a sale's basis reads its own security's holdings and nothing else.
+      holdings_by_position = Holding
+        .where(account_id: account_ids, security_id: sell_trades.map(&:security_id).uniq)
         .where("date <= ?", @period.date_range.end)
         .order(date: :desc)
-        .group_by(&:account_id)
+        .group_by { |holding| [ holding.account_id, holding.security_id ] }
 
-      # Inject preloaded holdings into trades for realized_gain_loss calculation
+      # Inject preloaded holdings into trades for realized_gain_loss calculation. Each trade gets just its own
+      # account+security rows: that is all basis_holding ever selects, and scanning the account's whole history for
+      # every sale made this block quadratic.
       sell_trades.each do |trade|
-        trade.instance_variable_set(:@preloaded_holdings, holdings_by_account[trade.entry.account_id] || [])
+        trade.instance_variable_set(:@preloaded_holdings, holdings_by_position[[ trade.entry.account_id, trade.security_id ]] || [])
       end
 
       # The rates the proceeds conversion needs, in one query rather than one
@@ -579,7 +582,7 @@ class ReportsController < ApplicationController
       foreign_trade_currencies = (
         sell_trades.map(&:currency) +
         sell_trades.map { |t| t.entry.account.currency } +
-        holdings_by_account.values.flatten.map(&:currency)
+        holdings_by_position.values.flatten.map(&:currency)
       ).compact.uniq.reject { |c| c == currency }
       rates_by_trade_date = sell_trades.map { |t| t.entry.date }.uniq.each_with_object({}) do |date, memo|
         memo[date] = ExchangeRate.rates_for(foreign_trade_currencies, to: currency, date: date, fallback: nil)

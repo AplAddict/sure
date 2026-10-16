@@ -9,6 +9,27 @@ class ReportsControllerTest < ActionDispatch::IntegrationTest
     @family = @user.family
   end
 
+  # The realized-gains block preloaded EVERY holding row of every account that sold anything, though a sale's cost
+  # basis only ever reads rows of its own security. On a long history that is most of the holdings table per page view.
+  test "realized gains load only the holdings of the securities that were sold" do
+    date = Date.current.beginning_of_month
+    account = @family.accounts.create!(name: "Brokerage Perf", balance: 10_000, currency: "USD", accountable: Investment.new)
+    sold = Security.create!(ticker: "SLD#{SecureRandom.hex(3)}", name: "Sold")
+    kept = Security.create!(ticker: "KPT#{SecureRandom.hex(3)}", name: "Kept")
+    account.holdings.create!(security: sold, date: date, qty: 5, price: 150, amount: BigDecimal(750), currency: "USD", cost_basis: 100)
+    20.times { |i| account.holdings.create!(security: kept, date: date - i, qty: 5, price: 10, amount: BigDecimal(50), currency: "USD", cost_basis: 5) }
+    create_trade(sold, account: account, qty: -2, date: date, price: 150)
+
+    queries = capture_sql_queries { get reports_path }
+    assert_response :ok
+    heavy = queries.select { |sql| sql.include?('FROM "holdings"') && sql.include?("date <=") && sql.include?('"holdings"."account_id"') }
+
+    assert heavy.any?, "the realized-gains preload still runs"
+    assert heavy.all? { |sql| sql.include?('"holdings"."security_id"') }, "preload must be limited to the sold securities: #{heavy.first.to_s[0, 160]}"
+    line = css_select("[data-testid='realized-gain-line']").map(&:text).find { |text| text.include?(sold.ticker) }
+    assert_includes line.to_s, "$100.00", "the realized gain itself is unchanged"
+  end
+
   # The per-trade line under the realised-gains card rendered
   # `Money.new(gain.value, Current.family.currency)` -- taking the number out of
   # the Trend and re-labelling it as family currency with no conversion at all.

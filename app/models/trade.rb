@@ -214,10 +214,12 @@ class Trade < ApplicationRecord
       return nil if internal_movement?
 
       holding = basis_holding
+      # Read once: with no stored broker basis, avg_cost is a set of queries on every call.
+      average_cost = holding&.avg_cost
 
-      return nil unless holding&.avg_cost
+      return nil unless average_cost
 
-      cost_basis = holding.avg_cost * qty.abs
+      cost_basis = average_cost * qty.abs
       sale_proceeds = converted_to_basis_currency(price_money * qty.abs, cost_basis.currency)
 
       # No rate for that day means the gain is unknown, not zero and not the

@@ -84,9 +84,9 @@ class MarketCalendar::EventBuilder
       end
     end
 
-    # Every sale's realized gain reads its account's holdings and, for a foreign sale, an exchange rate. Loaded once for
-    # the whole set (the way Reports does) rather than once per trade: this runs on the dashboard, so a long trade
-    # history used to cost thousands of queries per page view. Results are identical; only the lookups are batched.
+    # Every sale's realized gain needs the one holding snapshot its cost basis reads: the latest row for that security on
+    # or before the sale. Fetched for all sales in a single query (one row per sale) instead of a query per trade, and
+    # without loading a position's whole snapshot history. Results are identical; only the lookups are batched.
     def accessible_trades
       @accessible_trades ||= begin
         trades = Trade.joins(:entry)
@@ -95,9 +95,15 @@ class MarketCalendar::EventBuilder
                       .to_a
         sales = trades.select(&:sell?)
         if sales.any?
-          holdings_by_account = Holding.where(account_id: sales.map { |trade| trade.entry.account_id }.uniq, security_id: sales.map(&:security_id).uniq)
-                                       .order(date: :desc).group_by(&:account_id)
-          sales.each { |trade| trade.instance_variable_set(:@preloaded_holdings, holdings_by_account[trade.entry.account_id] || []) }
+          basis_rows = Holding.find_by_sql([ <<~SQL.squish, sales.map(&:id) ]).group_by { |row| row["basis_trade_id"] }
+            SELECT DISTINCT ON (trades.id) holdings.*, trades.id AS basis_trade_id
+            FROM trades
+            INNER JOIN entries ON entries.entryable_id = trades.id AND entries.entryable_type = 'Trade'
+            INNER JOIN holdings ON holdings.account_id = entries.account_id AND holdings.security_id = trades.security_id AND holdings.date <= entries.date
+            WHERE trades.id IN (?)
+            ORDER BY trades.id, holdings.date DESC
+          SQL
+          sales.each { |trade| trade.instance_variable_set(:@preloaded_holdings, basis_rows[trade.id] || []) }
           Trade.preload_exchange_rates(sales)
         end
         trades
