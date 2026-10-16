@@ -487,6 +487,40 @@ class OptionsDeskTest < ActiveSupport::TestCase
     assert_nil row.day_gain.value
   end
 
+  test "partial model delta is a labelled partial sum over only the contracts that have one, never a complete total" do
+    broker_account(positions: [ position(qty: "-1", type: "PUT"), position(symbol: "WIDE  261113C00215000", type: "CALL", strike: "215") ])
+    quote
+    quote(underlying: "WIDE", type: "CALL", strike: 215, bid: "1", ask: "10")
+    result = desk
+    put = result.rows.find { |row| row.option_type == "PUT" }
+
+    assert_nil result.summary.total_position_delta, "a complete total must stay withheld when any contract lacks a delta"
+    assert_equal put.position_delta, result.summary.partial_position_delta
+    assert_equal 1, result.summary.position_delta_included_count
+    assert_equal 1, result.summary.position_delta_exclusion_count
+  end
+
+  test "partial model delta is withheld when no contract has one and when a source is unreadable" do
+    broker_account(positions: [ position(symbol: "WIDE  261113C00215000", type: "CALL", strike: "215") ])
+    quote(underlying: "WIDE", type: "CALL", strike: 215, bid: "1", ask: "10")
+    none = desk.summary
+    assert_nil none.partial_position_delta
+    assert_equal 0, none.position_delta_included_count
+
+    broker_account(raw_options_payload: "not-an-array")
+    assert_nil desk.summary.partial_position_delta
+  end
+
+  test "a fully covered set still reports the complete total and the same partial sum" do
+    broker_account(positions: [ position(qty: "-1", type: "PUT") ])
+    quote
+    summary = desk.summary
+
+    assert_not_nil summary.total_position_delta
+    assert_equal summary.total_position_delta, summary.partial_position_delta
+    assert_equal 0, summary.position_delta_exclusion_count
+  end
+
   test "model delta requires current direct quote and position delta respects sign" do
     broker_account(positions: [ position(qty: "-1", type: "PUT"), position(symbol: "WIDE  261113C00215000", type: "CALL", strike: "215") ])
     quote

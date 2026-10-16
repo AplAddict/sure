@@ -11,7 +11,8 @@ class OptionsDesk
   Group = Data.define(:underlying, :rows, :total_pnl, :currency, :unavailable_count)
   Summary = Data.define(:contract_count, :expiring_soon_count, :expired_count, :current_mark_count, :indicative_count,
                         :unavailable_count, :total_pnl, :total_pnl_currency, :day_pnl, :total_position_delta,
-                        :position_delta_exclusion_count, :unreadable_source_count)
+                        :position_delta_exclusion_count, :unreadable_source_count, :partial_position_delta,
+                        :position_delta_included_count)
   Ideas = Data.define(:covered_calls, :puts)
 
   def initialize(user:, account_id: nil, now: Time.current)
@@ -172,13 +173,18 @@ class OptionsDesk
       currencies = rows.map(&:currency).uniq
       total_pnl = aggregate(rows.map(&:total_pnl), currencies, complete: complete)
       deltas = rows.map(&:position_delta)
+      included = deltas.compact
       Summary.new(
         contract_count: rows.size, expiring_soon_count: rows.count { |row| expiring_soon?(row) }, expired_count: rows.count { |row| expired?(row) },
         current_mark_count: rows.count { |row| row.evidence_status == :current }, indicative_count: rows.count { |row| row.evidence_status == :indicative },
         unavailable_count: rows.count { |row| row.total_pnl.nil? || row.evidence_status == :indicative }, total_pnl: total_pnl,
         total_pnl_currency: total_pnl ? single_currency(currencies) : nil, day_pnl: nil,
         total_position_delta: complete && !rows.empty? && deltas.none?(&:nil?) ? deltas.sum(BigDecimal("0")) : nil,
-        position_delta_exclusion_count: deltas.count(&:nil?), unreadable_source_count: unreadable_sources
+        position_delta_exclusion_count: deltas.count(&:nil?), unreadable_source_count: unreadable_sources,
+        # A labelled partial sum over only the contracts that have a qualified delta. It is never the complete total:
+        # withheld when a source is unreadable or no contract has a delta, and always shown with its excluded count.
+        partial_position_delta: complete && included.any? ? included.sum(BigDecimal("0")) : nil,
+        position_delta_included_count: complete ? included.size : 0
       )
     end
 
