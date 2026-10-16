@@ -84,11 +84,24 @@ class MarketCalendar::EventBuilder
       end
     end
 
+    # Every sale's realized gain reads its account's holdings and, for a foreign sale, an exchange rate. Loaded once for
+    # the whole set (the way Reports does) rather than once per trade: this runs on the dashboard, so a long trade
+    # history used to cost thousands of queries per page view. Results are identical; only the lookups are batched.
     def accessible_trades
-      Trade.joins(:entry)
-           .where(entries: { account_id: @accounts.map(&:id) })
-           .includes(:entry, :security)
-           .to_a
+      @accessible_trades ||= begin
+        trades = Trade.joins(:entry)
+                      .where(entries: { account_id: @accounts.map(&:id) })
+                      .includes(:security, entry: :account)
+                      .to_a
+        sales = trades.select(&:sell?)
+        if sales.any?
+          holdings_by_account = Holding.where(account_id: sales.map { |trade| trade.entry.account_id }.uniq, security_id: sales.map(&:security_id).uniq)
+                                       .order(date: :desc).group_by(&:account_id)
+          sales.each { |trade| trade.instance_variable_set(:@preloaded_holdings, holdings_by_account[trade.entry.account_id] || []) }
+          Trade.preload_exchange_rates(sales)
+        end
+        trades
+      end
     end
 
     def loss_sale?(trade)
