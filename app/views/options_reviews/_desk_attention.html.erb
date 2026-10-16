@@ -1,6 +1,0 @@
-<%# locals: (desk:) %>
-<div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
-  <%= investment_stat(t("options_reviews.desk.summary.expiring"), desk.summary.expiring_soon_count, tone: desk.summary.expiring_soon_count.positive? ? "text-warning" : "text-primary") %>
-  <%= investment_stat(t("options_reviews.desk.summary.expired"), desk.summary.expired_count, tone: desk.summary.expired_count.positive? ? "text-destructive" : "text-primary") %>
-  <%= investment_stat(t("options_reviews.desk.summary.unreadable_sources"), desk.summary.unreadable_source_count) %>
-</div>

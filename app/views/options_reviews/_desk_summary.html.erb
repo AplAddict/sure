@@ -1,39 +1,57 @@
 <%# locals: (desk:) %>
 <% summary = desk.summary %>
-<div class="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="options-desk-summary">
-  <%= investment_stat(t("options_reviews.desk.summary.contracts"), summary.contract_count) %>
-  <%= investment_stat(t("options_reviews.desk.summary.current_marks"), summary.current_mark_count) %>
-  <%= investment_stat(t("options_reviews.desk.summary.indicative"), summary.indicative_count) %>
-  <%= investment_stat(t("options_reviews.desk.summary.unavailable"), summary.unavailable_count) %>
-  <div class="rounded-lg bg-container-inset p-4" data-testid="options-desk-summary-total-pnl">
-    <p class="text-sm text-secondary"><%= t("options_reviews.desk.summary.total_pnl") %></p>
-    <p class="mt-2 text-xl font-semibold text-primary">
-      <% if options_desk_currency_ok?(summary.total_pnl, summary.total_pnl_currency) %>
-        <%= options_desk_gain(summary.total_pnl, summary.total_pnl_currency, title: t("options_reviews.desk.summary.total_pnl_unavailable")) %>
-      <% elsif summary.contract_count.zero? %>
-        <%= options_desk_stat_unavailable(t("options_reviews.desk.summary.total_pnl_none")) %>
+<% tile = "min-w-0 rounded-lg bg-container-inset px-3 py-2" %>
+<div class="space-y-2" data-testid="options-desk-summary">
+  <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
+    <div class="<%= tile %>" data-stat="total_pnl" data-testid="options-desk-summary-total-pnl">
+      <p class="text-xs text-secondary"><%= t("options_reviews.desk.summary.total_pnl") %></p>
+      <p class="font-semibold text-primary">
+        <% if options_desk_currency_ok?(summary.total_pnl, summary.total_pnl_currency) %>
+          <span class="text-xl"><%= options_desk_gain(summary.total_pnl, summary.total_pnl_currency, title: t("options_reviews.desk.summary.total_pnl_unavailable")) %></span>
+        <% elsif summary.contract_count.zero? %>
+          <%= options_desk_stat_unavailable(t("options_reviews.desk.summary.total_pnl_none")) %>
+        <% else %>
+          <%= options_desk_stat_unavailable(t("options_reviews.desk.summary.total_pnl_unavailable")) %>
+        <% end %>
+      </p>
+    </div>
+
+    <div class="<%= tile %>" data-stat="delta" data-testid="options-desk-summary-delta">
+      <% if summary.total_position_delta %>
+        <p class="text-xs text-secondary"><%= t("options_reviews.desk.summary.delta") %></p>
+        <p class="text-xl font-semibold text-primary"><span class="privacy-sensitive tabular-nums"><%= number_with_precision(summary.total_position_delta, precision: 4, strip_insignificant_zeros: true) %></span></p>
+      <% elsif summary.partial_position_delta %>
+        <p class="flex items-center gap-1.5 text-xs text-secondary">
+          <%= t("options_reviews.desk.summary.delta_short") %>
+          <%= render DS::Pill.new(label: t("options_reviews.desk.summary.partial"), tone: :warning, marker: false, size: :sm) %>
+        </p>
+        <p class="text-xl font-semibold text-primary"><span class="privacy-sensitive tabular-nums"><%= number_with_precision(summary.partial_position_delta, precision: 4, strip_insignificant_zeros: true) %></span></p>
+        <p class="text-xs text-secondary"><span class="privacy-sensitive"><%= t("options_reviews.desk.summary.delta_included", included: summary.position_delta_included_count, total: summary.contract_count) %></span></p>
+        <p class="text-xs text-secondary"><%= t("options_reviews.desk.summary.delta_partial_note") %></p>
       <% else %>
-        <%= options_desk_stat_unavailable(t("options_reviews.desk.summary.total_pnl_unavailable")) %>
+        <p class="text-xs text-secondary"><%= t("options_reviews.desk.summary.delta_short") %></p>
+        <p class="font-semibold text-primary"><%= options_desk_stat_unavailable(t("options_reviews.desk.causes.delta_unavailable")) %></p>
       <% end %>
-    </p>
-  </div>
-  <div class="rounded-lg bg-container-inset p-4" data-testid="options-desk-summary-day-pnl">
-    <p class="text-sm text-secondary"><%= t("options_reviews.desk.summary.day_pnl") %></p>
-    <p class="mt-2"><%= options_desk_stat_unavailable(t("options_reviews.desk.day_pnl_unavailable")) %></p>
-  </div>
-  <div class="rounded-lg bg-container-inset p-4 lg:col-span-2" data-testid="options-desk-summary-delta">
-    <p class="text-sm text-secondary"><%= t("options_reviews.desk.summary.delta") %></p>
-    <p class="mt-2 text-xl font-semibold text-primary">
-      <% if summary.total_position_delta.nil? %>
-        <%= options_desk_stat_unavailable(t("options_reviews.desk.causes.delta_unavailable")) %>
-      <% else %>
-        <span class="privacy-sensitive tabular-nums"><%= number_with_precision(summary.total_position_delta, precision: 4, strip_insignificant_zeros: true) %></span>
+    </div>
+
+    <div class="<%= tile %>" data-stat="contracts">
+      <p class="text-xs text-secondary"><%= t("options_reviews.desk.summary.contracts") %></p>
+      <p class="text-xl font-semibold text-primary"><span class="privacy-sensitive"><%= summary.contract_count %></span></p>
+      <p class="text-xs text-secondary"><%= options_desk_mark_breakdown(desk) %></p>
+    </div>
+
+    <div class="<%= tile %>" data-stat="expiring">
+      <p class="text-xs text-secondary"><%= t("options_reviews.desk.summary.expiring") %></p>
+      <p class="text-xl font-semibold <%= summary.expiring_soon_count.positive? ? "text-warning" : "text-primary" %>"><span class="privacy-sensitive"><%= summary.expiring_soon_count %></span></p>
+      <% if summary.expired_count.positive? %>
+        <p class="text-xs text-destructive"><%= t("options_reviews.desk.summary.past_expiry", count: summary.expired_count) %></p>
       <% end %>
-    </p>
-    <p class="mt-1 text-xs text-secondary"><%= t("options_reviews.desk.summary.delta_exclusions", count: summary.position_delta_exclusion_count) %></p>
+    </div>
   </div>
+
+  <p class="text-xs text-secondary" data-testid="options-desk-summary-day-pnl"><%= t("options_reviews.desk.summary.day_pnl_line") %></p>
   <% if summary.unreadable_source_count.positive? %>
-    <p class="col-span-2 text-xs text-secondary lg:col-span-4" data-testid="options-desk-summary-unreadable">
+    <p class="text-xs text-secondary" data-testid="options-desk-summary-unreadable">
       <%= t("options_reviews.desk.unreadable", count: summary.unreadable_source_count) %>
     </p>
   <% end %>

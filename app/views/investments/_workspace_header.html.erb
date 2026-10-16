@@ -1,8 +1,13 @@
-<%# locals: (current: nil, title:, subtitle:) %>
+<%# locals: (current: nil, title:, subtitle:, actions: nil) %>
 <div class="mb-6 space-y-3" data-testid="investment-workspace-header">
   <%= render DS::Link.new(text: t("investments.back_to_dashboard"), href: root_path(page: "investments"), variant: "outline", size: "sm", icon: "arrow-left", data: { turbo_frame: "_top" }) %>
-  <div class="space-y-1">
-    <h1 class="text-xl font-medium text-primary lg:text-3xl"><%= title %></h1>
-    <p class="max-w-3xl text-sm text-secondary"><%= subtitle %></p>
+  <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+    <div class="space-y-1">
+      <h1 class="text-xl font-medium text-primary lg:text-3xl"><%= title %></h1>
+      <p class="max-w-3xl text-sm text-secondary"><%= subtitle %></p>
+    </div>
+    <% if actions %>
+      <div class="text-sm lg:shrink-0 lg:text-right"><%= actions %></div>
+    <% end %>
   </div>
 </div>

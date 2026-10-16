@@ -163,13 +163,13 @@ class OptionsDeskAdversarialTest < ActionDispatch::IntegrationTest
 
     zero_row = row_for(account_id: zero_account.id)
     assert_match(/\$0\.00/, zero_row)
-    assert_match(/Unavailable/i, zero_row)
-    assert_match(/position change unknown/i, zero_row)
+    assert_match(/No direct quote/i, zero_row)
+    refute_match(/position change unknown/i, zero_row)
 
     nil_row = row_for(account_id: nil_account.id)
     assert_match(/—|&mdash;|&#8212;|Unavailable/i, nil_row)
     refute_match(/\$0\.00/, nil_row)
-    assert_match(/position change unknown/i, nil_row)
+    refute_match(/position change unknown/i, nil_row)
 
     day = css_select("[data-testid=options-desk-summary-day-pnl]").first
     assert day, "missing options-desk-summary-day-pnl"

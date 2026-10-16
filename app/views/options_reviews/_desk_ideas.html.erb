@@ -30,18 +30,11 @@
           <% end %>
         </li>
       <% end %>
-      <% covered_groups, covered_hidden = options_desk_exclusion_groups(covered.exclusions) %>
-      <% covered_groups.each do |exclusion, count| %>
-        <li class="rounded-lg border border-tertiary p-3 text-sm" data-testid="options-desk-covered-call-exclusion" data-account-id="<%= exclusion.account_id %>">
-          <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <p class="font-mono text-primary"><%= exclusion.contract %><% if count > 1 %> <span class="text-xs font-sans text-secondary"><%= t("options_reviews.desk.ideas.more_contracts", count: count - 1) %></span><% end %></p>
-            <p class="text-xs text-secondary"><%= exclusion.account_name %></p>
-          </div>
-          <ul class="mt-2 flex flex-wrap gap-1">
-            <% exclusion.reasons.each do |reason| %>
-              <li><%= render DS::Pill.new(label: options_desk_reason(reason), tone: :neutral, marker: false, size: :sm) %></li>
-            <% end %>
-          </ul>
+      <% covered_rows, covered_hidden = options_desk_exclusion_rows(covered.exclusions) %>
+      <% covered_rows.each do |summary| %>
+        <li class="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-tertiary px-3 py-2 text-sm" data-testid="options-desk-covered-call-exclusion" data-account-id="<%= summary.account_id %>">
+          <p class="text-primary"><span class="privacy-sensitive"><%= options_desk_exclusion_line(summary) %></span></p>
+          <p class="text-xs text-secondary"><%= summary.account_name %></p>
         </li>
       <% end %>
       <% covered_hidden.each do |account_name, count| %>
@@ -57,18 +50,11 @@
       <p class="text-sm text-secondary"><%= t("options_reviews.desk.ideas.puts_none") %></p>
     <% else %>
       <ul class="space-y-2">
-        <% put_groups, put_hidden = options_desk_exclusion_groups(puts.exclusions) %>
-        <% put_groups.each do |exclusion, count| %>
-          <li class="rounded-lg border border-tertiary p-3 text-sm" data-account-id="<%= exclusion.account_id %>">
-            <div class="flex flex-wrap items-baseline justify-between gap-2">
-              <p class="font-mono text-primary"><%= exclusion.contract %><% if count > 1 %> <span class="text-xs font-sans text-secondary"><%= t("options_reviews.desk.ideas.more_contracts", count: count - 1) %></span><% end %></p>
-              <p class="text-xs text-secondary"><%= exclusion.account_name %></p>
-            </div>
-            <ul class="mt-2 flex flex-wrap gap-1">
-              <% exclusion.reasons.each do |reason| %>
-                <li><%= render DS::Pill.new(label: options_desk_reason(reason), tone: :neutral, marker: false, size: :sm) %></li>
-              <% end %>
-            </ul>
+        <% put_rows, put_hidden = options_desk_exclusion_rows(puts.exclusions) %>
+        <% put_rows.each do |summary| %>
+          <li class="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-tertiary px-3 py-2 text-sm" data-account-id="<%= summary.account_id %>">
+            <p class="text-primary"><span class="privacy-sensitive"><%= options_desk_exclusion_line(summary) %></span></p>
+            <p class="text-xs text-secondary"><%= summary.account_name %></p>
           </li>
         <% end %>
         <% put_hidden.each do |account_name, count| %>

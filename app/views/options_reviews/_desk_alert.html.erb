@@ -1,12 +1,6 @@
-<%# Persistent research-only notice. Copy is contractual; do not soften it. %>
-<div data-testid="options-desk-alert">
-  <%= render DS::Alert.new(title: t("options_reviews.desk.alert.title"), variant: :info) do %>
-    <ul class="list-disc space-y-1 pl-4">
-      <li><%= t("options_reviews.desk.alert.no_orders") %></li>
-      <li><%= t("options_reviews.desk.alert.not_advice") %></li>
-      <li><%= t("options_reviews.desk.alert.quotes") %></li>
-      <li><%= t("options_reviews.desk.alert.delta") %></li>
-      <li><%= t("options_reviews.desk.alert.collateral") %></li>
-    </ul>
-  <% end %>
+<%# Persistent research-only notice. Copy is contractual; do not soften it. One compact strip, no list. %>
+<div class="rounded-lg border border-tertiary bg-container-inset px-3 py-2 text-xs leading-relaxed text-secondary lg:text-sm" role="note" data-testid="options-desk-alert">
+  <span class="font-medium text-primary"><%= t("options_reviews.desk.alert.title") %></span>
+  <span aria-hidden="true">·</span>
+  <%= safe_join(%w[no_orders not_advice quotes delta collateral].map { |key| t("options_reviews.desk.alert.#{key}") }, " · ") %>
 </div>

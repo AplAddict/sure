@@ -32,7 +32,10 @@ class OptionsDeskSystemTest < ApplicationSystemTestCase
       assert_text_in_row missing, "—"
       assert_text_in_row missing, "Missing cost basis"
 
-      assert_text "Unavailable - position change unknown"
+      assert_text "Day P&L unavailable - position change unknown"
+      assert_selector "[data-testid='options-desk-summary-day-pnl']", count: 1
+      assert_no_selector "[data-testid='options-desk-ledger'] th", text: "Day P&L"
+      assert_selector "[data-testid='options-desk-row'][data-contract='#{@contracts.fetch(:long_put)}']", text: "NVDA $215 Put"
       assert_selector "[data-testid='options-desk-puts-unavailable']", text: "Put screening unavailable"
       assert_selector "[data-testid='options-desk-covered-calls']", text: "Covered-call candidates"
     end
@@ -55,6 +58,14 @@ class OptionsDeskSystemTest < ApplicationSystemTestCase
     assert_selector "[data-testid='options-desk-alert']", visible: true
     assert_selector "[data-testid='options-desk-summary']", visible: true
     assert_no_document_overflow("mobile desk")
+
+    # The title, compact alert and the Total P&L and Model delta stats are reachable within one scroll of the first screen.
+    alert_height = page.evaluate_script("document.querySelector(\"[data-testid='options-desk-alert']\").getBoundingClientRect().height")
+    assert_operator alert_height, :<=, 120, "the alert must stay compact on a phone"
+    %w[options-desk-summary-total-pnl options-desk-summary-delta].each do |testid|
+      top = page.evaluate_script("document.querySelector(\"[data-testid='#{testid}']\").getBoundingClientRect().top")
+      assert_operator top, :<, PHONE.last * 2, "#{testid} must be within one scroll of the first screen (top=#{top})"
+    end
 
     wrapper = page.evaluate_script(<<~JS)
       (() => {

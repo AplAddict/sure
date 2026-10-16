@@ -4,12 +4,10 @@ en:
     show:
       sections:
         summary: Summary
-        attention: Attention
         contracts: Contracts
-        exposure: Exposure
         ideas: Ideas
       title: Options Desk
-      subtitle: Read-only research view of brokerage option snapshots. Figures use the approved mark, never a synthetic account value.
+      subtitle: Read-only view of your brokerage option positions.
       open_legacy: Open legacy view
       invalid_account: Selected account is unavailable
       empty_title: No option contracts available
@@ -82,7 +80,18 @@ en:
       as_of: "as of %{time} ET"
       synced_ago: "Synced %{time} ago"
       mark: Mark
-      day_pnl_unavailable: "Unavailable - position change unknown"
+      contract_label: "%{underlying} %{strike} %{type}"
+      option_types:
+        put: Put
+        call: Call
+      side:
+        long: Long
+        short: Short
+      delta_reasons:
+        too_close_to_expiry: Too close to expiry
+        no_two_sided_market: No two-sided market
+        no_direct_quote: No direct quote
+        unavailable: Unavailable
       unreadable: "%{count} broker source(s) unreadable - totals withheld"
       columns:
         contract: Contract
@@ -91,25 +100,22 @@ en:
         qty: Qty
         mark: Mark / basis
         total_pnl: Total P&L
-        day_pnl: Day P&L
         delta: Model delta
         evidence: Evidence / as-of
       summary:
-        contracts: Open contracts
-        current_marks: Current marks
-        indicative: Indicative
-        unavailable: Unavailable
+        contracts: Contracts
+        mark_breakdown: "%{current} current marks - %{broker} broker - %{indicative} indicative"
         total_pnl: Total P&L
         total_pnl_unavailable: Not totalled because a contract or source is missing a figure
         total_pnl_none: No open contracts to total
-        day_pnl: Day P&L
+        day_pnl_line: Day P&L unavailable - position change unknown
         delta: "Model delta estimate (share-equivalent, all accounts shown)"
-        delta_exclusions:
-          one: "1 contract excluded from the estimate"
-          other: "%{count} contracts excluded from the estimate"
+        delta_short: Model delta
+        partial: Partial
+        delta_included: "%{included} of %{total} contracts included"
+        delta_partial_note: Estimate covering only contracts with a qualified delta, not the full position.
         expiring: Expiring within a week
-        expired: Past expiry
-        unreadable_sources: Unreadable sources
+        past_expiry: "%{count} past expiry"
       group:
         subtotal: Subtotal
         unmeasured:
@@ -156,6 +162,9 @@ en:
         more_contracts:
           one: "+1 more contract"
           other: "+%{count} more contracts"
+        excluded_summary:
+          one: "%{count} contract excluded: %{reasons}"
+          other: "%{count} contracts excluded: %{reasons}"
         more_groups_for:
           one: "%{account}: 1 more group not shown"
           other: "%{account}: %{count} more groups not shown"
@@ -191,5 +200,3 @@ en:
         insufficient_shares: Shares not verified for this account
         no_cash_data: Collateral not verified
         insufficient_cash: Collateral below the cash needed
-      exposure:
-        note: This is a model estimate of share-equivalent exposure, not a hedge ratio or instruction.

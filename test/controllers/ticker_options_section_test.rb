@@ -96,6 +96,16 @@ class TickerOptionsSectionTest < ActionDispatch::IntegrationTest
     assert_includes section_text, "Day P&L unavailable - position change unknown"
   end
 
+  test "a row without a model delta carries the same short reason label as the desk" do
+    broker_account(positions: [ position ])
+    security("NVDA")
+    open_ticker("NVDA")
+
+    delta_cell = css_select("[data-testid=ticker-options-row]").first.css("td")[6].text.squish
+    assert_equal "— No direct quote", delta_cell
+    assert_no_match(/Model delta unavailable/, section_text)
+  end
+
   test "rows from different accounts stay separate and the subtotal comes from the group" do
     first, = broker_account(name: "First Brokerage", positions: [ position(symbol: "AAPL  261113C00215000", type: "CALL", strike: "215", qty: "1", price: "99", basis: "10") ])
     second, = broker_account(name: "Second Brokerage", positions: [ position(symbol: "AAPL  261113C00215000", type: "CALL", strike: "215", qty: "2", price: "99", basis: "10") ])

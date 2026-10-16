@@ -20,7 +20,6 @@
           <th scope="col" class="px-4 py-3 text-right"><%= t("options_reviews.desk.columns.qty") %></th>
           <th scope="col" class="whitespace-nowrap px-4 py-3 text-right"><%= t("options_reviews.desk.columns.mark") %></th>
           <th scope="col" class="px-4 py-3 text-right"><%= t("options_reviews.desk.columns.total_pnl") %></th>
-          <th scope="col" class="px-4 py-3"><%= t("options_reviews.desk.columns.day_pnl") %></th>
           <th scope="col" class="px-4 py-3 text-right"><%= t("options_reviews.desk.columns.delta") %></th>
           <th scope="col" class="px-4 py-3"><%= t("options_reviews.desk.columns.evidence") %></th>
         </tr>
@@ -36,18 +35,28 @@
               <span class="mr-1 text-xs text-secondary"><%= t("options_reviews.desk.group.subtotal") %></span>
               <%= options_desk_group_total(group, desk) %>
             </td>
-            <td class="whitespace-nowrap px-4 py-2 text-xs"><%= options_desk_day_pnl %></td>
             <td colspan="2"></td>
           </tr>
-          <% group.rows.each do |row| %>
+          <% options_desk_group_rows(group).each do |row| %>
             <tr data-testid="options-desk-row" data-account-id="<%= row.account_id %>" data-contract="<%= row.contract %>">
-              <td class="sticky left-0 z-10 bg-container px-4 py-3 font-mono text-primary whitespace-nowrap"><%= row.contract %></td>
+              <td class="sticky left-0 z-10 bg-container px-4 py-3 whitespace-nowrap">
+                <% if (label = options_desk_contract_label(row)) %>
+                  <span class="block font-medium text-primary"><%= label %></span>
+                  <span class="block font-mono text-xs text-secondary"><%= row.contract %></span>
+                <% else %>
+                  <span class="block font-mono text-primary"><%= row.contract %></span>
+                <% end %>
+              </td>
               <td class="whitespace-nowrap px-4 py-3 font-medium text-primary"><%= row.account_name %></td>
               <td class="px-4 py-3"><%= options_desk_expiry_cell(row, now) %></td>
-              <td class="px-4 py-3 text-right font-mono"><%= investment_quantity(row.quantity) %></td>
+              <td class="whitespace-nowrap px-4 py-3 text-right font-mono">
+                <span class="inline-flex items-center justify-end gap-1.5">
+                  <%= investment_quantity(row.quantity) %>
+                  <% if (pill = options_desk_side_pill(row)) %><span class="privacy-sensitive font-sans"><%= pill %></span><% end %>
+                </span>
+              </td>
               <td class="whitespace-nowrap px-4 py-3 font-mono"><%= options_desk_mark_cell(row) %></td>
               <td class="whitespace-nowrap px-4 py-3 text-right font-mono"><%= options_desk_pnl_cell(row) %></td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs"><%= options_desk_day_pnl %></td>
               <td class="px-4 py-3 text-right font-mono"><%= options_desk_delta_cell(row) %></td>
               <td class="whitespace-nowrap px-4 py-3 text-xs"><%= options_desk_evidence_cell(row) %></td>
             </tr>

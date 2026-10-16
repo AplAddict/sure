@@ -3,13 +3,9 @@
 <% desk = @desk %>
 
 <%= turbo_frame_tag "investment_workspace", target: "_top" do %>
-  <div class="mb-6 space-y-3">
-    <%= render "investments/workspace_header", current: :options, title: t(".title"), subtitle: t(".subtitle") %>
-  </div>
   <div class="space-y-4 pb-6 lg:pb-12" data-testid="options-desk">
-    <p>
-      <%= render DS::Link.new(text: t(".open_legacy"), href: legacy_options_review_path, size: "sm") %>
-    </p>
+    <%= render "investments/workspace_header", current: :options, title: t(".title"), subtitle: t(".subtitle"),
+          actions: render(DS::Link.new(text: t(".open_legacy"), href: legacy_options_review_path, variant: "default", size: "sm")) %>
     <%= render "options_reviews/desk_alert" %>
     <%= render "options_reviews/desk_source_banner", desk: desk %>
     <% if desk.invalid_account_scope %>
@@ -20,9 +16,7 @@
       <%= render "investments/sections",
             sections: InvestmentSections.new(namespace: "options", user: Current.user, definitions: [
               { key: "summary", title: t(".sections.summary"), partial: "options_reviews/desk_summary", locals: { desk: desk } },
-              { key: "attention", title: t(".sections.attention"), partial: "options_reviews/desk_attention", locals: { desk: desk } },
               { key: "contracts", title: t(".sections.contracts"), partial: "options_reviews/desk_ledger", locals: { desk: desk, now: @now }, flush: true },
-              { key: "exposure", title: t(".sections.exposure"), partial: "options_reviews/desk_exposure", locals: { desk: desk } },
               { key: "ideas", title: t(".sections.ideas"), partial: "options_reviews/desk_ideas", locals: { desk: desk } }
             ]),
             namespace: "options",
