@@ -451,6 +451,26 @@ class OptionsDeskPageTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid=options-desk-puts-unavailable] [data-testid=options-desk-covered-call-idea]", count: 0
   end
 
+  test "when every candidate is held back the page says so instead of going quiet" do
+    idea = Options::IdeaScanner::Idea.new(
+      kind: :covered_call, account_id: "acct-1", account_name: "Shares Account", underlying: "GME", contract: "GME261120C00035000",
+      contract_symbol: "GME261120C00035000", expiration: EXPIRATION, dte: 35, strike: BigDecimal("35"), bid: BigDecimal("0.92"), ask: BigDecimal("0.99"),
+      mid: BigDecimal("0.95"), delta: 0.24, iv: 0.9, open_interest: 7000, credit_per_contract: BigDecimal("92"), contracts: 1, contracts_max: 3,
+      annualized_yield_pct: BigDecimal("34"), called_away_price: BigDecimal("35.92"), distance_from_spot_pct: BigDecimal("5"), currency: "USD",
+      quote_time: NOW - 5.minutes, flags: %i[leveraged_or_hard_to_borrow]
+    )
+    scan = ->(ideas) { Options::IdeaScanner::Result.new(ideas: ideas, exclusions: [], candidates_count: ideas.size, joint_exposure_note: Options::IdeaScanner::JOINT_EXPOSURE_NOTE) }
+    base = OptionsDesk.new(user: @owner, now: NOW).result
+    OptionsDesk.any_instance.stubs(:result).returns(base.with(ideas: OptionsDesk::Ideas.new(covered_calls: scan.call([ idea ]), puts: scan.call([]))))
+    get_desk
+
+    assert_select "[data-testid=options-desk-covered-call-idea]", count: 0
+    note = css_select("[data-testid=options-desk-covered-call-held-back]").first
+    assert note, "an explicit note replaces the empty list"
+    assert_includes note.text.squish, "1 candidate held back"
+    assert_match(/leveraged|hard to borrow|below cost basis/i, note.text)
+  end
+
   test "account and contract text is escaped" do
     broker_account(name: "<img src=x onerror=alert(1)>", positions: [ position ])
     get_desk

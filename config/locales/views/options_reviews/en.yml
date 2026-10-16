@@ -170,6 +170,9 @@ en:
         more_groups_for:
           one: "%{account}: 1 more group not shown"
           other: "%{account}: %{count} more groups not shown"
+        held_back:
+          one: "%{count} candidate held back: below cost basis, or a leveraged or hard-to-borrow name. Nothing else passed the research filters."
+          other: "%{count} candidates held back: below cost basis, or leveraged or hard-to-borrow names. Nothing else passed the research filters."
         puts_unavailable: "Put screening unavailable - collateral not verified"
         puts_note: Put rows are exclusions because collateral is not verified.
         puts_none: No put quotes were screened for the accounts shown.
