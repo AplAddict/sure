@@ -37,6 +37,7 @@ class ResearchUnheldTickersTest < ActionDispatch::IntegrationTest
     assert_select "h2", text: "Equity positions & cost basis", count: 0
     assert_select "h2", text: "Purchase activity & tax lots", count: 0
     assert_select "h2", text: "Options positions", count: 0
+    assert_select "[data-testid^=ticker-options]", count: 0
     assert_select "h2", text: "Fundamentals & stock data"
     assert_select "h2", text: "News"
   end

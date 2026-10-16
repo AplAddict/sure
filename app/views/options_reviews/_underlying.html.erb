@@ -1,0 +1,145 @@
+<%# locals: (view:, scope:, show_account:, link_params: {}) %>
+<%# One underlying's slice of the Options Desk, shared by the holding drawer and the ticker page. Read-only; plain links only. %>
+<% placeholder = view.placeholder %>
+<div class="space-y-4 px-3 py-3" data-testid="<%= scope %>-options">
+  <p class="text-xs text-secondary"><%= t("options_reviews.underlying.subtitle") %></p>
+
+  <% if view.invalid_scope? %>
+    <p class="text-sm text-secondary" data-testid="<%= scope %>-options-unavailable"><%= t("options_reviews.underlying.invalid_scope") %></p>
+  <% else %>
+    <% if view.source_state != :available %>
+      <p class="rounded-lg border border-tertiary bg-container-inset px-3 py-2 text-sm text-primary" role="status" data-testid="<%= scope %>-options-source-banner"><%= options_desk_source_banner_copy(view.source_state) %></p>
+    <% end %>
+
+    <% if placeholder == :empty %>
+      <p class="text-sm text-secondary" data-testid="<%= scope %>-options-empty"><%= t("options_reviews.underlying.empty", ticker: view.ticker) %></p>
+    <% elsif placeholder %>
+      <p class="text-sm text-secondary" data-testid="<%= scope %>-options-unavailable"><%= t("options_reviews.underlying.unavailable.#{placeholder}", ticker: view.ticker) %></p>
+    <% end %>
+
+    <% if view.rows? %>
+      <div class="overflow-x-auto" role="region" tabindex="0" aria-label="<%= t("options_reviews.desk.ledger_aria") %>">
+        <table class="w-full min-w-[48rem] text-sm" data-testid="<%= scope %>-options-ledger">
+          <caption class="sr-only"><%= t("options_reviews.underlying.caption", ticker: view.ticker) %></caption>
+          <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary">
+            <tr>
+              <th scope="col" class="px-3 py-2"><%= t("options_reviews.desk.columns.contract") %></th>
+              <% if show_account %><th scope="col" class="px-3 py-2"><%= t("options_reviews.desk.columns.account") %></th><% end %>
+              <th scope="col" class="px-3 py-2"><%= t("options_reviews.desk.columns.expiry") %></th>
+              <th scope="col" class="px-3 py-2 text-right"><%= t("options_reviews.desk.columns.qty") %></th>
+              <th scope="col" class="whitespace-nowrap px-3 py-2 text-right"><%= t("options_reviews.desk.columns.mark") %></th>
+              <th scope="col" class="px-3 py-2 text-right"><%= t("options_reviews.desk.columns.total_pnl") %></th>
+              <th scope="col" class="px-3 py-2 text-right"><%= t("options_reviews.desk.columns.delta") %></th>
+              <th scope="col" class="px-3 py-2"><%= t("options_reviews.desk.columns.evidence") %></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-tertiary">
+            <% view.rows.each do |row| %>
+              <tr data-testid="<%= scope %>-options-row" data-account-id="<%= row.account_id %>" data-contract="<%= row.contract %>">
+                <td class="whitespace-nowrap px-3 py-2 font-mono text-primary"><%= row.contract %></td>
+                <% if show_account %><td class="whitespace-nowrap px-3 py-2 font-medium text-primary"><%= row.account_name %></td><% end %>
+                <td class="px-3 py-2"><%= options_desk_expiry_cell(row, view.now) %></td>
+                <td class="px-3 py-2 text-right font-mono"><%= investment_quantity(row.quantity) %></td>
+                <td class="whitespace-nowrap px-3 py-2 font-mono"><%= options_desk_mark_cell(row) %></td>
+                <td class="whitespace-nowrap px-3 py-2 text-right font-mono"><%= options_desk_pnl_cell(row) %></td>
+                <td class="px-3 py-2 text-right font-mono"><%= options_desk_delta_cell(row) %></td>
+                <td class="whitespace-nowrap px-3 py-2 text-xs"><%= options_desk_evidence_cell(row) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+      <% if (group = view.group) %>
+        <div class="flex flex-wrap items-baseline justify-between gap-2 text-sm" data-testid="<%= scope %>-options-subtotal">
+          <span class="text-xs text-secondary"><%= t("options_reviews.desk.group.subtotal") %> · <%= t("options_reviews.show.group.contracts", count: group.rows.size) %></span>
+          <span class="tabular-nums"><%= options_desk_group_total(group, view.desk) %></span>
+        </div>
+      <% end %>
+      <p class="text-xs text-secondary"><%= t("options_reviews.underlying.day_pnl_note") %></p>
+    <% end %>
+
+    <% if view.ideas? %>
+      <div class="space-y-4" data-testid="<%= scope %>-options-ideas">
+        <section class="space-y-2">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="text-sm font-medium text-primary"><%= t("options_reviews.desk.ideas.covered_calls") %></h3>
+            <p class="text-xs text-secondary"><%= t("options_reviews.desk.ideas.research_only") %> · <%= t("options_reviews.desk.ideas.review") %></p>
+          </div>
+          <% if show_account && view.joint_exposure_note.present? %>
+            <p class="text-xs text-secondary"><%= view.joint_exposure_note %></p>
+          <% end %>
+          <% if view.covered_call_ideas.empty? && view.covered_call_exclusions.empty? %>
+            <p class="text-sm text-secondary"><%= t("options_reviews.desk.ideas.none") %></p>
+          <% end %>
+          <ul class="space-y-2">
+            <% view.covered_call_ideas.each do |idea| %>
+              <li class="rounded-lg border border-tertiary bg-container-inset p-3 text-sm" data-testid="<%= scope %>-options-covered-call-idea" data-account-id="<%= idea.account_id %>">
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                  <p class="font-mono text-primary"><%= idea.contract %></p>
+                  <p class="text-xs text-secondary"><%= idea.account_name %></p>
+                </div>
+                <p class="mt-1 text-xs text-secondary">
+                  <span class="privacy-sensitive"><%= t("options_reviews.desk.ideas.meta", underlying: idea.underlying, dte: idea.dte, strike: idea.strike, count: idea.contracts_max) %></span>
+                </p>
+                <% if idea.flags.any? %>
+                  <ul class="mt-2 flex flex-wrap gap-1">
+                    <% idea.flags.each do |flag| %>
+                      <li><%= render DS::Pill.new(label: options_desk_flag(flag), tone: :warning, marker: false, size: :sm) %></li>
+                    <% end %>
+                  </ul>
+                <% end %>
+              </li>
+            <% end %>
+            <% covered_groups, covered_hidden = options_desk_exclusion_groups(view.covered_call_exclusions) %>
+            <% covered_groups.each do |exclusion, count| %>
+              <li class="rounded-lg border border-tertiary p-3 text-sm" data-testid="<%= scope %>-options-covered-call-exclusion" data-account-id="<%= exclusion.account_id %>">
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                  <p class="font-mono text-primary"><%= exclusion.contract %><% if count > 1 %> <span class="text-xs font-sans text-secondary"><%= t("options_reviews.desk.ideas.more_contracts", count: count - 1) %></span><% end %></p>
+                  <p class="text-xs text-secondary"><%= exclusion.account_name %></p>
+                </div>
+                <ul class="mt-2 flex flex-wrap gap-1">
+                  <% exclusion.reasons.each do |reason| %>
+                    <li><%= render DS::Pill.new(label: options_desk_reason(reason), tone: :neutral, marker: false, size: :sm) %></li>
+                  <% end %>
+                </ul>
+              </li>
+            <% end %>
+            <% covered_hidden.each do |account_name, count| %>
+              <li class="text-xs text-secondary"><%= t("options_reviews.desk.ideas.more_groups_for", account: account_name, count: count) %></li>
+            <% end %>
+          </ul>
+        </section>
+
+        <section class="space-y-2" data-testid="<%= scope %>-options-puts-unavailable">
+          <h3 class="text-sm font-medium text-primary"><%= t("options_reviews.desk.ideas.puts_unavailable") %></h3>
+          <p class="text-xs text-secondary"><%= t("options_reviews.desk.ideas.puts_note") %></p>
+          <% if view.put_exclusions.empty? %>
+            <p class="text-sm text-secondary"><%= t("options_reviews.desk.ideas.puts_none") %></p>
+          <% else %>
+            <ul class="space-y-2">
+              <% put_groups, put_hidden = options_desk_exclusion_groups(view.put_exclusions) %>
+              <% put_groups.each do |exclusion, count| %>
+                <li class="rounded-lg border border-tertiary p-3 text-sm" data-account-id="<%= exclusion.account_id %>">
+                  <div class="flex flex-wrap items-baseline justify-between gap-2">
+                    <p class="font-mono text-primary"><%= exclusion.contract %><% if count > 1 %> <span class="text-xs font-sans text-secondary"><%= t("options_reviews.desk.ideas.more_contracts", count: count - 1) %></span><% end %></p>
+                    <p class="text-xs text-secondary"><%= exclusion.account_name %></p>
+                  </div>
+                  <ul class="mt-2 flex flex-wrap gap-1">
+                    <% exclusion.reasons.each do |reason| %>
+                      <li><%= render DS::Pill.new(label: options_desk_reason(reason), tone: :neutral, marker: false, size: :sm) %></li>
+                    <% end %>
+                  </ul>
+                </li>
+              <% end %>
+              <% put_hidden.each do |account_name, count| %>
+                <li class="text-xs text-secondary"><%= t("options_reviews.desk.ideas.more_groups_for", account: account_name, count: count) %></li>
+              <% end %>
+            </ul>
+          <% end %>
+        </section>
+      </div>
+    <% end %>
+  <% end %>
+
+  <p class="text-sm"><%= link_to t("options_reviews.underlying.open_desk"), options_review_path(**link_params), class: "font-medium text-link hover:underline", data: { turbo_frame: "_top" } %></p>
+</div>

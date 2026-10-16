@@ -25,6 +25,15 @@ class HoldingsController < ApplicationController
       user: Current.user,
       source_unavailable: t("research.news.source_unavailable")
     ).rows_for(security: @holding.security)
+    # Option data only exists for broker-linked accounts. A manual or other-provider account has none to show, so it gets
+    # no section at all rather than a broker-outage notice that would be false.
+    return unless SnaptradeAccount.linked_to([ @holding.account_id ]).exists?
+
+    now = Time.current
+    @options_view = OptionsForUnderlying.new(
+      desk: OptionsDesk.new(user: Current.user, account_id: @holding.account_id, now: now).result,
+      ticker: @holding.ticker, account_id: @holding.account_id, now: now
+    )
   end
 
   def update

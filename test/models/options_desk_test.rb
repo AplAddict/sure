@@ -202,9 +202,9 @@ class OptionsDeskTest < ActiveSupport::TestCase
   test "non-finite cost basis or mark yields unavailable pnl and basis, never NaN or Infinity totals" do
     quote
     [ "NaN", "Infinity", "-Infinity" ].each do |bad|
-      broker_account(positions: [ position(basis: bad) ])
+      account, = broker_account(positions: [ position(basis: bad) ])
       result = desk
-      row = result.rows.last
+      row = result.rows.find { |candidate| candidate.account_id == account.id }
 
       assert_nil row.entry_basis_total
       assert_nil row.total_pnl
@@ -215,8 +215,8 @@ class OptionsDeskTest < ActiveSupport::TestCase
 
   test "non-finite broker mark and strike are treated as unknown" do
     [ { price: "NaN" }, { price: "Infinity" }, { strike: "NaN" } ].each do |attrs|
-      broker_account(positions: [ position(**attrs) ])
-      row = desk.rows.last
+      account, = broker_account(positions: [ position(**attrs) ])
+      row = desk.rows.find { |candidate| candidate.account_id == account.id }
 
       assert(row.broker_mark.nil? || row.broker_mark.finite?)
       assert(row.strike.nil? || row.strike.finite?)
@@ -272,8 +272,8 @@ class OptionsDeskTest < ActiveSupport::TestCase
 
   test "negative broker marks and cost bases are unknown, never accepted" do
     [ { price: "-1" }, { basis: "-1" } ].each do |attrs|
-      broker_account(positions: [ position(**attrs) ])
-      row = desk.rows.last
+      account, = broker_account(positions: [ position(**attrs) ])
+      row = desk.rows.find { |candidate| candidate.account_id == account.id }
 
       assert_nil row.total_pnl
       assert_nil row.entry_basis_total if attrs.key?(:basis)
@@ -282,8 +282,8 @@ class OptionsDeskTest < ActiveSupport::TestCase
   end
 
   test "zero broker mark and zero cost basis remain real zeros" do
-    broker_account(positions: [ position(price: "0", basis: "0") ])
-    row = desk.rows.last
+    account, = broker_account(positions: [ position(price: "0", basis: "0") ])
+    row = desk.rows.find { |candidate| candidate.account_id == account.id }
 
     assert_equal BigDecimal("0"), row.broker_mark
     assert_equal BigDecimal("0"), row.entry_basis_total

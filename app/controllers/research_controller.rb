@@ -73,7 +73,14 @@ class ResearchController < ApplicationController
                                 .select { |entry| entry.trade&.buy? }
                                 .sort_by { |entry| [ entry.date || Date.new(1900, 1, 1), entry.id ] }
                                 .reverse
-    @option_positions = option_positions_for_ticker
+    # Options exist only for broker-linked accounts. Skip the desk unless the user has one, and count a ticker as "held"
+    # for this section only when a broker-linked account holds it, so manual or Plaid holdings never show a broker notice.
+    broker_account_ids = SnaptradeAccount.linked_to(accessible_accounts.pluck(:id)).map { |provider| provider.account_provider.account_id }
+    return if broker_account_ids.empty?
+
+    @options_broker_held = @holdings.any? { |holding| broker_account_ids.include?(holding.account_id) }
+    now = Time.current
+    @options_view = OptionsForUnderlying.new(desk: OptionsDesk.new(user: Current.user, account_id: nil, now: now).result, ticker: @ticker, now: now)
   end
 
   private
@@ -133,30 +140,6 @@ class ResearchController < ApplicationController
         covered_accounts: known_cost_holdings.size,
         account_count: @holdings.size
       }
-    end
-
-    # Contract positions are rendered from a read-only provider snapshot and
-    # deliberately excluded from the equity positions, totals, and net-worth
-    # calculations above. SnapTrade gives us an OCC-style contract symbol, so
-    # match only contracts beginning with this exact ticker and a space.
-    def option_positions_for_ticker
-      SnaptradeAccount.linked_to(accessible_accounts.pluck(:id)).flat_map do |provider_account|
-        account = provider_account.current_account
-        provider_account.option_positions_snapshot.filter_map do |position|
-          next unless position.underlying == @ticker
-
-          {
-            account: account,
-            contract: position.contract,
-            type: position.type || "Unavailable",
-            expiration: position.expiration,
-            strike: position.strike,
-            quantity: position.quantity,
-            mark: position.mark,
-            currency: position.currency || account.currency
-          }
-        end
-      end
     end
 
     def decimal_or_nil(value)

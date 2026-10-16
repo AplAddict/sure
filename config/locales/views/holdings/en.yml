@@ -113,6 +113,7 @@ en:
       unavailable: Unavailable
       valuation: Valuation
     show:
+      options: Options
       stock_data: Fundamentals & stock data
       tradingview_chart: Chart
       finviz_reference: Finviz reference

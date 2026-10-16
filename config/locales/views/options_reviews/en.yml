@@ -54,6 +54,17 @@ en:
         cost_basis: Cost basis
         gain: Gain / loss
         snapshot: Snapshot
+    underlying:
+      title: Options Desk
+      subtitle: Read-only research view of broker option snapshots for this symbol. Options are excluded from equity totals, stock cost basis and net worth.
+      caption: Open %{ticker} option contracts
+      empty: No open option contracts for %{ticker}
+      unavailable:
+        unavailable: Broker option data for %{ticker} is unavailable, so open contracts may be missing.
+        stale: Broker option data for %{ticker} is stale, so open contracts may be missing.
+      invalid_scope: Selected account is unavailable
+      day_pnl_note: Day P&L unavailable - position change unknown
+      open_desk: Open full Options Desk
     legacy:
       title: Options Review
       subtitle: Read-only brokerage contract snapshots. Gain / loss is unrealized against the broker's last mark, using its per-share cost basis (net of opening fees) times contracts times multiplier. Options are excluded from equity holdings, performance, cost basis and net-worth totals.
@@ -151,7 +162,9 @@ en:
         puts_unavailable: "Put screening unavailable - collateral not verified"
         puts_note: Put rows are exclusions because collateral is not verified.
         puts_none: No put quotes were screened for the accounts shown.
-        meta: "%{underlying} · %{dte} DTE · strike %{strike} · up to %{contracts} contracts"
+        meta:
+          one: "%{underlying} · %{dte} DTE · strike %{strike} · up to %{count} contract"
+          other: "%{underlying} · %{dte} DTE · strike %{strike} · up to %{count} contracts"
       flags:
         no_basis_data: Cost basis not verified
         called_away_below_basis: Called away below cost basis

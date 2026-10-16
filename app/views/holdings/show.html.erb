@@ -219,6 +219,12 @@
       </div>
     <% end %>
 
+    <% if @options_view %>
+      <% dialog.with_section(title: t(".options"), open: @options_view.rows?) do %>
+        <%= render "holdings/options", options_view: @options_view, account_id: @holding.account_id %>
+      <% end %>
+    <% end %>
+
     <% dialog.with_section(title: t(".stock_data"), open: false) do %>
       <%= render "holdings/stock_data", security: @holding.security %>
     <% end %>

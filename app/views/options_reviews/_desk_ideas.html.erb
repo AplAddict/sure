@@ -19,7 +19,7 @@
             <p class="text-xs text-secondary"><%= idea.account_name %></p>
           </div>
           <p class="mt-1 text-xs text-secondary">
-            <span class="privacy-sensitive"><%= t("options_reviews.desk.ideas.meta", underlying: idea.underlying, dte: idea.dte, strike: idea.strike, contracts: idea.contracts_max) %></span>
+            <span class="privacy-sensitive"><%= t("options_reviews.desk.ideas.meta", underlying: idea.underlying, dte: idea.dte, strike: idea.strike, count: idea.contracts_max) %></span>
           </p>
           <% if idea.flags.any? %>
             <ul class="mt-2 flex flex-wrap gap-1">
