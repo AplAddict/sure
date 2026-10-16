@@ -176,6 +176,9 @@ en:
         meta:
           one: "%{underlying} · %{dte} DTE · strike %{strike} · up to %{count} contract"
           other: "%{underlying} · %{dte} DTE · strike %{strike} · up to %{count} contracts"
+        useful_meta:
+          one: "%{underlying} · %{dte} DTE · delta %{delta} · credit %{credit} · %{yield} annualized · up to %{count} contract"
+          other: "%{underlying} · %{dte} DTE · delta %{delta} · credit %{credit} · %{yield} annualized · up to %{count} contracts"
       flags:
         no_basis_data: Cost basis not verified
         called_away_below_basis: Called away below cost basis

@@ -12,33 +12,23 @@
       <p class="text-sm text-secondary"><%= t("options_reviews.desk.ideas.none") %></p>
     <% end %>
     <ul class="space-y-2">
-      <% covered.ideas.each do |idea| %>
+      <% options_desk_useful_ideas(covered.ideas).each do |idea| %>
         <li class="rounded-lg border border-tertiary bg-container-inset p-3 text-sm" data-testid="options-desk-covered-call-idea" data-account-id="<%= idea.account_id %>">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <p class="font-mono text-primary"><%= idea.contract %></p>
+            <p class="font-medium text-primary"><%= idea.underlying %> <%= number_with_precision(idea.strike, precision: 4, strip_insignificant_zeros: true) %> Call</p>
             <p class="text-xs text-secondary"><%= idea.account_name %></p>
           </div>
+          <p class="font-mono text-xs text-secondary"><%= idea.contract %></p>
           <p class="mt-1 text-xs text-secondary">
-            <span class="privacy-sensitive"><%= t("options_reviews.desk.ideas.meta", underlying: idea.underlying, dte: idea.dte, strike: idea.strike, count: idea.contracts_max) %></span>
+            <span class="privacy-sensitive"><%= options_desk_idea_meta(idea) %></span>
           </p>
-          <% if idea.flags.any? %>
-            <ul class="mt-2 flex flex-wrap gap-1">
-              <% idea.flags.each do |flag| %>
-                <li><%= render DS::Pill.new(label: options_desk_flag(flag), tone: :warning, marker: false, size: :sm) %></li>
-              <% end %>
-            </ul>
-          <% end %>
         </li>
       <% end %>
-      <% covered_rows, covered_hidden = options_desk_exclusion_rows(covered.exclusions) %>
-      <% covered_rows.each do |summary| %>
-        <li class="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-tertiary px-3 py-2 text-sm" data-testid="options-desk-covered-call-exclusion" data-account-id="<%= summary.account_id %>">
-          <p class="text-primary"><span class="privacy-sensitive"><%= options_desk_exclusion_line(summary) %></span></p>
-          <p class="text-xs text-secondary"><%= summary.account_name %></p>
+      <% options_desk_exclusion_account_rows(covered.exclusions).each do |summary| %>
+        <li class="text-xs text-secondary" data-testid="options-desk-covered-call-exclusion" data-account-id="<%= summary.account_id %>">
+          <span class="privacy-sensitive"><%= options_desk_exclusion_line(summary) %></span>
+          <span>· <%= summary.account_name %></span>
         </li>
-      <% end %>
-      <% covered_hidden.each do |account_name, count| %>
-        <li class="text-xs text-secondary" data-testid="options-desk-covered-call-hidden"><%= t("options_reviews.desk.ideas.more_groups_for", account: account_name, count: count) %></li>
       <% end %>
     </ul>
   </section>
@@ -50,15 +40,11 @@
       <p class="text-sm text-secondary"><%= t("options_reviews.desk.ideas.puts_none") %></p>
     <% else %>
       <ul class="space-y-2">
-        <% put_rows, put_hidden = options_desk_exclusion_rows(puts.exclusions) %>
-        <% put_rows.each do |summary| %>
-          <li class="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-tertiary px-3 py-2 text-sm" data-account-id="<%= summary.account_id %>">
-            <p class="text-primary"><span class="privacy-sensitive"><%= options_desk_exclusion_line(summary) %></span></p>
-            <p class="text-xs text-secondary"><%= summary.account_name %></p>
+        <% options_desk_exclusion_account_rows(puts.exclusions).each do |summary| %>
+          <li class="text-xs text-secondary" data-account-id="<%= summary.account_id %>">
+            <span class="privacy-sensitive"><%= options_desk_exclusion_line(summary) %></span>
+            <span>· <%= summary.account_name %></span>
           </li>
-        <% end %>
-        <% put_hidden.each do |account_name, count| %>
-          <li class="text-xs text-secondary" data-testid="options-desk-puts-hidden"><%= t("options_reviews.desk.ideas.more_groups_for", account: account_name, count: count) %></li>
         <% end %>
       </ul>
     <% end %>

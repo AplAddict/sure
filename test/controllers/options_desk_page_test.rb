@@ -426,7 +426,7 @@ class OptionsDeskPageTest < ActionDispatch::IntegrationTest
       contract_symbol: "NVDA261113C00230000", expiration: EXPIRATION, dte: 29, strike: BigDecimal("230"), bid: BigDecimal("2.00"), ask: BigDecimal("2.20"),
       mid: BigDecimal("2.10"), delta: 0.21, iv: 0.4, open_interest: 100, credit_per_contract: BigDecimal("200"), contracts: 1, contracts_max: 3,
       annualized_yield_pct: BigDecimal("12.3"), called_away_price: BigDecimal("232"), distance_from_spot_pct: BigDecimal("5.9"), currency: "USD",
-      quote_time: NOW - 5.minutes, flags: %i[no_basis_data earnings_unknown]
+      quote_time: NOW - 5.minutes, flags: %i[called_away_below_basis]
     )
     exclusion = Options::IdeaScanner::Exclusion.new(kind: :covered_call, account_id: "acct-2", account_name: "Thin Account", underlying: "NVDA",
                                                     contract: "NVDA261113C00250000", option_type: "CALL", expiration: EXPIRATION, strike: BigDecimal("250"),
@@ -441,16 +441,11 @@ class OptionsDeskPageTest < ActionDispatch::IntegrationTest
     get_desk
 
     candidate = css_select("[data-testid=options-desk-covered-call-idea]").first
-    assert_equal "acct-1", candidate["data-account-id"]
-    assert_includes candidate.text, "Shares Account"
-    assert_includes candidate.text, "NVDA261113C00230000"
-    assert_match(/basis/i, candidate.text)
-    assert_match(/earnings/i, candidate.text)
+    assert_nil candidate, "flagged rows are not shown as suggestions"
     excluded = css_select("[data-testid=options-desk-covered-call-exclusion]").first
     assert_equal "acct-2", excluded["data-account-id"]
     assert_includes excluded.text, "Thin Account"
     assert_match(/shares/i, excluded.text)
-    assert_match(/open interest/i, excluded.text)
     put_row = css_select("[data-testid=options-desk-puts-unavailable] [data-account-id=acct-1]").first
     assert_match(/collateral/i, put_row.text)
     assert_select "[data-testid=options-desk-puts-unavailable] [data-testid=options-desk-covered-call-idea]", count: 0
@@ -677,10 +672,9 @@ class OptionsDeskPageTest < ActionDispatch::IntegrationTest
     get_desk
 
     covered = css_select("[data-testid=options-desk-covered-call-exclusion]")
-    assert_equal 2, covered.size
+    assert_equal 1, covered.size
     texts = covered.map { |node| node.text.squish }
-    assert(texts.any? { |text| text.include?("385 contracts excluded: Shares not verified for this account") })
-    assert(texts.any? { |text| text.include?("1 contract excluded: Open interest below the research threshold") })
+    assert(texts.any? { |text| text.include?("386 contracts excluded:") && text.include?("Shares not verified for this account") })
     covered.each do |node|
       assert_equal account.id, node["data-account-id"]
       assert_includes node.text, "Shares Account"

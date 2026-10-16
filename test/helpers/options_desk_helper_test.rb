@@ -69,6 +69,40 @@ class OptionsDeskHelperTest < ActionView::TestCase
     assert_equal "— Unavailable", Nokogiri::HTML.fragment(options_desk_delta_cell(row)).text.squish
   end
 
+  test "useful ideas drop flagged rows, keep one per account and underlying, and cap the list" do
+    make = lambda do |underlying, account_id, flags: [], contract: "#{underlying}C"|
+      Options::IdeaScanner::Idea.new(
+        kind: :covered_call, account_id: account_id, account_name: account_id, underlying: underlying, contract: contract,
+        contract_symbol: contract, expiration: Date.new(2026, 11, 20), dte: 35, strike: BigDecimal("35"), bid: BigDecimal("1"),
+        ask: BigDecimal("1.1"), mid: BigDecimal("1.05"), delta: 0.2, iv: 0.4, open_interest: 100, credit_per_contract: BigDecimal("100"),
+        contracts: 1, contracts_max: 2, annualized_yield_pct: BigDecimal("10"), flags: flags
+      )
+    end
+    ideas = [
+      make.call("GME", "a1", contract: "GME1"),
+      make.call("GME", "a1", contract: "GME2"),
+      make.call("GME", "a2", contract: "GME3"),
+      make.call("NVDA", "a1", flags: %i[called_away_below_basis], contract: "NVDA1"),
+      make.call("AAPL", "a1", contract: "AAPL1"),
+      make.call("MSFT", "a1", contract: "MSFT1")
+    ]
+
+    useful = options_desk_useful_ideas(ideas, limit: 3)
+
+    assert_equal %w[GME1 GME3 AAPL1], useful.map(&:contract)
+    assert useful.none? { |idea| (Array(idea.flags) & %i[called_away_below_basis leveraged_or_hard_to_borrow]).any? }
+  end
+
+  test "exclusion account rows collapse every reason set into one count per account" do
+    entries = Array.new(385) { |i| exclusion("a1", "Alpha", %i[insufficient_shares], underlying: "T#{i}") } +
+              [ exclusion("a1", "Alpha", %i[low_oi]), exclusion("a2", "Beta", %i[insufficient_shares]) ]
+
+    rows = options_desk_exclusion_account_rows(entries)
+
+    assert_equal [ [ "a1", 386, %i[insufficient_shares low_oi] ], [ "a2", 1, %i[insufficient_shares] ] ],
+                 rows.map { |row| [ row.account_id, row.count, row.reasons ] }
+  end
+
   test "contract label requires its fields to agree with the OCC string" do
     base = OptionsDesk::Row.members.index_with { nil }.merge(
       contract: "NVDA 261113P00215000", underlying: "NVDA", option_type: "PUT", expiration: Date.new(2026, 11, 13), strike: BigDecimal("215"), currency: "USD"

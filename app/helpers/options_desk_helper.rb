@@ -80,6 +80,36 @@ module OptionsDeskHelper
     t("options_reviews.desk.ideas.excluded_summary", count: summary.count, reasons: summary.reasons.map { |reason| options_desk_reason(reason) }.join(", "))
   end
 
+  # Desk Ideas: one quiet line per account. Reason sets are collapsed so a long chain is not a second list of "suggestions".
+  def options_desk_exclusion_account_rows(exclusions)
+    exclusions.group_by(&:account_id).map do |account_id, entries|
+      ranked = entries.flat_map { |entry| Array(entry.reasons).map(&:to_sym) }.tally.sort_by { |reason, count| [ -count, reason.to_s ] }.map(&:first)
+      ExclusionSummary.new(account_id: account_id, account_name: entries.first.account_name, reasons: ranked.first(3), count: entries.size)
+    end
+  end
+
+  # Unflagged research rows only, at most one contract per account and underlying, already in scanner rank order.
+  def options_desk_useful_ideas(ideas, limit: 3)
+    seen = {}
+    Array(ideas).each_with_object([]) do |idea, kept|
+      next if (Array(idea.flags) & %i[called_away_below_basis leveraged_or_hard_to_borrow]).any?
+
+      key = [ idea.account_id, idea.underlying ]
+      next if seen[key]
+
+      seen[key] = true
+      kept << idea
+      break kept if kept.size == limit
+    end
+  end
+
+  def options_desk_idea_meta(idea)
+    t("options_reviews.desk.ideas.useful_meta",
+      underlying: idea.underlying, dte: idea.dte, delta: number_with_precision(idea.delta, precision: 2),
+      credit: options_desk_currency_ok?(idea.credit_per_contract, idea.currency) ? Money.new(idea.credit_per_contract, idea.currency).format : number_with_precision(idea.credit_per_contract, precision: 2),
+      yield: number_to_percentage(idea.annualized_yield_pct, precision: 1), count: idea.contracts_max)
+  end
+
   # "21 current marks - 2 broker - 0 indicative". Counted from the rows' evidence so overlapping summary counters can
   # never make the broker figure wrong.
   def options_desk_mark_breakdown(desk)
