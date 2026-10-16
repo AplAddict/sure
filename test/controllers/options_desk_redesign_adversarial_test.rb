@@ -135,7 +135,7 @@ class OptionsDeskRedesignAdversarialTest < ActionDispatch::IntegrationTest
 
     alert = node("options-desk-alert")
     SIX_PHRASES.each do |phrase|
-      holders = alert.css("*").select { |element| element.children.any? { |child| child.text? && child.text.include?(phrase) } }
+      holders = ([ alert ] + alert.css("*").to_a).select { |element| element.children.any? { |child| child.text? && child.text.include?(phrase) } }
       assert holders.any?, "#{phrase} must be rendered as text"
       holders.each do |holder|
         chain = [ holder ] + holder.ancestors.to_a.take_while { |ancestor| ancestor != alert.parent }
