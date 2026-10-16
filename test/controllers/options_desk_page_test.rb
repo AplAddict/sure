@@ -530,7 +530,7 @@ class OptionsDeskPageTest < ActionDispatch::IntegrationTest
     get_desk
 
     text = css_select("[data-testid=options-desk-summary]").first.text.squish
-    assert_includes text, "1 current marks - 1 broker - 0 indicative"
+    assert_includes text, "1 current mark - 1 broker - 0 indicative"
     assert_no_match(/past expiry/i, text)
 
     travel_to Time.utc(2026, 11, 20, 15, 0) do

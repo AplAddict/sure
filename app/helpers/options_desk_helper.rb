@@ -83,7 +83,7 @@ module OptionsDeskHelper
   # "21 current marks - 2 broker - 0 indicative". Counted from the rows' evidence so overlapping summary counters can
   # never make the broker figure wrong.
   def options_desk_mark_breakdown(desk)
-    t("options_reviews.desk.summary.mark_breakdown", current: desk.summary.current_mark_count, broker: desk.rows.count { |row| row.evidence_status == :broker },
+    t("options_reviews.desk.summary.mark_breakdown", count: desk.summary.current_mark_count, broker: desk.rows.count { |row| row.evidence_status == :broker },
                                                      indicative: desk.summary.indicative_count)
   end
 

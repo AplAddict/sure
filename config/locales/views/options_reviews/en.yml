@@ -104,16 +104,18 @@ en:
         evidence: Evidence / as-of
       summary:
         contracts: Contracts
-        mark_breakdown: "%{current} current marks - %{broker} broker - %{indicative} indicative"
+        mark_breakdown:
+          one: "%{count} current mark - %{broker} broker - %{indicative} indicative"
+          other: "%{count} current marks - %{broker} broker - %{indicative} indicative"
         total_pnl: Total P&L
-        total_pnl_unavailable: Not totalled because a contract or source is missing a figure
+        total_pnl_unavailable: Not totalled - a figure is missing
         total_pnl_none: No open contracts to total
         day_pnl_line: Day P&L unavailable - position change unknown
         delta: "Model delta estimate (share-equivalent, all accounts shown)"
         delta_short: Model delta
         partial: Partial
         delta_included: "%{included} of %{total} contracts included"
-        delta_partial_note: Estimate covering only contracts with a qualified delta, not the full position.
+        delta_partial_note: Estimate - only contracts with a qualified delta.
         expiring: Expiring within a week
         past_expiry: "%{count} past expiry"
       group:

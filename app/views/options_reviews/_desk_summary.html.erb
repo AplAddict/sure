@@ -1,8 +1,8 @@
 <%# locals: (desk:) %>
 <% summary = desk.summary %>
 <% tile = "min-w-0 rounded-lg bg-container-inset px-3 py-2" %>
-<div class="space-y-2" data-testid="options-desk-summary">
-  <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
+<div class="@container space-y-2" data-testid="options-desk-summary">
+  <div class="grid grid-cols-2 gap-2 @3xl:grid-cols-4">
     <div class="<%= tile %>" data-stat="total_pnl" data-testid="options-desk-summary-total-pnl">
       <p class="text-xs text-secondary"><%= t("options_reviews.desk.summary.total_pnl") %></p>
       <p class="font-semibold text-primary">
