@@ -52,6 +52,7 @@ class MarketCalendar::EventBuilderTest < ActiveSupport::TestCase
         account.holdings.create!(security: security, date: date, qty: 100, price: 90, amount: 9_000, currency: "USD", cost_basis: 120)
         create_trade(security, account: account, qty: -1, date: date, price: 90)
       end
+      Current.reset
       capture_sql_queries { MarketCalendar::EventBuilder.new(accounts: [ account.reload ]).events }.size
     end
 
@@ -59,6 +60,56 @@ class MarketCalendar::EventBuilderTest < ActiveSupport::TestCase
     many = run.call(12, Date.new(2026, 3, 1))
 
     assert_operator many, :<=, few + 3, "queries grew with the number of sales: #{few} -> #{many}"
+    Current.reset
     assert_operator MarketCalendar::EventBuilder.new(accounts: [ account.reload ]).events.count { |e| e.event_type == "wash_sale" }, :==, 15
+  end
+
+  test "preloads only the latest same-account holding on or before a sale" do
+    SnaptradeAccount.stubs(:includes).returns([])
+    account = Account.create!(family: families(:dylan_family), name: "Basis boundary", balance: 10_000, currency: "USD",
+                              accountable: Investment.new(subtype: "brokerage"))
+    other_account = Account.create!(family: families(:empty), name: "Other basis", balance: 10_000, currency: "USD",
+                                    accountable: Investment.new(subtype: "brokerage"))
+    security = Security.create!(ticker: "BASIS", exchange_mic: "XNAS", name: "Basis Corp")
+    sale_date = Date.new(2026, 4, 10)
+
+    account.holdings.create!(security: security, date: sale_date - 3.days, qty: 10, price: 90, amount: 900, currency: "USD", cost_basis: 90)
+    expected = account.holdings.create!(security: security, date: sale_date - 1.day, qty: 10, price: 110, amount: 1_100, currency: "USD", cost_basis: 110)
+    account.holdings.create!(security: security, date: sale_date + 1.day, qty: 10, price: 10, amount: 100, currency: "USD", cost_basis: 10)
+    # Deliberately later than the expected holding, but still on the sale date: dropping the
+    # account predicate must therefore choose this row rather than pass by tied ordering.
+    other_account.holdings.create!(security: security, date: sale_date, qty: 10, price: 999, amount: 9_990, currency: "USD", cost_basis: 999)
+    sale_entry = create_trade(security, account: account, qty: -1, date: sale_date, price: 100)
+
+    Current.reset
+    preloaded_sale = MarketCalendar::EventBuilder.new(accounts: [ account ]).send(:accessible_trades).find { |trade| trade.id == sale_entry.entryable_id }
+
+    assert_equal expected.id, preloaded_sale.send(:basis_holding).id
+    assert_equal BigDecimal("110"), preloaded_sale.send(:basis_holding).avg_cost.amount
+  ensure
+    Current.reset
+  end
+
+  test "builders for the same accounts in one request share one computation" do
+    SnaptradeAccount.stubs(:includes).returns([])
+    accounts = users(:family_admin).accessible_accounts.visible.to_a
+    MarketCalendar::EventBuilder.any_instance.expects(:fundamental_events).once.returns([])
+
+    first = MarketCalendar::EventBuilder.new(accounts: accounts).events
+    second = MarketCalendar::EventBuilder.new(accounts: accounts).events
+
+    assert_equal first, second
+    Current.reset
+  end
+
+  test "the shared computation is not reused across different account sets" do
+    SnaptradeAccount.stubs(:includes).returns([])
+    owner = users(:family_admin).accessible_accounts.visible.to_a
+    other = users(:empty).accessible_accounts.visible.to_a
+    MarketCalendar::EventBuilder.any_instance.expects(:fundamental_events).twice.returns([])
+
+    MarketCalendar::EventBuilder.new(accounts: owner).events
+    MarketCalendar::EventBuilder.new(accounts: other).events
+    Current.reset
   end
 end

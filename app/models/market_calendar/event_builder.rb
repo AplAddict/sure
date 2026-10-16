@@ -11,8 +11,15 @@ class MarketCalendar::EventBuilder
     @now = now
   end
 
+  # One dashboard load builds this several times (calendar, tax workspace, decision center) over the same accounts, each
+  # scanning every trade. Builders for the same account ids on the same day share one result for the request. The key is
+  # the exact account-id set, so two users (or two scopes) can never see each other's events, and Current is reset per
+  # request so nothing outlives it.
   def events
-    @events ||= (fundamental_events + option_expirations + calculated_wash_sale_events).compact.uniq(&:key).sort_by { |event| [ event.date, event.ticker, event.event_type ] }
+    @events ||= begin
+      cache = (Current.market_calendar_events ||= {})
+      cache[memo_key] ||= (fundamental_events + option_expirations + calculated_wash_sale_events).compact.uniq(&:key).sort_by { |event| [ event.date, event.ticker, event.event_type ] }
+    end
   end
 
   # Calculated candidates use the recorded sale, its available cost basis, and
@@ -29,6 +36,10 @@ class MarketCalendar::EventBuilder
   end
 
   private
+    def memo_key
+      [ @accounts.map { |account| account.id.to_s }.sort, @now.to_date ]
+    end
+
     def fundamental_events
       held_securities.filter_map do |security|
         fundamental = security.fundamental

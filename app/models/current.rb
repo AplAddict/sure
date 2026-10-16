@@ -3,6 +3,8 @@ class Current < ActiveSupport::CurrentAttributes
 
   attribute :session
   attribute :latest_sync_by_syncable, :latest_completed_sync_by_syncable, :syncing_by_syncable
+  # Per-request memo of MarketCalendar::EventBuilder results, keyed by account ids and day (see that class).
+  attribute :market_calendar_events
 
   delegate :family, to: :user, allow_nil: true
 
