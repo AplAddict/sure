@@ -28,6 +28,8 @@ en:
     collapse_lots: Collapse all lots
     toggle_lots: "Show or hide the %{count} tax lots of %{ticker}"
     date_unavailable: Date unavailable
+    options:
+      title: Options contracts
     footnote: Weights are each position's share of its own account's holdings. Tax lots are shown only when the broker's lots add up to the position held; otherwise they are left out rather than estimated.
     columns:
       symbol: Symbol

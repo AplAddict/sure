@@ -31,7 +31,7 @@
       <% if block %>
         <% block.positions.each do |position| %>
           <tr class="hover:bg-container-inset/60">
-            <th scope="row" class="px-4 py-3 text-left font-normal"><div class="flex items-center gap-2"><% if (logo = position.security.display_logo_url).present? %><%= image_tag logo, alt: position.ticker, class: "h-6 w-6 shrink-0 rounded-full", loading: "lazy", data: { testid: "holding-logo" } %><% end %><span><%= link_to position.ticker, research_ticker_path(position.ticker), class: "font-semibold text-link hover:underline" %><span class="block max-w-[15rem] truncate text-xs text-secondary"><%= position.name %></span></span></div></th>
+            <th scope="row" class="px-4 py-3 text-left font-normal"><div class="flex items-center gap-2"><% if (logo = position.security.display_logo_url).present? %><%= image_tag logo, alt: position.ticker, class: "h-6 w-6 shrink-0 rounded-full", loading: "lazy", data: { testid: "holding-logo" } %><% end %><span><%= link_to position.ticker, research_ticker_path(position.ticker), class: "font-semibold text-link hover:underline", data: { turbo_frame: "_top" } %><span class="block max-w-[15rem] truncate text-xs text-secondary"><%= position.name %></span></span></div></th>
             <td class="px-3 py-3 text-right font-mono"><%= qty.call(position.quantity) %></td>
             <td class="px-3 py-3 text-right font-mono"><%= money.call(position.price, position.currency) %></td>
             <td class="px-3 py-3 text-right font-mono"><%= money.call(position.avg_cost, position.currency) %></td>

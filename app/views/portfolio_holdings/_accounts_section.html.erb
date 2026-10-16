@@ -1,4 +1,4 @@
-<%# locals: (portfolio:, account_id: nil) %>
+<%# locals: (portfolio:, account_id: nil, account_options: {}, now: Time.current) %>
 <%# One card per investment account: statement summary, allocation bar and the
     sortable positions table with expandable broker lots. `portfolio` is a
     PortfolioHoldings; `account_id` is the account the page is scoped to (nil for
@@ -169,6 +169,9 @@
           </tbody>
         </table>
       </div></div>
+      <% if (desk = account_options[account.id]) %>
+        <%= render "portfolio_holdings/account_options", desk: desk, account: account, now: now %>
+      <% end %>
     </section>
   <% end %>
 

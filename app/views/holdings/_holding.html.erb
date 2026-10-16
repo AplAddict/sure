@@ -9,10 +9,10 @@
         <%= render DS::FilledIcon.new(variant: :text, text: holding.name, size: "md", rounded: true) %>
       <% end %>
       <div class="space-y-0.5">
-        <%= link_to holding.name, research_ticker_path(holding.ticker), class: "hover:underline" %>
+        <%= link_to holding.name, research_ticker_path(holding.ticker), class: "hover:underline", data: { turbo_frame: "_top" } %>
 
         <% if holding.amount %>
-          <%= link_to holding.ticker, research_ticker_path(holding.ticker), class: "text-secondary text-xs uppercase hover:underline" %>
+          <%= link_to holding.ticker, research_ticker_path(holding.ticker), class: "text-secondary text-xs uppercase hover:underline", data: { turbo_frame: "_top" } %>
         <% else %>
           <%= render "missing_price_tooltip" %>
         <% end %>

@@ -1,0 +1,16 @@
+<%# locals: (desk:, account:, now:) %>
+<%# One broker-linked account's slice of the approved Options Desk. Read-only; nothing here is calculated. A readable,
+    current source with no contracts stays silent; an unreadable or stale source is never presented as "no contracts". %>
+<% if desk.rows.any? || !%i[available empty].include?(desk.source_state) %>
+  <div class="space-y-3 border-t border-tertiary px-4 py-3" data-testid="holdings-account-options">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h3 class="text-sm font-medium text-primary"><%= t("portfolio_holdings.options.title") %></h3>
+      <%= link_to t("options_reviews.underlying.open_desk"), options_review_path(account: account.id), class: "text-xs font-medium text-link hover:underline" %>
+    </div>
+    <%= render "options_reviews/desk_source_banner", desk: desk %>
+    <% if desk.rows.any? %>
+      <%= render "options_reviews/desk_ledger", desk: desk, now: now %>
+      <p class="text-xs text-secondary"><%= t("options_reviews.underlying.day_pnl_note") %></p>
+    <% end %>
+  </div>
+<% end %>
