@@ -69,14 +69,19 @@ class OptionsDeskHelperTest < ActionView::TestCase
     assert_equal "— Unavailable", Nokogiri::HTML.fragment(options_desk_delta_cell(row)).text.squish
   end
 
-  test "contract label needs underlying, strike and type or falls back to nil" do
-    base = OptionsDesk::Row.members.index_with { nil }.merge(underlying: "NVDA", option_type: "PUT", strike: BigDecimal("215"), currency: "USD")
+  test "contract label requires its fields to agree with the OCC string" do
+    base = OptionsDesk::Row.members.index_with { nil }.merge(
+      contract: "NVDA 261113P00215000", underlying: "NVDA", option_type: "PUT", expiration: Date.new(2026, 11, 13), strike: BigDecimal("215"), currency: "USD"
+    )
 
     assert_equal "NVDA $215 Put", options_desk_contract_label(OptionsDesk::Row.new(**base))
-    assert_equal "NVDA $215.5 Call", options_desk_contract_label(OptionsDesk::Row.new(**base.merge(option_type: "CALL", strike: BigDecimal("215.5"))))
     assert_equal "NVDA 215 Put", options_desk_contract_label(OptionsDesk::Row.new(**base.merge(currency: "ZZZ")))
     assert_nil options_desk_contract_label(OptionsDesk::Row.new(**base.merge(strike: nil)))
     assert_nil options_desk_contract_label(OptionsDesk::Row.new(**base.merge(underlying: nil)))
     assert_nil options_desk_contract_label(OptionsDesk::Row.new(**base.merge(option_type: "WEIRD")))
+    assert_nil options_desk_contract_label(OptionsDesk::Row.new(**base.merge(underlying: "AAPL"))), "never headline an underlying that contradicts the OCC string"
+    assert_nil options_desk_contract_label(OptionsDesk::Row.new(**base.merge(option_type: "CALL"))), "never headline a type that contradicts the OCC string"
+    assert_nil options_desk_contract_label(OptionsDesk::Row.new(**base.merge(strike: BigDecimal("7.5")))), "never headline a strike that contradicts the OCC string"
+    assert_nil options_desk_contract_label(OptionsDesk::Row.new(**base.merge(expiration: Date.new(2026, 11, 14)))), "never headline an expiry whose structured fields contradict the OCC string"
   end
 end

@@ -92,10 +92,15 @@ module OptionsDeskHelper
     group.rows.each_with_index.sort_by { |row, index| [ row.expiration ? 0 : 1, row.expiration || Date.new(9999), index ] }.map(&:first)
   end
 
-  # "NVDA $215 Put" from the row's own structured fields, or nil so the caller falls back to the OCC string alone.
+  # Friendly labels are only safe when their broker fields agree with the OCC contract rendered beneath them.
+  # Otherwise render the exact contract alone rather than putting contradictory data in the headline.
   def options_desk_contract_label(row)
     type = OPTION_TYPE_LABELS[row.option_type.to_s.upcase]
     return if row.underlying.blank? || type.nil? || !row.strike.respond_to?(:finite?) || !row.strike.finite?
+
+    parsed = OptionQuote.parse_occ(row.contract)
+    return unless parsed && parsed[:root] == row.underlying && parsed[:option_type] == row.option_type.to_s.upcase &&
+      parsed[:expiration] == row.expiration && parsed[:strike] == row.strike
 
     strike = number_with_precision(row.strike, precision: 4, strip_insignificant_zeros: true)
     symbol = options_desk_currency_ok?(row.strike, row.currency) ? Money::Currency.new(row.currency).symbol : ""
