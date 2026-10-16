@@ -548,6 +548,7 @@ Rails.application.routes.draw do
   get "tax-loss-harvest", to: "tax_loss_harvests#show", as: :tax_loss_harvest
   get "portfolio/holdings", to: "portfolio_holdings#show", as: :portfolio_holdings
   get "portfolio/options", to: "options_reviews#show", as: :options_review
+  get "portfolio/options/legacy", to: "options_reviews#legacy", as: :legacy_options_review
   get "portfolio/income", to: "investment_incomes#show", as: :investment_income
   get "portfolio/news", to: redirect("/research/news"), as: :investment_news
   patch "portfolio/sections/:namespace", to: "investment_section_preferences#update", as: :investment_section_preferences

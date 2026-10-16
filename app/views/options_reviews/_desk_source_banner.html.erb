@@ -1,0 +1,7 @@
+<%# locals: (desk:) %>
+<%# Visible whenever the scoped broker snapshot is not currently available. %>
+<% unless desk.source_state == :available || desk.invalid_account_scope %>
+  <div class="rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-primary" data-testid="options-desk-source-banner" role="status">
+    <%= options_desk_source_banner_copy(desk.source_state) %>
+  </div>
+<% end %>

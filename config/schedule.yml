@@ -126,3 +126,21 @@ refresh_security_intraday_prices:
   class: "SecurityIntradayPricesRefreshJob"
   queue: "scheduled"
   description: "Refreshes today's provisional price of held securities during market hours so day gain is live"
+
+refresh_option_quotes:
+  cron: "*/30 13-20 * * 1-5" # UTC grid covering 9:30-16:00 ET in both daylight and standard time; the job's calendar guard decides whether a firing runs
+  class: "OptionQuotesRefreshJob"
+  queue: "scheduled"
+  description: "Caches market quotes for held option contracts and the sell-put / covered-call idea chains during the session"
+
+refresh_option_quotes_settle_edt:
+  cron: "20 20 * * 1-5" # 16:20 ET in daylight time; the guard skips it in standard time. Never 22:00-22:35 UTC (fundamentals refresh)
+  class: "OptionQuotesRefreshJob"
+  queue: "scheduled"
+  description: "Final option quote refresh after the close (daylight time) so the next session's day change has a settled baseline"
+
+refresh_option_quotes_settle_est:
+  cron: "20 21 * * 1-5" # 16:20 ET in standard time; the guard skips it in daylight time
+  class: "OptionQuotesRefreshJob"
+  queue: "scheduled"
+  description: "Final option quote refresh after the close (standard time) so the next session's day change has a settled baseline"

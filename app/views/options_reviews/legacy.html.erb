@@ -1,0 +1,26 @@
+<% content_for :page_title, t(".title") %>
+
+<% review = @review %>
+
+<%= turbo_frame_tag "investment_workspace", target: "_top" do %>
+  <div class="mb-6 space-y-3">
+    <%= render "investments/workspace_header", current: :options, title: t(".title"), subtitle: t(".subtitle") %>
+    <div class="rounded-lg border border-tertiary bg-container-inset p-3 text-sm text-primary" data-testid="options-legacy-banner">
+      <%= t(".banner") %>
+      <%= render DS::Link.new(text: t(".back"), href: options_review_path, size: "sm") %>
+    </div>
+  </div>
+  <div class="space-y-4 pb-6 lg:pb-12">
+  <% if review.rows.empty? %>
+    <%= render DS::EmptyState.new(icon: "chart-no-axes-combined", title: t("options_reviews.show.empty_title"), description: t("options_reviews.show.empty_description")) %>
+  <% else %>
+    <%= render "investments/sections",
+          sections: InvestmentSections.new(namespace: "options", user: Current.user, definitions: [
+            { key: "summary", title: t("options_reviews.show.sections.summary"), partial: "options_reviews/summary", locals: { review: review } },
+            { key: "contracts", title: t("options_reviews.show.sections.contracts"), partial: "options_reviews/contracts", locals: { review: review } }
+          ]),
+          namespace: "options",
+          url: investment_section_preferences_path("options"), preference_key: "investments_options" %>
+  <% end %>
+</div>
+<% end %>

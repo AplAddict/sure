@@ -140,7 +140,7 @@ class InvestmentSectionsTest < ActionDispatch::IntegrationTest
   test "every investment page namespace validates its own keys and is stored per member" do
     {
       "decision" => %w[pulse source_health actions monitor],
-      "options" => %w[summary contracts],
+      "options" => %w[summary attention contracts exposure ideas],
       "tax_lots" => %w[totals soon lots],
       "tax_harvest" => %w[summary candidates unavailable],
       "watchlist" => %w[add saved]
@@ -153,5 +153,4 @@ class InvestmentSectionsTest < ActionDispatch::IntegrationTest
       assert_empty @other.reload.investment_section_order(namespace), namespace
     end
   end
-
 end

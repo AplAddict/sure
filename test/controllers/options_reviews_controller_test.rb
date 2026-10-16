@@ -19,7 +19,7 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
 
   test "shows only the signed-in user's read-only option snapshot fields" do
     sign_in @owner
-    get options_review_path
+    get legacy_options_review_path
 
     assert_response :success
     assert_match "AAPL  270115C00250000", response.body
@@ -31,9 +31,29 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/Greeks|Implied volatility|Trade now/i, response.body)
   end
 
+  test "legacy page is labelled and links back to the desk" do
+    sign_in @owner
+    get legacy_options_review_path
+
+    assert_response :success
+    assert_select "[data-testid=options-legacy-banner]", text: /Legacy options review/
+    assert_select "[data-testid=options-legacy-banner] a[href=?]", options_review_path
+    assert_select "[data-testid=options-desk]", count: 0
+  end
+
+  test "options_review_path renders the desk, not the legacy review" do
+    sign_in @owner
+    get options_review_path
+
+    assert_response :success
+    assert_select "[data-testid=options-desk]"
+    assert_select "[data-testid=options-legacy-banner]", count: 0
+    assert_select "a[href=?]", legacy_options_review_path, text: /Open legacy view/
+  end
+
   test "does not expose another family member's private option position" do
     sign_in @member
-    get options_review_path
+    get legacy_options_review_path
 
     assert_response :success
     assert_no_match(/AAPL  270115C00250000/, response.body)
@@ -50,7 +70,7 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
     add_contract(symbol: "AAPL  261218P00200000", expiry: "2026-12-18", price: "3", cost: "1")
     add_contract(symbol: "MSFT  261218C00400000", expiry: "2026-12-18", price: nil, cost: "5")
     sign_in @owner
-    get options_review_path
+    get legacy_options_review_path
 
     assert_response :success
     assert_select "[data-testid=options-group]", count: 2
@@ -62,7 +82,7 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
     add_contract(symbol: "SOON  261014C00050000", expiry: (Date.current + 3.days).iso8601)
     add_contract(symbol: "GONE  261001C00050000", expiry: (Date.current - 2.days).iso8601)
     sign_in @owner
-    get options_review_path
+    get legacy_options_review_path
 
     assert_select "[data-testid=option-expiry-soon]", minimum: 1
     assert_select "[data-testid=option-expired]", minimum: 1
@@ -72,10 +92,10 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
   test "can be sorted by expiry, gain or underlying and ignores unknown sorts" do
     sign_in @owner
     %w[expiry gain underlying contract].each do |sort|
-      get options_review_path(sort: sort, dir: "desc")
+      get legacy_options_review_path(sort: sort, dir: "desc")
       assert_response :success
     end
-    get options_review_path(sort: "bogus; drop table")
+    get legacy_options_review_path(sort: "bogus; drop table")
     assert_response :success
     assert_select "th[aria-sort=ascending], th[aria-sort=descending]", count: 1
     assert_select "th[aria-sort=none] a", minimum: 4
@@ -84,19 +104,19 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
 
   test "keeps the contract column pinned and wraps the table for narrow screens" do
     sign_in @owner
-    get options_review_path
+    get legacy_options_review_path
     assert_select "th.sticky, td.sticky", minimum: 1
   end
 
   test "summary totals only counted when every figure is known" do
     sign_in @owner
-    get options_review_path
+    get legacy_options_review_path
     assert_select "[data-testid=options-summary]"
   end
 
   test "options summary and contracts are draggable sections" do
     sign_in @owner
-    get options_review_path
+    get legacy_options_review_path
 
     assert_response :success
     assert_equal %w[summary contracts], css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
@@ -106,10 +126,9 @@ class OptionsReviewsControllerTest < ActionDispatch::IntegrationTest
 
   test "an empty options page shows the empty state instead of sections" do
     sign_in users(:family_member)
-    get options_review_path
+    get legacy_options_review_path
 
     assert_response :success
     assert_empty css_select("[data-reports-sortable-target=section]").map { |n| n["data-section-key"] }
   end
-
 end

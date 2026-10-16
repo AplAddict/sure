@@ -4,9 +4,14 @@ en:
     show:
       sections:
         summary: Summary
+        attention: Attention
         contracts: Contracts
-      title: Options Review
-      subtitle: Read-only brokerage contract snapshots. Gain / loss is unrealized against the broker's last mark, using its per-share cost basis (net of opening fees) times contracts times multiplier. Options are excluded from equity holdings, performance, cost basis and net-worth totals.
+        exposure: Exposure
+        ideas: Ideas
+      title: Options Desk
+      subtitle: Read-only research view of brokerage option snapshots. Figures use the approved mark, never a synthetic account value.
+      open_legacy: Open legacy view
+      invalid_account: Selected account is unavailable
       empty_title: No option contracts available
       empty_description: No read-only options snapshot is available for accounts you can access.
       caption: Open option contracts by account
@@ -49,3 +54,129 @@ en:
         cost_basis: Cost basis
         gain: Gain / loss
         snapshot: Snapshot
+    legacy:
+      title: Options Review
+      subtitle: Read-only brokerage contract snapshots. Gain / loss is unrealized against the broker's last mark, using its per-share cost basis (net of opening fees) times contracts times multiplier. Options are excluded from equity holdings, performance, cost basis and net-worth totals.
+      banner: Legacy options review
+      back: Back to Options Desk
+    desk:
+      caption: Open option contracts by account
+      ledger_aria: Option contract ledger
+      unavailable_title: Option data unavailable
+      unavailable_description:
+        unavailable: The broker option snapshot for the selected scope is missing, unreadable or not linked, so nothing is shown rather than an empty list.
+        stale: The broker option snapshot for the selected scope is stale and lists no contracts, so open positions may be missing.
+      empty_title: No open option contracts
+      empty_description: The readable broker snapshot has no open contracts for the selected scope.
+      as_of: "as of %{time} ET"
+      synced_ago: "Synced %{time} ago"
+      mark: Mark
+      day_pnl_unavailable: "Unavailable - position change unknown"
+      unreadable: "%{count} broker source(s) unreadable - totals withheld"
+      columns:
+        contract: Contract
+        account: Account
+        expiry: Expiry / DTE
+        qty: Qty
+        mark: Mark / basis
+        total_pnl: Total P&L
+        day_pnl: Day P&L
+        delta: Model delta
+        evidence: Evidence / as-of
+      summary:
+        contracts: Open contracts
+        current_marks: Current marks
+        indicative: Indicative
+        unavailable: Unavailable
+        total_pnl: Total P&L
+        total_pnl_unavailable: Not totalled because a contract or source is missing a figure
+        total_pnl_none: No open contracts to total
+        day_pnl: Day P&L
+        delta: "Model delta estimate (share-equivalent, all accounts shown)"
+        delta_exclusions:
+          one: "1 contract excluded from the estimate"
+          other: "%{count} contracts excluded from the estimate"
+        expiring: Expiring within a week
+        expired: Past expiry
+        unreadable_sources: Unreadable sources
+      group:
+        subtotal: Subtotal
+        unmeasured:
+          one: 1 contract is missing a figure, so no subtotal
+          other: "%{count} contracts are missing a figure, so no subtotal"
+      evidence:
+        current: Current
+        indicative: Indicative
+        broker: Broker snapshot
+        stale: Stale
+        unavailable: Unavailable
+      basis:
+        mid: Mid
+        last: Last
+        broker: Broker
+        indicative: Indicative
+      causes:
+        missing_currency: Mixed or missing currency
+        mixed_currency: Mixed or missing currency
+        missing_cost_basis: Missing cost basis
+        missing_expiry: Missing expiry
+        indicative: Indicative mark is not totalled
+        no_mark: No current mark
+        stale_quote: Stale quote
+        stale_snapshot: Stale snapshot
+        delta_unavailable: Model delta unavailable
+        no_market: No current market
+      source:
+        stale: Broker snapshot is stale
+        unavailable: Broker option data unavailable
+        empty: No open option contracts
+      alert:
+        title: Read-only research view
+        no_orders: No order capability
+        not_advice: Not investment or trading advice
+        quotes: Quote data may be delayed or indicative
+        delta: Model delta is an estimate
+        collateral: Put collateral is not verified
+      ideas:
+        covered_calls: Covered-call candidates
+        research_only: Research only
+        review: Review
+        none: No covered-call candidates for the accounts shown.
+        more_contracts:
+          one: "+1 more contract"
+          other: "+%{count} more contracts"
+        more_groups_for:
+          one: "%{account}: 1 more group not shown"
+          other: "%{account}: %{count} more groups not shown"
+        puts_unavailable: "Put screening unavailable - collateral not verified"
+        puts_note: Put rows are exclusions because collateral is not verified.
+        puts_none: No put quotes were screened for the accounts shown.
+        meta: "%{underlying} · %{dte} DTE · strike %{strike} · up to %{contracts} contracts"
+      flags:
+        no_basis_data: Cost basis not verified
+        called_away_below_basis: Called away below cost basis
+        ex_dividend_in_window: Ex-dividend in window
+        no_exposure_data: Existing put exposure unknown
+        assignment_exposure_exceeds_cash: Assignment exposure exceeds verified collateral
+        long_calls_present: Long calls present in this account
+        earnings_in_window: Earnings in window
+        earnings_unknown: Earnings date unknown
+        leveraged_or_hard_to_borrow: Leveraged or hard to borrow
+        early_assignment_not_modeled: Early assignment is not modeled
+        borrow_dividends_not_modeled: Borrow and dividends are not modeled
+      reasons:
+        invalid_row: Quote row is incomplete
+        no_bid: No bid
+        below_min_bid: Bid below the research threshold
+        no_ask: No ask
+        wide_spread: Wide spread
+        stale_quote: Stale quote
+        low_oi: Open interest below the research threshold
+        outside_dte: Outside the research DTE window
+        delta_unavailable: Model delta unavailable
+        outside_delta_band: Outside the research delta band
+        insufficient_shares: Shares not verified for this account
+        no_cash_data: Collateral not verified
+        insufficient_cash: Collateral below the cash needed
+      exposure:
+        note: This is a model estimate of share-equivalent exposure, not a hedge ratio or instruction.

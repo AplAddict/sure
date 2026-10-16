@@ -1,0 +1,12 @@
+<%# locals: (desk:) %>
+<div class="rounded-lg bg-container-inset p-4">
+  <p class="text-sm text-secondary"><%= t("options_reviews.desk.summary.delta") %></p>
+  <p class="mt-2 text-xl font-semibold text-primary">
+    <% if desk.summary.total_position_delta.nil? %>
+      <%= options_desk_unavailable(t("options_reviews.desk.causes.delta_unavailable")) %>
+    <% else %>
+      <span class="privacy-sensitive tabular-nums"><%= number_with_precision(desk.summary.total_position_delta, precision: 4, strip_insignificant_zeros: true) %></span>
+    <% end %>
+  </p>
+  <p class="mt-1 text-xs text-secondary"><%= t("options_reviews.desk.exposure.note") %></p>
+</div>

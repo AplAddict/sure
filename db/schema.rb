@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_15_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -1907,6 +1907,45 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_150000) do
     t.datetime "updated_at", null: false
     t.index ["family_id"], name: "index_onchain_wallet_items_on_family_id"
     t.index ["status"], name: "index_onchain_wallet_items_on_status"
+  end
+
+  create_table "option_quotes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "ask", precision: 18, scale: 4
+    t.decimal "bid", precision: 18, scale: 4
+    t.decimal "change", precision: 18, scale: 4
+    t.string "contract_size", default: "REGULAR"
+    t.string "contract_symbol", null: false
+    t.datetime "created_at", null: false
+    t.string "currency", default: "USD", null: false
+    t.date "expiration", null: false
+    t.datetime "fetched_at", null: false
+    t.decimal "implied_volatility", precision: 12, scale: 6
+    t.decimal "last_price", precision: 18, scale: 4
+    t.datetime "last_trade_at"
+    t.integer "open_interest"
+    t.string "option_type", null: false
+    t.decimal "percent_change", precision: 18, scale: 6
+    t.date "prev_session_date"
+    t.decimal "prev_session_mark", precision: 18, scale: 4
+    t.datetime "quote_time"
+    t.date "session_date"
+    t.string "source", default: "yahoo_finance", null: false
+    t.decimal "strike", precision: 18, scale: 4, null: false
+    t.string "underlying", null: false
+    t.decimal "underlying_prev_close", precision: 18, scale: 4
+    t.decimal "underlying_price", precision: 18, scale: 4
+    t.datetime "updated_at", null: false
+    t.integer "volume"
+    t.index ["contract_symbol"], name: "index_option_quotes_on_contract_symbol", unique: true
+    t.index ["expiration"], name: "index_option_quotes_on_expiration"
+    t.index ["underlying", "expiration"], name: "index_option_quotes_on_underlying_and_expiration"
+    t.index ["underlying"], name: "index_option_quotes_on_underlying"
+    t.check_constraint "contract_symbol::text !~ '^[[:space:]]*$'::text", name: "option_quotes_nonblank_contract_symbol"
+    t.check_constraint "option_type::text = ANY (ARRAY['CALL'::character varying::text, 'PUT'::character varying::text])", name: "option_quotes_option_type"
+    t.check_constraint "(prev_session_mark IS NULL) = (prev_session_date IS NULL)", name: "option_quotes_prev_session_baseline"
+    t.check_constraint "strike > 0::numeric", name: "option_quotes_positive_strike"
+    t.check_constraint "(quote_time IS NULL) = (session_date IS NULL)", name: "option_quotes_quote_session"
+    t.check_constraint "underlying::text ~ '^[A-Z]{1,5}$'::text", name: "option_quotes_underlying_format"
   end
 
   create_table "other_assets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

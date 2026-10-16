@@ -1,0 +1,59 @@
+<%# locals: (desk:, now:) %>
+<%# Horizontally scrollable semantic ledger. Mobile cards are banned. %>
+<% if desk.rows.empty? && desk.source_state == :empty %>
+  <div data-testid="options-desk-empty">
+    <%= render DS::EmptyState.new(icon: "chart-no-axes-combined", title: t("options_reviews.desk.empty_title"), description: t("options_reviews.desk.empty_description")) %>
+  </div>
+<% elsif desk.rows.empty? %>
+  <div data-testid="options-desk-unavailable">
+    <%= render DS::EmptyState.new(icon: "chart-no-axes-combined", title: t("options_reviews.desk.unavailable_title"), description: t("options_reviews.desk.unavailable_description.#{desk.source_state}", default: t("options_reviews.desk.unavailable_description.unavailable"))) %>
+  </div>
+<% else %>
+  <div class="overflow-x-auto" role="region" tabindex="0" aria-label="<%= t("options_reviews.desk.ledger_aria") %>">
+    <table class="w-full min-w-[64rem] text-sm" data-testid="options-desk-ledger">
+      <caption class="sr-only"><%= t("options_reviews.desk.caption") %></caption>
+      <thead class="border-b border-tertiary text-left text-xs uppercase tracking-wide text-secondary">
+        <tr>
+          <th scope="col" class="sticky left-0 z-10 bg-container px-4 py-3"><%= t("options_reviews.desk.columns.contract") %></th>
+          <th scope="col" class="px-4 py-3"><%= t("options_reviews.desk.columns.account") %></th>
+          <th scope="col" class="px-4 py-3"><%= t("options_reviews.desk.columns.expiry") %></th>
+          <th scope="col" class="px-4 py-3 text-right"><%= t("options_reviews.desk.columns.qty") %></th>
+          <th scope="col" class="whitespace-nowrap px-4 py-3 text-right"><%= t("options_reviews.desk.columns.mark") %></th>
+          <th scope="col" class="px-4 py-3 text-right"><%= t("options_reviews.desk.columns.total_pnl") %></th>
+          <th scope="col" class="px-4 py-3"><%= t("options_reviews.desk.columns.day_pnl") %></th>
+          <th scope="col" class="px-4 py-3 text-right"><%= t("options_reviews.desk.columns.delta") %></th>
+          <th scope="col" class="px-4 py-3"><%= t("options_reviews.desk.columns.evidence") %></th>
+        </tr>
+      </thead>
+      <% desk.groups.each_value do |group| %>
+        <tbody class="divide-y divide-tertiary border-t border-tertiary">
+          <tr class="bg-container-inset" data-testid="options-desk-group-total">
+            <th scope="row" colspan="5" class="sticky left-0 px-4 py-2 text-left text-sm font-semibold text-primary">
+              <%= group.underlying %>
+              <span class="ml-1 text-xs font-normal text-secondary"><%= t("options_reviews.show.group.contracts", count: group.rows.size) %></span>
+            </th>
+            <td class="whitespace-nowrap px-4 py-2 text-right font-mono text-sm">
+              <span class="mr-1 text-xs text-secondary"><%= t("options_reviews.desk.group.subtotal") %></span>
+              <%= options_desk_group_total(group, desk) %>
+            </td>
+            <td class="whitespace-nowrap px-4 py-2 text-xs"><%= options_desk_day_pnl %></td>
+            <td colspan="2"></td>
+          </tr>
+          <% group.rows.each do |row| %>
+            <tr data-testid="options-desk-row" data-account-id="<%= row.account_id %>" data-contract="<%= row.contract %>">
+              <td class="sticky left-0 z-10 bg-container px-4 py-3 font-mono text-primary whitespace-nowrap"><%= row.contract %></td>
+              <td class="whitespace-nowrap px-4 py-3 font-medium text-primary"><%= row.account_name %></td>
+              <td class="px-4 py-3"><%= options_desk_expiry_cell(row, now) %></td>
+              <td class="px-4 py-3 text-right font-mono"><%= investment_quantity(row.quantity) %></td>
+              <td class="whitespace-nowrap px-4 py-3 font-mono"><%= options_desk_mark_cell(row) %></td>
+              <td class="whitespace-nowrap px-4 py-3 text-right font-mono"><%= options_desk_pnl_cell(row) %></td>
+              <td class="whitespace-nowrap px-4 py-3 text-xs"><%= options_desk_day_pnl %></td>
+              <td class="px-4 py-3 text-right font-mono"><%= options_desk_delta_cell(row) %></td>
+              <td class="whitespace-nowrap px-4 py-3 text-xs"><%= options_desk_evidence_cell(row) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      <% end %>
+    </table>
+  </div>
+<% end %>

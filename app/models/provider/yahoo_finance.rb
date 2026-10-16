@@ -318,6 +318,35 @@ class Provider::YahooFinance < Provider
     end
   end
 
+  # One expiration of an option chain (the nearest when `expiration` is nil) plus
+  # the list of every listed expiration. Every figure is the source's own number
+  # or nil: a field Yahoo omits is never turned into zero. Yahoo supplies no
+  # Greeks, so none are returned.
+  #
+  # One attempt per call: a 429 surfaces as RateLimitError immediately (the
+  # caller owns the cooldown), including a 429 from cookie/crumb acquisition.
+  # The only second request is the single retry after a crumb refresh.
+  # An error object, an empty result or a chain with no contracts is an error
+  # response, never an empty success.
+  def fetch_option_chain(symbol:, expiration: nil)
+    with_provider_response do
+      throttle_request
+      cookie, crumb = fetch_cookie_and_crumb
+      result = request_option_chain(symbol, cookie, crumb, expiration)
+
+      if result == :unauthorized
+        clear_crumb_cache
+        cookie, crumb = fetch_cookie_and_crumb
+        result = request_option_chain(symbol, cookie, crumb, expiration)
+        raise AuthenticationError, "Yahoo Finance authentication failed after crumb refresh" if result == :unauthorized
+      end
+
+      parse_option_chain(result, symbol)
+    rescue Faraday::TooManyRequestsError
+      raise RateLimitError, "Yahoo Finance rate limit (429) while fetching option chain"
+    end
+  end
+
   def fetch_security_price(symbol:, exchange_operating_mic: nil, date:)
     with_provider_response do
       symbol = normalize_symbol(symbol, exchange_operating_mic)
@@ -1004,6 +1033,111 @@ class Provider::YahooFinance < Provider
       raise Error, "Invalid response format: #{e.message}"
     end
 
+    # Returns the chain result hash, :unauthorized, or an Error-raising path for
+    # a body-level error. No retry middleware: see fetch_option_chain.
+    def request_option_chain(symbol, cookie, crumb, expiration)
+      response = authenticated_client(cookie, retries: 0).get("#{base_url}/v7/finance/options/#{CGI.escape(symbol.to_s)}") do |req|
+        req.params["crumb"] = crumb
+        # Yahoo keys expirations by midnight UTC; Date#to_time would use the host zone.
+        req.params["date"] = Time.utc(expiration.year, expiration.month, expiration.day).to_i if expiration
+      end
+      body = JSON.parse(response.body)
+      error = body.dig("optionChain", "error") || body.dig("finance", "error")
+      raise_option_chain_error(error) if error.present?
+
+      body.dig("optionChain", "result", 0)
+    rescue Faraday::UnauthorizedError
+      :unauthorized
+    rescue JSON::ParserError => e
+      raise Error, "Invalid response format: #{e.message}"
+    end
+
+    # :unauthorized is signalled by the caller's rescue path; everything else raises.
+    def raise_option_chain_error(error)
+      code = error.is_a?(Hash) ? error["code"].to_s : error.to_s
+      description = error.is_a?(Hash) ? error["description"].to_s : ""
+      raise Faraday::UnauthorizedError if code.casecmp?("Unauthorized")
+      raise RateLimitError, "Yahoo Finance rate limit: #{description.presence || code}" if code == "429" || "#{code} #{description}".match?(/too many requests/i)
+
+      raise Error, "Yahoo Finance option chain error: #{[ code, description ].reject(&:blank?).join(' - ').presence || 'unknown'}"
+    end
+
+    def parse_option_chain(result, symbol = nil)
+      raise Error, "No option chain found for #{symbol}" unless result.is_a?(Hash)
+
+      group = result.dig("options", 0)
+      raise Error, "No option chain found for #{symbol}" unless group.is_a?(Hash)
+
+      underlying = result["underlyingSymbol"].to_s.upcase
+      quote_currency = result.dig("quote", "currency")
+
+      rows = { "CALL" => group["calls"], "PUT" => group["puts"] }.flat_map do |type, contracts|
+        Array(contracts).filter_map do |raw|
+          next unless raw.is_a?(Hash)
+
+          contract = raw["contractSymbol"].to_s.gsub(/\s+/, "").upcase
+          strike = option_decimal(raw["strike"])
+          expires = option_date(raw["expiration"] || group["expirationDate"])
+          next if contract.empty? || strike.nil? || expires.nil?
+
+          bid = option_price(raw["bid"])
+          ask = option_price(raw["ask"])
+          # Yahoo reports a missing market as 0 x 0. A lone zero bid is real.
+          bid = ask = nil if bid&.zero? && ask&.zero?
+
+          {
+            contract_symbol: contract,
+            underlying: underlying,
+            option_type: type,
+            strike: strike,
+            expiration: expires,
+            last_price: option_price(raw["lastPrice"]),
+            bid: bid,
+            ask: ask,
+            change: option_price(raw["change"]),
+            percent_change: option_decimal(raw["percentChange"]),
+            implied_volatility: option_decimal(raw["impliedVolatility"]),
+            open_interest: option_integer(raw["openInterest"]),
+            volume: option_integer(raw["volume"]),
+            last_trade_at: (epoch = option_integer(raw["lastTradeDate"])) && Time.at(epoch).utc,
+            contract_size: raw["contractSize"].presence&.to_s,
+            currency: raw["currency"].presence || quote_currency.presence || "USD"
+          }
+        end
+      end
+      raise Error, "No option contracts found for #{symbol}" if rows.empty?
+
+      quote_epoch = option_integer(result.dig("quote", "regularMarketTime"))
+      {
+        underlying_price: option_price(result.dig("quote", "regularMarketPrice")),
+        underlying_prev_close: option_price(result.dig("quote", "regularMarketPreviousClose")),
+        quote_time: quote_epoch && Time.at(quote_epoch).utc,
+        expirations: Array(result["expirationDates"]).filter_map { |epoch| option_date(epoch) },
+        rows: rows
+      }
+    end
+
+    # Only real, finite JSON numbers count; nil, strings and NaN are "unknown".
+    def option_decimal(value)
+      return nil unless value.is_a?(Numeric) && (!value.respond_to?(:finite?) || value.finite?)
+
+      BigDecimal(value.to_s)
+    end
+
+    # Prices and per-share changes: the float's shortest string, two decimals.
+    def option_price(value)
+      option_decimal(value)&.round(2)
+    end
+
+    def option_integer(value)
+      option_decimal(value)&.to_i
+    end
+
+    def option_date(epoch)
+      seconds = option_integer(epoch)
+      seconds && Time.at(seconds).utc.to_date
+    end
+
     def parse_fundamentals(result)
       raw = ->(*path) do
         value = result.dig(*path)
@@ -1205,10 +1339,10 @@ class Provider::YahooFinance < Provider
     end
 
     # Client for authenticated requests (includes cookie header)
-    def authenticated_client(cookie)
+    def authenticated_client(cookie, retries: max_retries)
       Faraday.new(url: base_url, ssl: self.class.faraday_ssl_options) do |faraday|
         faraday.request(:retry, {
-          max: max_retries,
+          max: retries,
           interval: retry_interval,
           interval_randomness: 0.5,
           backoff_factor: 2,

@@ -5,7 +5,7 @@
 <% sort_th = lambda do |label, key, align: :left, css: "px-4 py-3"|
      sortable_header(label, key, sort: review.sort, direction: review.direction, default_direction: "asc",
                      align: align, css: css, link_data: { turbo_action: "advance" }) do |sort_key, dir|
-       options_review_path(sort: sort_key, dir: dir)
+       legacy_options_review_path(sort: sort_key, dir: dir)
      end
    end %>
 <div class="overflow-x-auto">
